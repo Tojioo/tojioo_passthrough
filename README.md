@@ -15,7 +15,7 @@ Open ComfyUI → Manager → Install Custom Nodes → search “Tojioo Passthrou
 #### Git
 ```bash
 cd ComfyUI/custom_nodes
-git clone # Todo: Add repo link
+git clone https://github.com/Tojioo/tojioo_passthrough.git
 ```
 Restart ComfyUI.
 
