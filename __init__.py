@@ -23,8 +23,8 @@ def _make_passthrough(class_name: str, type_name: str, socket_name: str):
         )
         return {"required": {socket_name: spec}}
 
-    def _func(_self, x):
-        return (x,)
+    def _func(_self, **kwargs):
+        return (kwargs[socket_name],)
 
     return type(
         class_name,
