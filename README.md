@@ -28,11 +28,12 @@ Restart ComfyUI.
 
 ### Files
 ```
-tojioo_passthrough/
-  __init__.py
-  CHANGELOG.md
-  LICENSE
-  README.md
+"tojioo_passthrough"
+⌊___"CHANGELOG.md"
+⌊___"LICENSE"
+⌊___"README.md"
+⌊___"__init__.py"
+⌊___"pyproject.toml"
 ```
 ### License
 GPL-3.0-only.  
