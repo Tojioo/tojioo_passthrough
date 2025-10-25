@@ -1,6 +1,6 @@
 [project]
 name = "tojioo-passthrough"
-version = "1.0.0"
+version = "1.0.1"
 description = "Typed passthrough nodes for ComfyUI"
 license = {file = "LICENSE"}
 requires-python = ">=3.9"
