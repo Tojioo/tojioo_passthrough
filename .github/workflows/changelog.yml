@@ -19,6 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG_SHA=$(git rev-list -n 1 "${{ github.ref }}")
+          git fetch origin main:main
           if git merge-base --is-ancestor "$TAG_SHA" origin/main; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
@@ -33,12 +34,26 @@ jobs:
           set -euo pipefail
           TAG="${{ github.ref_name }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Setup Rust toolchain
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: ''
+          targets: ''
+          profile: minimal
+      - name: Cache cargo
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        uses: Swatinem/rust-cache@v2
+      - name: Install git-cliff
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        run: cargo install git-cliff --locked
       - name: Generate CHANGELOG.md for tag
         if: ${{ steps.on_main.outputs.ok == 'true' }}
-        uses: orhun/git-cliff-action@v2
-        with:
-          config: .github/cliff.toml
-          args: -o CHANGELOG.md --tag ${{ steps.tag.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git-cliff -c .github/cliff.toml -o CHANGELOG.md --tag "${{ steps.tag.outputs.tag }}"
       - name: Commit CHANGELOG
         if: ${{ steps.on_main.outputs.ok == 'true' }}
         run: |
