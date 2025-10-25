@@ -1,6 +1,5 @@
 ﻿# Changelog
-All notable changes to this project will be documented here.
-Follows Semantic Versioning.
+All notable changes are listed here.
 
 ## [1.0.0] - 2025-10-19
 - Initial release

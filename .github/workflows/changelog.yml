@@ -1,0 +1,51 @@
+﻿name: Changelog
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  cliff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Ensure tag commit is on main
+        id: on_main
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_SHA=$(git rev-list -n 1 "${{ github.ref }}")
+          if git merge-base --is-ancestor "$TAG_SHA" origin/main; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "Tag commit is not on main; skipping."
+          fi
+      - name: Resolve tag name
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Generate CHANGELOG.md for tag
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        uses: orhun/git-cliff-action@v2
+        with:
+          config: .github/cliff.toml
+          args: -o CHANGELOG.md --tag ${{ steps.tag.outputs.tag }}
+      - name: Commit CHANGELOG
+        if: ${{ steps.on_main.outputs.ok == 'true' }}
+        run: |
+          if ! git diff --quiet -- CHANGELOG.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "docs(changelog): ${{ steps.tag.outputs.tag }}"
+            git push
+          fi
