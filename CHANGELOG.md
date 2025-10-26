@@ -9,3 +9,6 @@ All notable changes are listed here.
 
 ## [1.0.1] - 2025-10-21
 - Fixed return value error
+
+## [1.0.2] - 2025-10-26
+- Fixed issues with repo, as well as various minor issues
