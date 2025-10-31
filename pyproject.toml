@@ -8,7 +8,7 @@ readme = "README.md"
 
 [project.urls]
 Repository = "https://github.com/Tojioo/tojioo_passthrough"
-Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki"
+Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki" # Will do if needed.
 "Bug Tracker" = "https://github.com/Tojioo/tojioo_passthrough/issues"
 
 [tool.comfy]
