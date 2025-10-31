@@ -1,5 +1,5 @@
 [project]
-name = "tojioo_passthrough"
+name = "tojioo-passthrough"
 version = "1.0.2"
 description = "Typed passthrough nodes for ComfyUI"
 license = {file = "LICENSE"}
