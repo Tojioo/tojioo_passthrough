@@ -14,7 +14,7 @@ Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki" # Will do if
 [tool.comfy]
 PublisherId = "tojioo"
 DisplayName = "Tojioo Passthrough"
-Icon = "Assets/icon_400x400.png"
+Icon = "https://avatars.githubusercontent.com/u/132622614?s=256"
 includes = []
 # requires-comfyui = ">=1.0.0"
 
