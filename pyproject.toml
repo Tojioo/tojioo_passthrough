@@ -1,7 +1,7 @@
 [project]
 name = "tojioo-passthrough"
-version = "1.0.2"
-description = "Typed passthrough nodes for ComfyUI"
+version = "1.1.0"
+description = "Typed nodes for ComfyUI to reduce wire clutter"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
 readme = "README.md"
@@ -14,7 +14,7 @@ Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki" # Will do if
 [tool.comfy]
 PublisherId = "tojioo"
 DisplayName = "Tojioo Passthrough"
-Icon = "https://avatars.githubusercontent.com/u/132622614?s=256"
+Icon = "Assets/icon_400x400.png"
 includes = []
 # requires-comfyui = ">=1.0.0"
 

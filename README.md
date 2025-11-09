@@ -20,20 +20,23 @@ git clone https://github.com/Tojioo/tojioo_passthrough.git
 Restart ComfyUI.
 
 ### Usage
-- Nodes are under `Tojioo/Passthrough`.
+- Nodes are under the category `Tojioo`.
 - Use single-type nodes for strict typing.
-- Use `Passthrough: Conditioning` to route positive and negative.
-- Use `Passthrough: Multi` as a hub and wire only needed sockets.
+- Use `Conditioning Passthrough` to route positive and negative.
+- Use `Multi-Passthrough` as a hub and wire only needed sockets.
 - INT, FLOAT, BOOLEAN show as sockets via `forceInput`.
 
 ### Files
 ```
-"tojioo_passthrough"
-⌊___"CHANGELOG.md"
-⌊___"LICENSE"
-⌊___"README.md"
-⌊___"__init__.py"
-⌊___"pyproject.toml"
+tojioo_passthrough\
+⌊__ Assets\
+  ⌊__ icon_400x400.png
+  ⌊__ icon_full_size.png
+⌊__ CHANGELOG.md
+⌊__ LICENSE
+⌊__ README.md
+⌊__ init__.py
+⌊__ pyproject.toml
 ```
 ### License
 GPL-3.0-only.  
