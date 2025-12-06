@@ -1,6 +1,9 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.2.2] - 2025-12-06
+- Dynamic Batch Switch inputs: Fix handling of disconnecting inputs, ensuring trailing empty slots are removed correctly
+
 ## [1.2.1] - 2025-12-06
 - Dynamic Batch Switch inputs: Nodes now start with a single input slot; new slots are automatically added when connecting to the last available slot
 - Added frontend JavaScript extension for dynamic input handling

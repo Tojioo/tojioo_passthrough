@@ -1,4 +1,4 @@
-﻿import { app } from "../../scripts/app.js";
+﻿import {app} from "../../scripts/app.js";
 
 app.registerExtension({
     name: "Tojioo.Passthrough.DynamicBatchInputs",
@@ -41,6 +41,24 @@ app.registerExtension({
                 if (type !== LiteGraph.INPUT) {
                     return;
                 }
+
+				// If disconnecting, remove trailing empty slots (keep at least one, and keep one empty at the end)
+				if (!connected) {
+					// Find the last connected input
+					let lastConnectedIndex = -1;
+					for (let i = this.inputs.length - 1; i >= 0; i--) {
+						if (this.inputs[i].link !== null) {
+							lastConnectedIndex = i;
+							break;
+						}
+					}
+
+					// Remove all inputs after lastConnectedIndex + 1 (keep one empty slot)
+					const keepCount = lastConnectedIndex + 2; // +1 for index, +1 for empty slot
+					while (this.inputs.length > keepCount && this.inputs.length > 1) {
+						this.removeInput(this.inputs.length - 1);
+					}
+				}
 
                 // Renumber inputs
                 let slot_i = 1;
