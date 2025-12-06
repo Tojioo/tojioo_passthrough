@@ -29,9 +29,6 @@ Restart ComfyUI.
 ### Files
 ```
 tojioo_passthrough\
-⌊__ Assets\
-  ⌊__ icon_400x400.png
-  ⌊__ icon_full_size.png
 ⌊__ CHANGELOG.md
 ⌊__ LICENSE
 ⌊__ README.md
