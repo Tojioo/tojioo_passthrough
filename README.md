@@ -10,7 +10,7 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 
 ### Install
 #### Manager
-Open ComfyUI → Manager → Install Custom Nodes → search “Tojioo Passthrough” after it is listed → Install → Restart.
+Open ComfyUI → Manager → Install Custom Nodes → search "Tojioo Passthrough" → Install → Restart.
 
 #### Git
 ```bash
@@ -27,6 +27,7 @@ Restart ComfyUI.
 - Use `Conditioning Passthrough` to route positive and negative.
 - Use `Multi-Passthrough` as a hub and wire only needed sockets.
 - Batch Switch nodes behavior:
+  - Dynamic inputs: Nodes start with a single input slot. When you connect to the last available slot, a new one is automatically added.
   - If only one valid input is connected, they pass it through unchanged.
   - If multiple compatible inputs are connected, they are automatically batched (grouped by compatible shapes/types).
   - If an input is connected, but the source node is muted, it gets ignored and treated as if not connected.
@@ -34,14 +35,16 @@ Restart ComfyUI.
 
 ### Files
 ```
-tojioo_passthrough\
-⌊__ CHANGELOG.md
-⌊__ LICENSE
-⌊__ README.md
-⌊__ __init__.py
-⌊__ passthrough.py
-⌊__ utility.py
-⌊__ pyproject.toml
+tojioo_passthrough/
+├── js/
+│   └── tojioo_passthrough_dynamic.js
+├── CHANGELOG.md
+├── LICENSE
+├── README.md
+├── __init__.py
+├── passthrough.py
+├── utility.py
+└── pyproject.toml
 ```
 ### License
 GPL-3.0-only.  

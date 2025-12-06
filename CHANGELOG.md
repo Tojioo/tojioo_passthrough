@@ -1,6 +1,11 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.2.1] - 2025-12-06
+- Dynamic Batch Switch inputs: Nodes now start with a single input slot; new slots are automatically added when connecting to the last available slot
+- Added frontend JavaScript extension for dynamic input handling
+- Internal improvements and code cleanup
+
 ## [1.2.0] - 2025-12-06
 - Added new Batch Switch utility nodes:
   - Any Mask Batch Switch

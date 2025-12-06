@@ -101,25 +101,25 @@ NODE_UI_SPECS: Dict[str, Dict[str, Any]] = {
     "PT_AnyImageBatchSwitch": {
         "node_name": "Any Image Batch Switch",
         "inputs_required": [],
-        "inputs_optional": [(f"image_{i}", "IMAGE") for i in range(1, 9)],
+        "inputs_optional": [("image_1", "IMAGE")],
         "outputs": [("IMAGE", "IMAGE")],
     },
     "PT_AnyMaskBatchSwitch": {
         "node_name": "Any Mask Batch Switch",
         "inputs_required": [],
-        "inputs_optional": [(f"mask_{i}", "MASK") for i in range(1, 9)],
+        "inputs_optional": [("mask_1", "MASK")],
         "outputs": [("MASK", "MASK")],
     },
     "PT_AnyLatentBatchSwitch": {
         "node_name": "Any Latent Batch Switch",
         "inputs_required": [],
-        "inputs_optional": [(f"latent_{i}", "LATENT") for i in range(1, 9)],
+        "inputs_optional": [("latent_1", "LATENT")],
         "outputs": [("LATENT", "LATENT")],
     },
     "PT_AnyConditioningBatchSwitch": {
         "node_name": "Any Conditioning Batch Switch",
         "inputs_required": [],
-        "inputs_optional": [(f"cond_{i}", "CONDITIONING") for i in range(1, 9)],
+        "inputs_optional": [("cond_1", "CONDITIONING")],
         "outputs": [("CONDITIONING", "CONDITIONING")],
     },
 }
@@ -185,3 +185,6 @@ NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
 # ============================================================================
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+
+# Tell ComfyUI where to load our frontend JS from
+WEB_DIRECTORY = "js"

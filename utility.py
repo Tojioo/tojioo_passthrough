@@ -22,6 +22,24 @@ def create_utility_nodes(
 		Dictionary mapping class names to node classes
 	"""
 
+	def _dynamic_optional(node_key: str):
+		spec = node_ui_specs[node_key]
+		base_name, type_name = spec["inputs_optional"][0]
+		prefix = "".join(ch for ch in base_name if not ch.isdigit())
+
+		class DynamicOptional(dict):
+			def __contains__(self, key):
+				if isinstance(key, str) and key.startswith(prefix):
+					return True
+				return dict.__contains__(self, key)
+
+			def __getitem__(self, key):
+				if isinstance(key, str) and key.startswith(prefix):
+					return (type_name,)
+				return dict.__getitem__(self, key)
+
+		return DynamicOptional({base_name: (type_name,)})
+
 	class PT_AnyImageBatchSwitch:
 		"""
 		Fallback-or-batch for IMAGE inputs.
@@ -36,8 +54,7 @@ def create_utility_nodes(
 
 		@classmethod
 		def INPUT_TYPES(cls):
-			spec = cls._NODE_SPEC
-			opt = {name: (typ,) for name, typ in spec.get("inputs_optional", [])}
+			opt = _dynamic_optional("PT_AnyImageBatchSwitch")
 			return {"required": {}, "optional": opt}
 
 		# Outputs derived from spec mapping
@@ -54,13 +71,7 @@ def create_utility_nodes(
 			return img
 
 		def run(self, **kwargs):
-			# Keep priority order like a switch
-			names = [name for name, _ in self._NODE_SPEC.get("inputs_optional", [])]
-			images = []
-			for n in names:
-				val = kwargs.get(n, None)
-				if val is not None:
-					images.append(val)
+			images = [v for v in kwargs.values() if v is not None]
 
 			if not images:
 				raise ValueError(f"{self.NODE_NAME}: no IMAGE inputs connected.")
@@ -122,8 +133,7 @@ def create_utility_nodes(
 
 		@classmethod
 		def INPUT_TYPES(cls):
-			spec = cls._NODE_SPEC
-			opt = {name: (typ,) for name, typ in spec.get("inputs_optional", [])}
+			opt = _dynamic_optional("PT_AnyMaskBatchSwitch")
 			return {"required": {}, "optional": opt}
 
 		_OUT = _NODE_SPEC["outputs"][0]
@@ -139,12 +149,7 @@ def create_utility_nodes(
 			return m
 
 		def run(self, **kwargs):
-			names = [name for name, _ in self._NODE_SPEC.get("inputs_optional", [])]
-			masks = []
-			for n in names:
-				val = kwargs.get(n, None)
-				if val is not None:
-					masks.append(val)
+			masks = [v for v in kwargs.values() if v is not None]
 
 			if not masks:
 				raise ValueError(f"{self.NODE_NAME}: no MASK inputs connected.")
@@ -198,8 +203,7 @@ def create_utility_nodes(
 
 		@classmethod
 		def INPUT_TYPES(cls):
-			spec = cls._NODE_SPEC
-			opt = {name: (typ,) for name, typ in spec.get("inputs_optional", [])}
+			opt = _dynamic_optional("PT_AnyLatentBatchSwitch")
 			return {"required": {}, "optional": opt}
 
 		_OUT = _NODE_SPEC["outputs"][0]
@@ -214,12 +218,7 @@ def create_utility_nodes(
 			return t
 
 		def run(self, **kwargs):
-			names = [name for name, _ in self._NODE_SPEC.get("inputs_optional", [])]
-			latents = []
-			for n in names:
-				val = kwargs.get(n, None)
-				if val is not None:
-					latents.append(val)
+			latents = [v for v in kwargs.values() if v is not None]
 
 			if not latents:
 				raise ValueError(f"{self.NODE_NAME}: no LATENT inputs connected.")
@@ -286,8 +285,7 @@ def create_utility_nodes(
 
 		@classmethod
 		def INPUT_TYPES(cls):
-			spec = cls._NODE_SPEC
-			opt = {name: (typ,) for name, typ in spec.get("inputs_optional", [])}
+			opt = _dynamic_optional("PT_AnyConditioningBatchSwitch")
 			return {"required": {}, "optional": opt}
 
 		_OUT = _NODE_SPEC["outputs"][0]
@@ -314,12 +312,7 @@ def create_utility_nodes(
 			return (len(cond_list), -1)
 
 		def run(self, **kwargs):
-			names = [name for name, _ in self._NODE_SPEC.get("inputs_optional", [])]
-			conds = []
-			for n in names:
-				val = kwargs.get(n, None)
-				if val is not None:
-					conds.append(val)
+			conds = [v for v in kwargs.values() if v is not None]
 
 			if not conds:
 				raise ValueError(f"{self.NODE_NAME}: no CONDITIONING inputs connected.")
