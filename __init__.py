@@ -159,25 +159,25 @@ NODE_CLASS_MAPPINGS: Dict[str, Any] = {
 # Display names shown in the UI menu for each node
 NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
     # Multi-node utilities
-    "PT_MultiPass": "Multi-Passthrough (Tojioo Passthrough)",
-    "PT_Conditioning": "Conditioning Passthrough (Tojioo Passthrough)",
-    "PT_AnyImageBatchSwitch": "Any Image Batch Switch (Tojioo Passthrough)",
-    "PT_AnyMaskBatchSwitch": "Any Mask Batch Switch (Tojioo Passthrough)",
-    "PT_AnyLatentBatchSwitch": "Any Latent Batch Switch (Tojioo Passthrough)",
-    "PT_AnyConditioningBatchSwitch": "Any Conditioning Batch Switch (Tojioo Passthrough)",
+    "PT_MultiPass": "Multi-Passthrough",
+    "PT_Conditioning": "Conditioning Passthrough",
+    "PT_AnyImageBatchSwitch": "Any Image Batch Switch",
+    "PT_AnyMaskBatchSwitch": "Any Mask Batch Switch",
+    "PT_AnyLatentBatchSwitch": "Any Latent Batch Switch",
+    "PT_AnyConditioningBatchSwitch": "Any Conditioning Batch Switch",
     # Simple passthroughs
-    "PT_Image": "Image Passthrough (Tojioo Passthrough)",
-    "PT_Mask": "Mask Passthrough (Tojioo Passthrough)",
-    "PT_Latent": "Latent Passthrough (Tojioo Passthrough)",
-    "PT_CLIP": "CLIP Passthrough (Tojioo Passthrough)",
-    "PT_Model": "Model Passthrough (Tojioo Passthrough)",
-    "PT_VAE": "VAE Passthrough (Tojioo Passthrough)",
-    "PT_ControlNet": "ControlNet Passthrough (Tojioo Passthrough)",
-    "PT_SAMModel": "SAM Model Passthrough (Tojioo Passthrough)",
-    "PT_String": "String Passthrough (Tojioo Passthrough)",
-    "PT_Int": "Int Passthrough (Tojioo Passthrough)",
-    "PT_Float": "Float Passthrough (Tojioo Passthrough)",
-    "PT_Bool": "Bool Passthrough (Tojioo Passthrough)",
+    "PT_Image": "Image Passthrough",
+    "PT_Mask": "Mask Passthrough",
+    "PT_Latent": "Latent Passthrough",
+    "PT_CLIP": "CLIP Passthrough",
+    "PT_Model": "Model Passthrough",
+    "PT_VAE": "VAE Passthrough",
+    "PT_ControlNet": "ControlNet Passthrough",
+    "PT_SAMModel": "SAM Model Passthrough",
+    "PT_String": "String Passthrough",
+    "PT_Int": "Int Passthrough",
+    "PT_Float": "Float Passthrough",
+    "PT_Bool": "Bool Passthrough",
 }
 
 # ============================================================================
