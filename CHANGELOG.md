@@ -2,7 +2,7 @@
 All notable changes are listed here.
 
 ## [1.3.1] - 2025-12-07
-- Fixed dynamic nodes behavior when connecting/disconnecting inputs- 
+- Fixed dynamic nodes behavior when connecting/disconnecting inputs
 
 ## [1.3.0] - 2025-12-06
 - Added new Any*Switch nodes (first-valid input passthrough, no batching):
