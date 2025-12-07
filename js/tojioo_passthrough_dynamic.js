@@ -97,28 +97,20 @@ app.registerExtension({
 				}
 
 				if (!connected) {
-					// Check if it's a replacement (slot still has link after disconnect event)
-					if (this.inputs[index] && this.inputs[index].link !== null) {
-						return;
+					// On disconnect, only remove trailing empty slots
+					// Don't remove the slot itself -> renumbering will happen on the next connection
+					let lastConnectedIndex = -1;
+					for (let i = this.inputs.length - 1; i >= 0; i--) {
+						if (this.inputs[i].link !== null) {
+							lastConnectedIndex = i;
+							break;
+						}
 					}
 
-					// Remove the disconnected input slot
-					this.removeInput(index);
-
-					// If no inputs remain, add back one empty slot
-					if (this.inputs.length === 0) {
-						this.addInput(`${input_name}1`, link_info.type);
-					} else {
-						// Renumber all inputs
-						for (let i = 0; i < this.inputs.length; i++) {
-							this.inputs[i].name = `${input_name}${i + 1}`;
-						}
-
-						// Ensure there's always one empty slot at the end
-						const lastInput = this.inputs[this.inputs.length - 1];
-						if (lastInput.link !== null) {
-							this.addInput(`${input_name}${this.inputs.length + 1}`, this.inputs[0].type);
-						}
+					// Keep at least one slot and one empty at the end
+					const keepCount = Math.max(1, lastConnectedIndex + 2);
+					while (this.inputs.length > keepCount) {
+						this.removeInput(this.inputs.length - 1);
 					}
 
 					// Recalculate node size
