@@ -1,7 +1,7 @@
 [project]
 name = "tojioo-passthrough"
-version = "1.3.0"
-description = "Typed nodes for ComfyUI to reduce wire clutter"
+version = "1.3.1"
+description = "Typed passthrough nodes for ComfyUI to reduce wire clutter. Nodes include typed Any-Switches, Any-Batch-Switches, and a Multi-Passthrough hub."
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
 readme = "README.md"
