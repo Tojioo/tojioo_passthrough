@@ -96,22 +96,34 @@ app.registerExtension({
 					return;
 				}
 
-				// If disconnecting, remove trailing empty slots (keep at least one, and keep one empty at the end)
 				if (!connected) {
-					// Find the last connected input
-					let lastConnectedIndex = -1;
-					for (let i = this.inputs.length - 1; i >= 0; i--) {
-						if (this.inputs[i].link !== null) {
-							lastConnectedIndex = i;
-							break;
+					// Check if it's a replacement (slot still has link after disconnect event)
+					if (this.inputs[index] && this.inputs[index].link !== null) {
+						return;
+					}
+
+					// Remove the disconnected input slot
+					this.removeInput(index);
+
+					// If no inputs remain, add back one empty slot
+					if (this.inputs.length === 0) {
+						this.addInput(`${input_name}1`, link_info.type);
+					} else {
+						// Renumber all inputs
+						for (let i = 0; i < this.inputs.length; i++) {
+							this.inputs[i].name = `${input_name}${i + 1}`;
+						}
+
+						// Ensure there's always one empty slot at the end
+						const lastInput = this.inputs[this.inputs.length - 1];
+						if (lastInput.link !== null) {
+							this.addInput(`${input_name}${this.inputs.length + 1}`, this.inputs[0].type);
 						}
 					}
 
-					// Remove all inputs after lastConnectedIndex + 1 (keep one empty slot)
-					const keepCount = lastConnectedIndex + 2; // +1 for index, +1 for empty slot
-					while (this.inputs.length > keepCount && this.inputs.length > 1) {
-						this.removeInput(this.inputs.length - 1);
-					}
+					// Recalculate node size
+					this.setSize(this.computeSize());
+					return;
 				}
 
 				// Renumber inputs
@@ -122,11 +134,9 @@ app.registerExtension({
 				}
 
 				// Add new slot if connecting to last input
-				if (connected) {
-					const lastIndex = this.inputs.length - 1;
-					if (index === lastIndex) {
-						this.addInput(`${input_name}${slot_i}`, this.inputs[0].type);
-					}
+				const lastIndex = this.inputs.length - 1;
+				if (index === lastIndex) {
+					this.addInput(`${input_name}${slot_i}`, this.inputs[0].type);
 				}
 			};
 		}

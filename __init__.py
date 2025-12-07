@@ -10,8 +10,7 @@ from typing import Dict, Tuple, Any
 # Configuration
 # ============================================================================
 
-# Todo: Add a toggle on primitive type nodes for this in the future.
-# Note: Does not work right now.
+# Note: Add a toggle on primitive type nodes for this in the future.
 # Change to False for widgets instead of sockets.
 _FORCE_INPUT = True
 

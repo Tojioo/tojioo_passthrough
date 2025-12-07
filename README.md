@@ -34,7 +34,7 @@ Restart ComfyUI.
   - If an input is connected, but the source node is muted, it gets ignored and treated as if not connected.
   - Designed for flexible graph wiring without manual Merge steps.
 - Switch nodes behavior (non-batch):
-	- Dynamic inputs: Same as Batch Switch nodes—new slots appear automatically.
+	- Dynamic inputs: Same as Batch Switch nodes - new slots appear automatically.
 	- Returns the first connected input by slot number (lowest index wins).
 	- If an input is connected but muted, it is ignored.
 	- Useful for conditional workflows where only one of several branches should provide output.
