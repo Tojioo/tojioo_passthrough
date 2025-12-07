@@ -1,6 +1,22 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.3.0] - 2025-12-06
+- Added new Any*Switch nodes (first-valid input passthrough, no batching):
+	- Any Image Switch
+    - Any Mask Switch
+    - Any Latent Switch
+	- Any CLIP Switch
+    - Any Model Switch
+    - Any VAE Switch
+	- Any ControlNet Switch
+    - Any SAM Model Switch
+	- Any String Switch
+    - Any Int Switch
+    - Any Float Switch
+    - Any Bool Switch
+- These nodes return the first connected input (by slot number) and ignore disconnected/muted inputs
+
 ## [1.2.2] - 2025-12-06
 - Dynamic Batch Switch inputs: Fix handling of disconnecting inputs, ensuring trailing empty slots are removed correctly
 

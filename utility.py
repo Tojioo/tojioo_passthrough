@@ -342,9 +342,78 @@ def create_utility_nodes(
 				out.extend(lst)
 			return (out,)
 
+	def _make_any_switch(node_key: str):
+		spec = node_ui_specs[node_key]
+		# Support optional input tuples of length 2 or 3 (name, type[, opts])
+		_first = spec["inputs_optional"][0]
+		if len(_first) == 3:
+			base_name, type_name, in_opts = _first
+		else:
+			base_name, type_name = _first
+			in_opts = None
+		node_name = spec.get("node_name", node_key)
+
+		class _Dyn(dict):
+			# Reuse dynamic optional behavior but specialized per node
+			def __contains__(self, key):
+				prefix = "".join(ch for ch in base_name if not ch.isdigit())
+				return key.startswith(prefix) or dict.__contains__(self, key)
+
+			def __getitem__(self, key):
+				prefix = "".join(ch for ch in base_name if not ch.isdigit())
+				if key.startswith(prefix):
+					return (type_name, in_opts) if in_opts is not None else (type_name,)
+				return dict.__getitem__(self, key)
+
+		# Seed with the first input spec (respect opts like forceInput when present)
+		opt = _Dyn({base_name: ((type_name, in_opts) if in_opts is not None else (type_name,))})
+
+		def _idx_from_name(n: str) -> int:
+			# Extract trailing integer index; default large number to push unknown to end
+			i = len(n) - 1
+			while i >= 0 and n[i].isdigit():
+				i -= 1
+			try:
+				return int(n[i + 1:]) if i + 1 < len(n) else 10 ** 9
+			except Exception:
+				return 10 ** 9
+
+		def _run(self, **kwargs):
+			# Choose the lowest-numbered connected input
+			candidates = [(_idx_from_name(k), v) for k, v in kwargs.items() if v is not None]
+			if not candidates:
+				raise ValueError(f"{node_name}: no inputs connected.")
+			candidates.sort(key=lambda x: x[0])
+			return (candidates[0][1],)
+
+		# Prepare RETURN meta
+		out = spec["outputs"][0]
+		return type(
+			node_key,
+			(),
+			{
+				"DESCRIPTION": f"Return the first connected {type_name} input.",
+				"_NODE_SPEC": spec,
+				"NODE_NAME": node_name,
+				"INPUT_TYPES": classmethod(lambda cls: {"required": {}, "optional": opt}),
+				"RETURN_TYPES": (out[1],),
+				"RETURN_NAMES": (out[0],),
+				"FUNCTION": "run",
+				"CATEGORY": category,
+				"run": _run,
+			},
+		)
+
+	# Build Any*Switch nodes from NODE_UI_SPECS automatically
+	any_switch_nodes: Dict[str, type] = {}
+	for key in node_ui_specs.keys():
+		if key.startswith("PT_Any") and key.endswith("Switch") and "Batch" not in key:
+			any_switch_nodes[key] = _make_any_switch(key)
+
 	return {
 		"PT_AnyImageBatchSwitch": PT_AnyImageBatchSwitch,
 		"PT_AnyMaskBatchSwitch": PT_AnyMaskBatchSwitch,
 		"PT_AnyLatentBatchSwitch": PT_AnyLatentBatchSwitch,
 		"PT_AnyConditioningBatchSwitch": PT_AnyConditioningBatchSwitch,
+		**any_switch_nodes,
 	}
