@@ -26,18 +26,26 @@ Restart ComfyUI.
   - `Tojioo/Passthrough/Utility`: Switch nodes and Batch Switch nodes (Any Image/Mask/Latent/Conditioning Batch Switch)
 - Use single-type nodes for strict typing.
 - Use `Conditioning Passthrough` to route positive and negative.
-- Use `Multi-Passthrough` as a hub and wire only needed sockets.
-- Batch Switch nodes behavior:
+- Use `Multi-Passthrough` as a hub and wire only needed sockets.  
+#### Batch Switch nodes behavior:
   - Dynamic inputs: Nodes start with a single input slot. When you connect to the last available slot, a new one is automatically added.
   - If only one valid input is connected, they pass it through unchanged.
   - If multiple compatible inputs are connected, they are automatically batched (grouped by compatible shapes/types).
   - If an input is connected, but the source node is muted, it gets ignored and treated as if not connected.
   - Designed for flexible graph wiring without manual Merge steps.
-- Switch nodes behavior (non-batch):
-	- Dynamic inputs: Same as Batch Switch nodes - new slots appear automatically.
-	- Returns the first connected input by slot number (lowest index wins).
-	- If an input is connected but muted, it is ignored.
-	- Useful for conditional workflows where only one of several branches should provide output.
+
+#### AnyImageBatchSwitch node demonstration:
+<img width="887" height="857" alt="image" src="https://github.com/user-attachments/assets/25d8b5e9-1a16-48e9-b70a-cdad91e6fcb5" />
+
+#### Switch nodes behavior (non-batch):
+  - Dynamic inputs: Same as Batch Switch nodes - new slots appear automatically.
+  - Returns the first connected input by slot number (lowest index wins).
+  - If an input is connected but muted, it is ignored.
+  - Useful for conditional workflows where only one of several branches should provide output.
+
+
+#### AnyImageSwitch node demonstration:
+<img width="873" height="872" alt="image" src="https://github.com/user-attachments/assets/4eabfea0-4ec4-4a38-83e8-fb391b60afeb" />
 
 ### Files
 ```
