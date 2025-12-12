@@ -26,7 +26,7 @@ Restart ComfyUI.
   - `Tojioo/Passthrough/Utility`: Switch nodes and Batch Switch nodes (Any Image/Mask/Latent/Conditioning Batch Switch)
 - Use single-type nodes for strict typing.
 - Use `Conditioning Passthrough` to route positive and negative.
-- Use `Multi-Passthrough` as a hub and wire only needed sockets.  
+- Use `Multi-Passthrough` as a hub and wire only needed sockets.
 #### Batch Switch nodes behavior:
   - Dynamic inputs: Nodes start with a single input slot. When you connect to the last available slot, a new one is automatically added.
   - If only one valid input is connected, they pass it through unchanged.
@@ -49,20 +49,33 @@ Restart ComfyUI.
 
 ### Files
 ```
-tojioo_passthrough/
+tojioo-passthrough/
+├── .github/
+│ └── workflows/
+│ ├── publish_action.yml
+│ └── tests.yml
 ├── js/
-│   └── tojioo_passthrough_dynamic.js
+│ └── tojioo_passthrough_dynamic.js
+├── nodes/
+│ ├── **init**.py
+│ ├── passthrough.py
+│ ├── utility.py
+│ └── wsl_patch.py
+├── tests/
+│ ├── **init**.py
+│ ├── conftest.py
+│ ├── test_logger.py
+│ ├── test_passthrough.py
+│ └── test_utility.py
+├── **init**.py
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
-├── Tojioo-Passthrough-Showcase.json
-├── __init__.py
-├── passthrough.py
-├── utility.py
+├── logger.py
 └── pyproject.toml
 ```
 ### License
-GPL-3.0-only.  
+GPL-3.0-only.
 See [LICENSE](LICENSE).
 ### Changelog
 See [CHANGELOG](CHANGELOG.md).

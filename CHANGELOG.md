@@ -1,6 +1,11 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.3.2] - 2025-12-12
+- Fixed dynamic nodes behavior when connecting/disconnecting inputs again
+- Added tests to the repository
+- Added a silent "wsl_patch" node to reduce checkpoint loading time
+
 ## [1.3.1] - 2025-12-07
 - Fixed dynamic nodes behavior when connecting/disconnecting inputs
 

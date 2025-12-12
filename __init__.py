@@ -15,7 +15,7 @@ from typing import Dict, Tuple, Any
 _FORCE_INPUT = True
 
 # Primitive types that should be sockets, not widgets
-_FORCE_INPUT_TYPES = {"INT", "FLOAT", "BOOLEAN"}
+_FORCE_INPUT_TYPES = {"INT", "FLOAT", "BOOLEAN", "STRING"}
 
 # ============================================================================
 # Categories
@@ -199,8 +199,25 @@ NODE_UI_SPECS: Dict[str, Dict[str, Any]] = {
 # Import Node Modules
 # ============================================================================
 
-from .passthrough import create_passthrough_nodes
-from .utility import create_utility_nodes
+try:
+	from .logger import get_logger
+	from .nodes.passthrough import create_passthrough_nodes
+	from .nodes.utility import create_utility_nodes
+	from .nodes.wsl_patch import apply_wsl_safetensors_patch
+except ImportError:
+	from logger import get_logger
+	from nodes.passthrough import create_passthrough_nodes
+	from nodes.utility import create_utility_nodes
+	from nodes.wsl_patch import apply_wsl_safetensors_patch
+
+# ============================================================================
+# Apply WSL Patches
+# ============================================================================
+
+apply_wsl_safetensors_patch()
+
+logger = get_logger(__name__)
+logger.debug("Tojioo Passthrough initialized")
 
 # ============================================================================
 # Node Registration
@@ -264,11 +281,7 @@ NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
 	"PT_Bool": "Bool Passthrough",
 }
 
-# ============================================================================
-# Module Exports
-# ============================================================================
-
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 
-# Tell ComfyUI where to load our frontend JS from
+# Tell ComfyUI where to load frontend JS from
 WEB_DIRECTORY = "js"

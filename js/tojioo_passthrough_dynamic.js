@@ -29,107 +29,128 @@ app.registerExtension({
 
 			let input_name = "input";
 
-			switch (nodeData.name) {
-				case "PT_AnyImageBatchSwitch":
-					input_name = "image_";
-					break;
-				case "PT_AnyMaskBatchSwitch":
-					input_name = "mask_";
-					break;
-				case "PT_AnyLatentBatchSwitch":
-					input_name = "latent_";
-					break;
-				case "PT_AnyConditioningBatchSwitch":
-					input_name = "cond_";
-					break;
-				case "PT_AnyImageSwitch":
-					input_name = "image_";
-					break;
-				case "PT_AnyMaskSwitch":
-					input_name = "mask_";
-					break;
-				case "PT_AnyLatentSwitch":
-					input_name = "latent_";
-					break;
-				case "PT_AnyCLIPSwitch":
-					input_name = "clip_";
-					break;
-				case "PT_AnyModelSwitch":
-					input_name = "model_";
-					break;
-				case "PT_AnyVAESwitch":
-					input_name = "vae_";
-					break;
-				case "PT_AnyControlNetSwitch":
-					input_name = "control_net_";
-					break;
-				case "PT_AnySAMModelSwitch":
-					input_name = "sam_model_";
-					break;
-				case "PT_AnyStringSwitch":
-					input_name = "text_";
-					break;
-				case "PT_AnyIntSwitch":
-					input_name = "int_";
-					break;
-				case "PT_AnyFloatSwitch":
-					input_name = "float_";
-					break;
-				case "PT_AnyBoolSwitch":
-					input_name = "boolean_";
-					break;
+			const inputNameMap = {
+				"PT_AnyImageBatchSwitch": "image_",
+				"PT_AnyMaskBatchSwitch": "mask_",
+				"PT_AnyLatentBatchSwitch": "latent_",
+				"PT_AnyConditioningBatchSwitch": "cond_",
+				"PT_AnyImageSwitch": "image_",
+				"PT_AnyMaskSwitch": "mask_",
+				"PT_AnyLatentSwitch": "latent_",
+				"PT_AnyCLIPSwitch": "clip_",
+				"PT_AnyModelSwitch": "model_",
+				"PT_AnyVAESwitch": "vae_",
+				"PT_AnyControlNetSwitch": "control_net_",
+				"PT_AnySAMModelSwitch": "sam_model_",
+				"PT_AnyStringSwitch": "text_",
+				"PT_AnyIntSwitch": "int_",
+				"PT_AnyFloatSwitch": "float_",
+				"PT_AnyBoolSwitch": "boolean_",
+			};
+
+			input_name = inputNameMap[nodeData.name] || "input";
+
+			function normalizeInputs(node) {
+				if (!node.inputs || node.inputs.length === 0) return;
+
+				// Trim trailing empty slots; keep one empty slot after last connected (min 1 total)
+				let lastConnectedIndex = -1;
+				for (let i = node.inputs.length - 1; i >= 0; i--) {
+					if (node.inputs[i]?.link != null) {
+						lastConnectedIndex = i;
+						break;
+					}
+				}
+
+				const keepCount = Math.max(1, lastConnectedIndex + 2);
+				while (node.inputs.length > keepCount) {
+					node.removeInput(node.inputs.length - 1);
+				}
+
+				// Renumber inputs
+				let slot_i = 1;
+				for (let i = 0; i < node.inputs.length; i++) {
+					const expectedName = `${input_name}${slot_i}`;
+					if (node.inputs[i].name !== expectedName) {
+						node.inputs[i].name = expectedName;
+					}
+					slot_i++;
+				}
+
+				node.setSize(node.computeSize());
 			}
 
 			const onConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
 				const stackTrace = new Error().stack;
 
+				// Skip during graph loading to avoid input name conflicts
 				if (stackTrace.includes("loadGraphData")) {
 					return;
 				}
 
-				if (!link_info) {
-					return;
+				// Let LiteGraph update internal link state first
+				if (onConnectionsChange) {
+					onConnectionsChange.call(this, type, index, connected, link_info);
 				}
 
-				if (type !== LiteGraph.INPUT) {
-					return;
-				}
+				if (!link_info) return;
+				if (type !== LiteGraph.INPUT) return;
 
+				// Defer disconnect compaction to avoid breaking "replace link" operations
 				if (!connected) {
-					// On disconnect, only remove trailing empty slots
-					// Don't remove the slot itself -> renumbering will happen on the next connection
-					let lastConnectedIndex = -1;
-					for (let i = this.inputs.length - 1; i >= 0; i--) {
-						if (this.inputs[i].link !== null) {
-							lastConnectedIndex = i;
-							break;
+					const node = this;
+					queueMicrotask(() => {
+						if (!node.inputs || node.inputs.length === 0) return;
+
+						// If it got reconnected as part of a replace, do nothing
+						if (node.inputs[index]?.link != null) {
+							normalizeInputs(node);
+							return;
 						}
-					}
 
-					// Keep at least one slot and one empty at the end
-					const keepCount = Math.max(1, lastConnectedIndex + 2);
-					while (this.inputs.length > keepCount) {
-						this.removeInput(this.inputs.length - 1);
-					}
+						// Only remove this slot if there are still connected inputs after it
+						let hasConnectionsAfter = false;
+						for (let i = index + 1; i < node.inputs.length; i++) {
+							if (node.inputs[i]?.link != null) {
+								hasConnectionsAfter = true;
+								break;
+							}
+						}
 
-					// Recalculate node size
-					this.setSize(this.computeSize());
+						if (hasConnectionsAfter) {
+							node.removeInput(index);
+						}
+
+						normalizeInputs(node);
+					});
 					return;
 				}
 
-				// Renumber inputs
-				let slot_i = 1;
-				for (let i = 0; i < this.inputs.length; i++) {
-					this.inputs[i].name = `${input_name}${slot_i}`;
-					slot_i++;
+				// On connect: renumber and ensure a trailing empty slot exists
+				normalizeInputs(this);
+
+				// Add a new slot if the user connected the last available slot
+				const lastIndex = this.inputs.length - 1;
+				if (index === lastIndex && this.inputs[lastIndex]?.link != null) {
+					// Only add if there isn't already an empty trailing slot
+					this.addInput(`${input_name}${this.inputs.length + 1}`, this.inputs[0].type);
+					normalizeInputs(this);
+				}
+			};
+
+			// Fix inputs after workflow is loaded / node is duplicated (ALT+drag)
+			const onConfigure = nodeType.prototype.configure;
+			nodeType.prototype.configure = function (info) {
+				if (onConfigure) {
+					onConfigure.call(this, info);
 				}
 
-				// Add new slot if connecting to last input
-				const lastIndex = this.inputs.length - 1;
-				if (index === lastIndex) {
-					this.addInput(`${input_name}${slot_i}`, this.inputs[0].type);
+				if (!this.inputs || this.inputs.length === 0) {
+					return;
 				}
+
+				normalizeInputs(this);
 			};
 		}
 	},
