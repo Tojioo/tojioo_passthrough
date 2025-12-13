@@ -57,17 +57,17 @@ tojioo-passthrough/
 ├── js/
 │ └── tojioo_passthrough_dynamic.js
 ├── nodes/
-│ ├── **init**.py
+│ ├── __init__.py
 │ ├── passthrough.py
 │ ├── utility.py
 │ └── wsl_patch.py
 ├── tests/
-│ ├── **init**.py
+│ ├── __init__.py
 │ ├── conftest.py
 │ ├── test_logger.py
 │ ├── test_passthrough.py
 │ └── test_utility.py
-├── **init**.py
+├── __init__.py
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
