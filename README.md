@@ -55,7 +55,8 @@ Restart ComfyUI.
 - The type of the output mirrors the connected input.
 
 #### (Example) Dynamic Passthrough node:
-*image will be added soon*
+<img width="1198" height="753" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
+
 
 ### Files
 ```
