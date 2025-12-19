@@ -211,3 +211,28 @@ class TestBatchSwitchFunctionality:
 		# Should be batched - batch size of 2
 		assert output[0].shape[0] == 2
 		assert output[0].shape[1:] == (512, 512, 3)
+
+class TestDynamicPassthrough:
+	"""Test dynamic passthrough node functionality."""
+
+	def test_dynamic_passthrough_outputs_match_inputs_by_index(self):
+		"""Dynamic passthrough should return output_i == input_i for paired sockets."""
+		from nodes.utility import create_utility_nodes
+
+		node_ui_specs = {
+			"PT_DynamicPassthrough": dict(
+				node_name = "Dynamic Passthrough",
+				inputs_optional = [("input", "*")],
+				outputs = [("output", "*")]),
+		}
+
+		result = create_utility_nodes(
+			category = "Test/Utility",
+			node_ui_specs = node_ui_specs,
+		)
+
+		node = result["PT_DynamicPassthrough"]()
+		output = node.run(input = "a", input_2 = "b")
+
+		assert output[0] == "a"
+		assert output[1] == "b"

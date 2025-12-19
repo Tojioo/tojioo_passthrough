@@ -1,6 +1,12 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.4.0] - 2025-12-19
+- Added dynamic passthrough node
+    - Input slots are dynamically added/removed
+    - Outputs are typed based on connected inputs
+- Added widget versions of the primitive type passthrough nodes (Int, Float, Bool, String)
+
 ## [1.3.2] - 2025-12-12
 - Fixed dynamic nodes behavior when connecting/disconnecting inputs again
 - Added tests to the repository

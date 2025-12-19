@@ -6,7 +6,6 @@
 
 from typing import Dict, Tuple, Any
 
-
 def create_passthrough_nodes(
 	type_specs: Tuple[Tuple[str, str, str], ...],
 	force_input_types: set,
@@ -28,15 +27,14 @@ def create_passthrough_nodes(
 		Dictionary mapping class names to node classes
 	"""
 
-	def _make_passthrough(class_name: str, type_name: str, socket_name: str):
+	def _make_passthrough(class_name: str, type_name: str, socket_name: str, use_force_input: bool = True):
 		"""Create a single passthrough node class."""
 
 		def _input_types(_cls):
-			spec = (
-				(type_name, {"forceInput": force_input})
-				if type_name in force_input_types
-				else (type_name,)
-			)
+			if use_force_input and type_name in force_input_types:
+				spec = (type_name, {"forceInput": force_input})
+			else:
+				spec = (type_name,)
 			return {"required": {socket_name: spec}}
 
 		def _func(_self, **kwargs):
@@ -57,8 +55,17 @@ def create_passthrough_nodes(
 			},
 		)
 
-	# Generate all simple passthrough nodes
-	generated = {spec[0]: _make_passthrough(*spec) for spec in type_specs}
+	# Generate all simple passthrough nodes (with forceInput for primitive types)
+	generated = {spec[0]: _make_passthrough(*spec, use_force_input=True) for spec in type_specs}
+
+	# Generate widget variants for primitive types (forceInput=False, so they render as widgets)
+	widget_variants = {}
+	for class_name, type_name, socket_name in type_specs:
+		if type_name in force_input_types:
+			widget_class_name = f"{class_name}Widget"
+			widget_variants[widget_class_name] = _make_passthrough(
+				widget_class_name, type_name, socket_name, use_force_input=False
+			)
 
 	# Create multi-node passthrough classes
 	class PT_Conditioning:
@@ -124,4 +131,5 @@ def create_passthrough_nodes(
 		"PT_MultiPass": PT_MultiPass,
 		"PT_Conditioning": PT_Conditioning,
 		**generated,
+		**widget_variants
 	}

@@ -10,7 +10,6 @@ from typing import Dict, Tuple, Any
 # Configuration
 # ============================================================================
 
-# Note: Maybe add a toggle on primitive type nodes for this in the future. Also check if string can be added.
 # Change to False for widgets instead of sockets.
 _FORCE_INPUT = True
 
@@ -65,9 +64,9 @@ NODE_UI_SPECS: Dict[str, Dict[str, Any]] = {
 			("control_net", "CONTROL_NET"),
 			("sam_model", "SAM_MODEL"),
 			("text", "STRING"),
-			("int", "INT", {"forceInput": True}),
-			("float", "FLOAT", {"forceInput": True}),
-			("boolean", "BOOLEAN", {"forceInput": True}),
+			("int", "INT", {"forceInput": _FORCE_INPUT}),
+			("float", "FLOAT", {"forceInput": _FORCE_INPUT}),
+			("boolean", "BOOLEAN", {"forceInput": _FORCE_INPUT}),
 		],
 		"outputs": [
 			("image", "IMAGE"),
@@ -172,26 +171,32 @@ NODE_UI_SPECS: Dict[str, Dict[str, Any]] = {
 	"PT_AnyStringSwitch": {
 		"node_name": "Any String Switch",
 		"inputs_required": [],
-		"inputs_optional": [("text_1", "STRING", {"forceInput": True})],
+		"inputs_optional": [("text_1", "STRING", {"forceInput": _FORCE_INPUT})],
 		"outputs": [("STRING", "STRING")],
 	},
 	"PT_AnyIntSwitch": {
 		"node_name": "Any Int Switch",
 		"inputs_required": [],
-		"inputs_optional": [("int_1", "INT", {"forceInput": True})],
+		"inputs_optional": [("int_1", "INT", {"forceInput": _FORCE_INPUT})],
 		"outputs": [("INT", "INT")],
 	},
 	"PT_AnyFloatSwitch": {
 		"node_name": "Any Float Switch",
 		"inputs_required": [],
-		"inputs_optional": [("float_1", "FLOAT", {"forceInput": True})],
+		"inputs_optional": [("float_1", "FLOAT", {"forceInput": _FORCE_INPUT})],
 		"outputs": [("FLOAT", "FLOAT")],
 	},
 	"PT_AnyBoolSwitch": {
 		"node_name": "Any Bool Switch",
 		"inputs_required": [],
-		"inputs_optional": [("boolean_1", "BOOLEAN", {"forceInput": True})],
+		"inputs_optional": [("boolean_1", "BOOLEAN", {"forceInput": _FORCE_INPUT})],
 		"outputs": [("BOOLEAN", "BOOLEAN")],
+	},
+	"PT_DynamicPassthrough": {
+		"node_name": "Dynamic Passthrough",
+		"inputs_required": [],
+		"inputs_optional": [("input", "*")],
+		"outputs": [("output", "*")],
 	},
 }
 
@@ -225,17 +230,17 @@ logger.debug("Tojioo Passthrough initialized")
 
 # Create all passthrough nodes
 _passthrough_nodes = create_passthrough_nodes(
-	type_specs=TYPE_SPECS,
-	force_input_types=_FORCE_INPUT_TYPES,
-	force_input=_FORCE_INPUT,
-	category=CATEGORY_PREFIX + CATEGORY_PASSTHROUGH,
-	node_ui_specs=NODE_UI_SPECS,
+	type_specs = TYPE_SPECS,
+	force_input_types = _FORCE_INPUT_TYPES,
+	force_input = _FORCE_INPUT,
+	category = CATEGORY_PREFIX + CATEGORY_PASSTHROUGH,
+	node_ui_specs = NODE_UI_SPECS,
 )
 
 # Create all utility nodes
 _utility_nodes = create_utility_nodes(
-	category=CATEGORY_PREFIX + CATEGORY_PASSTHROUGH + "/" + CATEGORY_UTIL,
-	node_ui_specs=NODE_UI_SPECS,
+	category = CATEGORY_PREFIX + CATEGORY_PASSTHROUGH + "/" + CATEGORY_UTIL,
+	node_ui_specs = NODE_UI_SPECS,
 )
 
 # Combine all nodes
@@ -266,6 +271,8 @@ NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
 	"PT_AnyIntSwitch": "Any Int Switch",
 	"PT_AnyFloatSwitch": "Any Float Switch",
 	"PT_AnyBoolSwitch": "Any Bool Switch",
+	# Dynamic passthrough
+	"PT_DynamicPassthrough": "Dynamic Passthrough",
 	# Simple passthroughs
 	"PT_Image": "Image Passthrough",
 	"PT_Mask": "Mask Passthrough",
@@ -279,9 +286,14 @@ NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
 	"PT_Int": "Int Passthrough",
 	"PT_Float": "Float Passthrough",
 	"PT_Bool": "Bool Passthrough",
+	# Widget variants (primitives without forceInput)
+	"PT_StringWidget": "String Passthrough (Widget)",
+	"PT_IntWidget": "Int Passthrough (Widget)",
+	"PT_FloatWidget": "Float Passthrough (Widget)",
+	"PT_BoolWidget": "Bool Passthrough (Widget)",
 }
 
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+__all__ = [NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS]
 
 # Tell ComfyUI where to load frontend JS from
 WEB_DIRECTORY = "js"
