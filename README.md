@@ -37,7 +37,7 @@ Restart ComfyUI.
 - Designed for flexible graph wiring without manual Merge steps.
 
 #### (Example) AnyImageBatchSwitch node:
-<img width="876" height="887" alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
+<img width="873" height="884" alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
 
 #### Switch nodes behavior (non-batch):
 - Dynamic inputs: Same as Batch Switch nodes -> new slots appear automatically.
@@ -55,7 +55,7 @@ Restart ComfyUI.
 - The type of the output mirrors the connected input.
 
 #### (Example) Dynamic Passthrough node:
-<img width="1198" height="753" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
+<img width="873" height="550" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
 
 
 ### Files
