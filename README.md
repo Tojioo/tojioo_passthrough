@@ -1,6 +1,6 @@
-﻿## Tojioo Passthrough Nodes for ComfyUI
+## Tojioo Passthrough Nodes for ComfyUI
 
-Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various qol improvements.
+Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements.
 
 ### Nodes
 - Simple passthroughs: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool
