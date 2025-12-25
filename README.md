@@ -3,12 +3,15 @@
 Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements.
 
 ### Nodes
-- Simple passthroughs: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool
-- Conditioning passthrough: positive and negative
-- Multi-Passthrough hub: optional inputs, typed outputs
-- Utility Batch Switch nodes: Any Image Batch Switch, Any Mask Batch Switch, Any Latent Batch Switch, Any Conditioning Batch Switch
-- Utility Switch nodes (first-valid passthrough): Any Image Switch, Any Mask Switch, Any Latent Switch, Any CLIP Switch, Any Model Switch, Any VAE Switch, Any ControlNet Switch, Any SAM Model Switch, Any String Switch, Any Int Switch, Any Float Switch, Any Bool Switch
-- Dynamic Passthrough: flexible input handling, type mirroring.
+- **Simple Passthroughs**: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool
+- **Conditioning Passthrough**: Positive and negative conditioning
+- **Multi-Passthrough Hub**: Optional inputs with typed outputs
+- **Dynamic Nodes**:
+    - Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
+    - Dynamic Bus: Context/bus for carrying multiple typed values
+    - Any Type Passthrough: Single wildcard passthrough
+- **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
+- **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
 
 ### Install
 #### Manager
@@ -22,71 +25,98 @@ git clone https://github.com/Tojioo/tojioo_passthrough.git
 Restart ComfyUI.
 
 ### Usage
-- Category structure:
-  - `Tojioo/Passthrough`: all simple passthroughs, Conditioning Passthrough, and Multi-Passthrough
-  - `Tojioo/Passthrough/Utility`: Switch nodes and Batch Switch nodes (Any Image/Mask/Latent/Conditioning Batch Switch)
-- Use single-type nodes for strict typing.
-- Use `Conditioning Passthrough` to route positive and negative.
-- Use `Multi-Passthrough` as a hub and wire only needed sockets.
+**Category Structure:**
+- `Tojioo Passthrough`: Multi-Passthrough hub
+- `Tojioo Passthrough/Simple Passthrough`: All typed passthroughs, Conditioning Passthrough
+- `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Any Type Passthrough
+- `Tojioo Passthrough/Dynamic Nodes/Batch Switch Nodes`: Batch switching nodes
+- `Tojioo Passthrough/Dynamic Nodes/Switch Nodes`: First-valid switching nodes
 
-#### Batch Switch nodes behavior:
-- Dynamic inputs: Nodes start with a single input slot. When you connect to the last available slot, a new one is automatically added.
-- If only one valid input is connected, they pass it through unchanged.
-- If multiple compatible inputs are connected, they are automatically batched (grouped by compatible shapes/types).
-- If an input is connected, but the source node is muted, it gets ignored and treated as if not connected.
-- Designed for flexible graph wiring without manual Merge steps.
+#### Batch Switch Behavior:
+- Dynamic inputs: start with one slot, auto-add on connection
+- Single input: pass through unchanged
+- Multiple inputs: automatically batch by compatible shape
+- Muted inputs: ignored
 
-#### (Example) AnyImageBatchSwitch node:
+#### Example:
 <img width="873" height="884" alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
 
-#### Switch nodes behavior (non-batch):
-- Dynamic inputs: Same as Batch Switch nodes -> new slots appear automatically.
-- Returns the first connected input by slot number (lowest index wins).
-- If an input is connected but muted, it is ignored.
-- Useful for conditional workflows where only one of several branches should provide output.
+#### Switch Behavior:
+- Dynamic inputs: auto-add slots
+- Returns first connected input by slot number
+- Muted inputs: ignored
 
-#### (Example) AnyImageSwitch node:
+#### Example:
 <img width="873" height="872" alt="image" src="https://github.com/user-attachments/assets/4eabfea0-4ec4-4a38-83e8-fb391b60afeb" />
 
 #### Dynamic Passthrough:
-- Dynamic inputs, same as Batch Switch / Switch nodes.
-- Takes any type of input.
-- Upon connection, the type is determined and the input / output slots are updated accordingly.
-- The type of the output mirrors the connected input.
+- Dynamic multi-input/output
+- Types adapt based on connections
+- Output types mirror connected inputs
 
-#### (Example) Dynamic Passthrough node:
+#### Example:
 <img width="873" height="550" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
 
 
-### Files
+### File Structure
 ```
 tojioo-passthrough/
 ├── .github/
-│ └── workflows/
-│ ├── publish_action.yml
-│ └── tests.yml
+│   └── workflows/
+├── example_workflows/
+│   └── Tojioo Passthrough.json
 ├── js/
-│ └── tojioo_passthrough_dynamic.js
-├── nodes/
-│ ├── __init__.py
-│ ├── passthrough.py
-│ ├── utility.py
-│ └── wsl_patch.py
+│   ├── config/
+│   │   └── constants.js
+│   ├── handlers/
+│   │   ├── batch_switch.js
+│   │   ├── dynamic_bus.js
+│   │   ├── dynamic_passthrough.js
+│   │   ├── dynamic_single.js
+│   │   └── switch.js
+│   ├── utils/
+│   │   ├── graph.js
+│   │   ├── lifecycle.js
+│   │   └── types.js
+│   └── index.js
+├── py/
+│   ├── config/
+│   │   ├── categories.py
+│   │   └── types.py
+│   ├── controllers/
+│   │   ├── passthrough_controller.py
+│   │   └── switch_controller.py
+│   ├── handlers/
+│   │   ├── batch_handler.py
+│   │   └── type_handler.py
+│   ├── nodes/
+│   │   ├── base.py
+│   │   ├── conditioning.py
+│   │   ├── dynamic_bus.py
+│   │   ├── dynamic_passthrough.py
+│   │   ├── dynamic_single.py
+│   │   └── multi_pass.py
+│   ├── utils/
+│   │   ├── logger.py
+│   │   └── wsl_patch.py
+│   └── __init__.py
 ├── tests/
-│ ├── __init__.py
-│ ├── conftest.py
-│ ├── test_logger.py
-│ ├── test_passthrough.py
-│ └── test_utility.py
+│   ├── conftest.py
+│   ├── test_config.py
+│   ├── test_controllers.py
+│   ├── test_handlers.py
+│   ├── test_logger.py
+│   ├── test_nodes.py
+│   └── test_utils.py
 ├── __init__.py
 ├── CHANGELOG.md
 ├── LICENSE
-├── README.md
-├── logger.py
-└── pyproject.toml
+├── pyproject.toml
+└── README.md
 ```
+
 ### License
-GPL-3.0-only.
-See [LICENSE](LICENSE).
+GPL-3.0-only. See [LICENSE](LICENSE).
+
 ### Changelog
 See [CHANGELOG](CHANGELOG.md).

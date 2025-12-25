@@ -1,6 +1,29 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.5.0] - 2025-12-25
+- Major restructure: Reorganized codebase into modular `py/` and `js/` directories
+    - Python modules now organized under `py/` (config, controllers, handlers, nodes, utils)
+    - JavaScript handlers consolidated under `js/` with configuration and utilities
+- New JavaScript frontend extension: Complete handler system for dynamic nodes
+    - Dynamic Passthrough handler
+    - Dynamic Bus handler
+    - Dynamic Single handler
+    - Batch Switch handler
+    - Switch handler
+    - Type resolution and graph utilities
+- New configuration system:
+    - Centralized type definitions (`types.py`)
+    - Category hierarchy management (`categories.py`)
+- Infrastructure improvements:
+    - Added `BaseNode` class for consistent node implementation
+    - New `PT_Conditioning` passthrough node
+    - Refactored logger and WSL patch utilities
+    - Improved test structure and imports
+- Development improvements:
+    - Added virtual environment to `.gitignore`
+    - Enhanced code organization and modularity
+
 ## [1.4.0] - 2025-12-19
 - Added dynamic passthrough node
     - Input slots are dynamically added/removed
