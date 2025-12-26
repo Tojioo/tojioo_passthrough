@@ -31,7 +31,7 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["nodes", "logger.py"]
+source = ["src_python"]
 omit = ["tests/*", ".venv/*"]
 
 [build-system]
@@ -40,5 +40,5 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nodes*"]
-exclude = ["tests*", "js*", "example_workflow*"]
+include = ["src_python*"]
+exclude = ["tests*", "js*", "example_workflows*"]

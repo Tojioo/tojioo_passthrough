@@ -3,43 +3,43 @@
 
 class TestTypeHandler:
 	def test_create_input_spec_force_input(self):
-		from py.handlers.type_handler import TypeHandler
+		from src_python.handlers.type_handler import TypeHandler
 		spec = TypeHandler.create_input_spec("INT", force_input=True)
 		assert spec == ("INT", {"forceInput": True})
 
 	def test_create_input_spec_no_force_input(self):
-		from py.handlers.type_handler import TypeHandler
+		from src_python.handlers.type_handler import TypeHandler
 		spec = TypeHandler.create_input_spec("IMAGE", force_input=True)
 		assert spec == ("IMAGE",)
 
 	def test_create_input_spec_force_disabled(self):
-		from py.handlers.type_handler import TypeHandler
+		from src_python.handlers.type_handler import TypeHandler
 		spec = TypeHandler.create_input_spec("INT", force_input=False)
 		assert spec == ("INT",)
 
 
 class TestBatchHandler:
 	def test_can_batch_image(self):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		assert BatchHandler.can_batch("IMAGE") is True
 
 	def test_can_batch_non_batchable(self):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		assert BatchHandler.can_batch("MODEL") is False
 
 	def test_get_handler_returns_tuple(self):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		handler = BatchHandler.get_handler("IMAGE")
 		assert handler is not None
 		assert len(handler) == 2
 
 	def test_get_handler_none_for_invalid(self):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		handler = BatchHandler.get_handler("INVALID_TYPE")
 		assert handler is None
 
 	def test_image_batch_merge(self, torch_stub):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		handler = BatchHandler.get_handler("IMAGE")
 		prep_fn, merge_fn = handler
 
@@ -53,7 +53,7 @@ class TestBatchHandler:
 		assert result.shape == (2, 512, 512, 3)
 
 	def test_conditioning_batch_merge(self):
-		from py.handlers.batch_handler import BatchHandler
+		from src_python.handlers.batch_handler import BatchHandler
 		handler = BatchHandler.get_handler("CONDITIONING")
 		prep_fn, merge_fn = handler
 

@@ -1,28 +1,34 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.5.0] - 2025-12-25
-- Major restructure: Reorganized codebase into modular `py/` and `js/` directories
-    - Python modules now organized under `py/` (config, controllers, handlers, nodes, utils)
+## [1.5.0] - In Development
+### New Features
+- Added dynamic bus node
+    - First slot is a static bus type that packs all subsequent inputs into a single bus output
+    - Can be used to combine multiple inputs into a single output
+    - Can be used to split a single bus input into multiple outputs
+    - Input slots are dynamically added/removed
+    - Outputs are typed based on connected inputs
+- Added dynamic single node
+    - Same as dynamic passthrough, but only allows a single input / output.
+### Internal
+- Reorganized codebase into modular `src_python/` and `js/` directories
+    - Python modules now organized under `src_python/` (config, controllers, handlers, nodes, utils)
     - JavaScript handlers consolidated under `js/` with configuration and utilities
-- New JavaScript frontend extension: Complete handler system for dynamic nodes
+- Complete handler system for dynamic nodes
     - Dynamic Passthrough handler
     - Dynamic Bus handler
     - Dynamic Single handler
     - Batch Switch handler
     - Switch handler
     - Type resolution and graph utilities
-- New configuration system:
+- Configuration system:
     - Centralized type definitions (`types.py`)
     - Category hierarchy management (`categories.py`)
 - Infrastructure improvements:
     - Added `BaseNode` class for consistent node implementation
-    - New `PT_Conditioning` passthrough node
     - Refactored logger and WSL patch utilities
     - Improved test structure and imports
-- Development improvements:
-    - Added virtual environment to `.gitignore`
-    - Enhanced code organization and modularity
 
 ## [1.4.0] - 2025-12-19
 - Added dynamic passthrough node
