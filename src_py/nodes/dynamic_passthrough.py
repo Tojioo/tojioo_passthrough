@@ -13,7 +13,7 @@ any_type = AnyType("*")
 
 class PT_DynamicPassthrough(BaseNode):
 	NODE_NAME = "Dynamic Passthrough"
-	DESCRIPTION = "Dynamic passthrough with one output per input; types adapt based on connections."
+	DESCRIPTION = "Dynamic passthrough with one output per input. Types adapt based on connections."
 	_MAX_SOCKETS = 32
 
 	@classmethod

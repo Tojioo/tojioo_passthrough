@@ -1,8 +1,8 @@
 ﻿// currently unused
 
-import {updateLinkTypesForSlot} from "./utils/types";
-import {getGraph} from "./utils/graph";
-import {ANY_TYPE} from "./config/constants";
+import {updateLinkTypesForSlot} from "./utils/types.js";
+import {getGraph} from "./utils/graph.js";
+import {ANY_TYPE} from "./config/constants.js";
 
 export function applyNodeLifecycleHooks(nodeType, normalizeIO, isGraphLoading = null) {
 	const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange

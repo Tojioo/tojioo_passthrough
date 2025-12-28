@@ -101,18 +101,18 @@ export function configureDynamicPassthrough() {
 							return
 						}
 
+						const pairConnected = (node.outputs?.[disconnectedIndex]?.links?.length ?? 0) > 0
+						if (pairConnected) {
+							normalizeIO(node)
+							applyDynamicTypes(node)
+							return
+						}
+
 						let hasConnectionsAfter = false
 						for (let i = disconnectedIndex + 1; i < node.inputs.length; i++) {
 							if (node.inputs[i]?.link != null) {
 								hasConnectionsAfter = true
 								break
-							}
-						}
-
-						if (!hasConnectionsAfter && node.outputs?.[disconnectedIndex]) {
-							const outLinks = node.outputs[disconnectedIndex]?.links
-							if (outLinks && outLinks.length > 0) {
-								hasConnectionsAfter = true
 							}
 						}
 
@@ -152,6 +152,13 @@ export function configureDynamicPassthrough() {
 							return
 						}
 
+						const pairConnected = node.inputs?.[disconnectedIndex]?.link != null
+						if (pairConnected) {
+							normalizeIO(node)
+							applyDynamicTypes(node)
+							return
+						}
+
 						let hasConnectionsAfter = false
 						for (let i = disconnectedIndex + 1; i < node.outputs.length; i++) {
 							const links = node.outputs[i]?.links
@@ -159,10 +166,6 @@ export function configureDynamicPassthrough() {
 								hasConnectionsAfter = true
 								break
 							}
-						}
-
-						if (!hasConnectionsAfter && node.inputs?.[disconnectedIndex]?.link != null) {
-							hasConnectionsAfter = true
 						}
 
 						if (!hasConnectionsAfter) {
@@ -195,6 +198,13 @@ export function configureDynamicPassthrough() {
 			const prevConfigure = nodeType.prototype.configure
 			nodeType.prototype.configure = function (info) {
 				if (prevConfigure) prevConfigure.call(this, info)
+
+				normalizeIO(this)
+				applyDynamicTypes(this)
+
+				setTimeout(() => {
+					applyDynamicTypes(this)
+				}, 100)
 			}
 
 			const prevOnAdded = nodeType.prototype.onAdded

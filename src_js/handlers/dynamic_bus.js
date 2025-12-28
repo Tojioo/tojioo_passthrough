@@ -45,11 +45,6 @@ export function configureDynamicBus()
 					}
 				}
 
-				if (inp?.type && inp.type !== ANY_TYPE)
-				{
-					return inp.type
-				}
-
 				const outLinkId = out?.links?.[0]
 				if (outLinkId != null)
 				{
@@ -65,9 +60,11 @@ export function configureDynamicBus()
 					}
 				}
 
-				if (out?.type && out.type !== ANY_TYPE)
+				const hasLinks = (inLinkId != null) || (out?.links?.length > 0)
+				if (hasLinks)
 				{
-					return out.type
+					if (inp?.type && inp.type !== ANY_TYPE) return inp.type
+					if (out?.type && out.type !== ANY_TYPE) return out.type
 				}
 
 				const busIndex = slotIndex - 1
@@ -359,6 +356,14 @@ export function configureDynamicBus()
 			nodeType.prototype.configure = function (info)
 			{
 				if (prevConfigure) prevConfigure.call(this, info)
+
+				normalizeIO(this)
+				applyBusDynamicTypes(this)
+
+				setTimeout(() =>
+				{
+					applyBusDynamicTypes(this)
+				}, 100)
 			}
 
 			const prevOnAdded = nodeType.prototype.onAdded

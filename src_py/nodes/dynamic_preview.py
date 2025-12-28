@@ -4,8 +4,10 @@
 # Licensed under the GNU General Public License v3.0 only.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-# noinspection PyUnresolvedReferences
-from nodes import PreviewImage
+import json
+import os
+
+import folder_paths
 
 from .base import AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
@@ -13,11 +15,11 @@ from ..config.categories import CATEGORIES
 any_type = AnyType("*")
 
 
-class PT_DynamicPreview(PreviewImage):
+class PT_DynamicPreview:
 	"""Dynamic Preview node that accepts any image input with flexible slots."""
 
 	NODE_NAME = "Dynamic Preview (Beta)"
-	DESCRIPTION = "Previews images with navigation. Slots appear dynamically based on connections."
+	DESCRIPTION = "Previews images with navigation. Slots appear dynamically based on connections. WARNING: this node is still in beta and may be very broken. Use with caution."
 	CATEGORY = CATEGORIES["dynamic"]
 	_MAX_SOCKETS = 32
 
@@ -37,37 +39,51 @@ class PT_DynamicPreview(PreviewImage):
 	FUNCTION = "preview_images"
 
 	def preview_images(self, prompt=None, extra_pnginfo=None, **kwargs):
-		"""Save all connected images and return them for UI display with navigation."""
+		import numpy as np
+		from PIL import Image
+		from PIL.PngImagePlugin import PngInfo
+
 		all_images = []
-		slot_names = []
-		images_per_slot = []
+
+		output_dir = folder_paths.get_temp_directory()
+		prefix = "preview_"
 
 		for key, value in sorted(kwargs.items(), key=lambda x: self._parse_slot_order(x[0])):
-			if value is not None:
-				slot_names.append(key)
-				result = super().save_images(
-					images=value,
-					prompt=prompt,
-					extra_pnginfo=extra_pnginfo,
+			if value is None:
+				continue
+
+			for batch_idx, image in enumerate(value):
+				i = 255.0 * image.cpu().numpy()
+				img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+
+				metadata = PngInfo()
+				if prompt is not None:
+					metadata.add_text("prompt", json.dumps(prompt))
+				if extra_pnginfo is not None:
+					for k, v in extra_pnginfo.items():
+						metadata.add_text(k, json.dumps(v))
+
+				full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
+					prefix, output_dir, img.width, img.height
 				)
-				slot_images = result.get("ui", {}).get("images", [])
-				images_per_slot.append(len(slot_images))
-				all_images.extend(slot_images)
+
+				filename_with_counter = f"{filename}_{counter:05}_.png"
+				filepath = os.path.join(full_output_folder, filename_with_counter)
+				img.save(filepath, pnginfo=metadata, compress_level=4)
+
+				all_images.append({
+					"filename": filename_with_counter,
+					"subfolder": subfolder,
+					"type": "temp",
+				})
 
 		if not all_images:
-			return {"ui": {"images": [], "slot_names": [], "images_per_slot": []}}
+			return {"ui": {"preview_data": []}}
 
-		return {
-			"ui": {
-				"images": all_images,
-				"slot_names": slot_names,
-				"images_per_slot": images_per_slot,
-			}
-		}
+		return {"ui": {"preview_data": all_images}}
 
 	@staticmethod
 	def _parse_slot_order(key: str) -> int:
-		"""Parse slot order from key name. 'image' -> 1, 'image_2' -> 2"""
 		if '_' in key:
 			parts = key.rsplit('_', 1)
 			try:

@@ -10,7 +10,7 @@ from ..config.categories import CATEGORIES
 
 class PT_DynamicSingle(BaseNode):
 	DESCRIPTION = "Pass any type through unchanged."
-	NODE_NAME = "Any Type Passthrough"
+	NODE_NAME = "Dynamic Single Passthrough"
 
 	@classmethod
 	def INPUT_TYPES(cls):

@@ -5,7 +5,6 @@
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
 from .base import BaseNode
-from ..config.types import COMFY_TYPES
 
 class PT_MultiPass(BaseNode):
 	DESCRIPTION = "Multi-type passthrough. Wire only the sockets you need."
@@ -16,35 +15,55 @@ class PT_MultiPass(BaseNode):
 		return {
 			"required": {},
 			"optional": {
-				"image": (COMFY_TYPES["image"],),
-				"mask": (COMFY_TYPES["mask"],),
-				"latent": (COMFY_TYPES["latent"],),
-				"positive": (COMFY_TYPES["conditioning"],),
-				"negative": (COMFY_TYPES["conditioning"],),
-				"clip": (COMFY_TYPES["clip"],),
-				"model": (COMFY_TYPES["model"],),
-				"vae": (COMFY_TYPES["vae"],),
-				"control_net": (COMFY_TYPES["control_net"],),
-				"sam_model": (COMFY_TYPES["sam_model"],),
-				"text": (COMFY_TYPES["text"], {"forceInput": True}),
-				"int": (COMFY_TYPES["int"], {"forceInput": True}),
-				"float": (COMFY_TYPES["float"], {"forceInput": True}),
-				"boolean": (COMFY_TYPES["boolean"], {"forceInput": True}),
+				"image": ("IMAGE",),
+				"mask": ("MASK",),
+				"latent": ("LATENT",),
+				"positive": ("CONDITIONING",),
+				"negative": ("CONDITIONING",),
+				"clip": ("CLIP",),
+				"model": ("MODEL",),
+				"vae": ("VAE",),
+				"control_net": ("CONTROL_NET",),
+				"sam_model": ("SAM_MODEL",),
+				"text": ("STRING", {"forceInput": True}),
+				"int": ("INT", {"forceInput": True}),
+				"float": ("FLOAT", {"forceInput": True}),
+				"boolean": ("BOOLEAN", {"forceInput": True}),
 			}
 		}
 
 	RETURN_TYPES = (
-		COMFY_TYPES["image"], COMFY_TYPES["mask"], COMFY_TYPES["latent"],
-		COMFY_TYPES["conditioning"], COMFY_TYPES["conditioning"],
-		COMFY_TYPES["clip"], COMFY_TYPES["model"], COMFY_TYPES["vae"],
-		COMFY_TYPES["control_net"], COMFY_TYPES["sam_model"],
-		COMFY_TYPES["text"], COMFY_TYPES["int"], COMFY_TYPES["float"], COMFY_TYPES["boolean"]
+		"IMAGE",
+		"MASK",
+		"LATENT",
+		"CONDITIONING",
+		"CONDITIONING",
+		"CLIP",
+		"MODEL",
+		"VAE",
+		"CONTROL_NET",
+		"SAM_MODEL",
+		"STRING",
+		"INT",
+		"FLOAT",
+		"BOOLEAN"
 	)
 
 	RETURN_NAMES = (
-		"image", "mask", "latent", "positive", "negative",
-		"clip", "model", "vae", "control_net", "sam_model",
-		"text", "int", "float", "boolean"
+		"image",
+		"mask",
+		"latent",
+		"positive",
+		"negative",
+		"clip",
+		"model",
+		"vae",
+		"control_net",
+		"sam_model",
+		"text",
+		"int",
+		"float",
+		"boolean"
 	)
 
 	CATEGORY = "Tojioo Passthrough"

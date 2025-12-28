@@ -3,8 +3,9 @@ import {getLinkTypeFromEndpoints} from "../utils/types.js"
 import {deferMicrotask, makeIsGraphLoading} from "../utils/lifecycle.js"
 import {ANY_TYPE, MAX_SOCKETS} from "../config/constants.js"
 
-const PREVIEW_MIN_HEIGHT = 220
-const NAV_BAR_HEIGHT = 32
+const TAB_BAR_HEIGHT = 28
+const TAB_PADDING = 10
+const TAB_GAP = 4
 
 export function configureDynamicPreview()
 {
@@ -16,10 +17,10 @@ export function configureDynamicPreview()
 
 			const isGraphLoading = makeIsGraphLoading()
 
-			nodeType.prototype._previewLockedSize = null
 			nodeType.prototype._currentImageIndex = 0
 			nodeType.prototype._imageElements = []
 			nodeType.prototype._totalImages = 0
+			nodeType.prototype._tabHitAreas = []
 
 			function normalizeInputs(node)
 			{
@@ -39,13 +40,6 @@ export function configureDynamicPreview()
 
 				while (node.inputs.length > desiredCount) node.removeInput(node.inputs.length - 1)
 				while (node.inputs.length < desiredCount) node.addInput("image", ANY_TYPE)
-
-				if (!node._previewLockedSize)
-				{
-					const computed = node.computeSize()
-					computed[1] = Math.max(computed[1], PREVIEW_MIN_HEIGHT)
-					node.setSize(computed)
-				}
 			}
 
 			function applyDynamicTypes(node)
@@ -110,50 +104,37 @@ export function configureDynamicPreview()
 				return node.inputs.some(inp => inp?.link != null)
 			}
 
-			function lockSize(node)
-			{
-				if (!node._previewLockedSize && hasAnyConnection(node))
-				{
-					const size = node.size.slice()
-					size[1] = Math.max(size[1], PREVIEW_MIN_HEIGHT)
-					node._previewLockedSize = size
-					node.setSize(size)
-				}
-			}
-
-			function unlockSizeIfNoConnections(node)
+			function resetStateIfNoConnections(node)
 			{
 				if (!hasAnyConnection(node))
 				{
-					node._previewLockedSize = null
 					node._currentImageIndex = 0
 					node._imageElements = []
 					node._totalImages = 0
+					node._tabHitAreas = []
 				}
 			}
 
-			// Override setSize to respect locked size
-			const prevSetSize = nodeType.prototype.setSize
-			nodeType.prototype.setSize = function(size)
+			function measureTabWidths(ctx, count)
 			{
-				if (this._previewLockedSize)
+				ctx.font = "12px Arial"
+				const widths = []
+				for (let i = 1; i <= count; i++)
 				{
-					size = [size[0], this._previewLockedSize[1]]
+					const textWidth = ctx.measureText(String(i)).width
+					widths.push(textWidth + TAB_PADDING * 2)
 				}
-				if (prevSetSize) prevSetSize.call(this, size)
-				else this.size = size
+				return widths
 			}
 
-			// Navigation methods
-			nodeType.prototype.navigateImage = function(delta)
+			nodeType.prototype.selectImage = function(index)
 			{
-				if (this._totalImages <= 1) return
-				this._currentImageIndex = (this._currentImageIndex + delta + this._totalImages) % this._totalImages
+				if (index < 0 || index >= this._totalImages) return
+				this._currentImageIndex = index
 				const g = getGraph(this)
 				g?.setDirtyCanvas?.(true, true)
 			}
 
-			// Custom drawing for image preview with navigation
 			const prevOnDrawForeground = nodeType.prototype.onDrawForeground
 			nodeType.prototype.onDrawForeground = function(ctx)
 			{
@@ -166,17 +147,17 @@ export function configureDynamicPreview()
 				const idx = Math.min(this._currentImageIndex, imgs.length - 1)
 				const img = imgs[idx]
 
-				if (!img || !img.complete) return
+				if (!img || !img.complete || img.naturalWidth === 0) return
 
-				// Calculate preview area
 				const inputsHeight = (this.inputs?.length || 1) * LiteGraph.NODE_SLOT_HEIGHT + 10
-				const previewY = inputsHeight
-				const previewHeight = this.size[1] - inputsHeight - NAV_BAR_HEIGHT
+				const showTabs = this._totalImages >= 2
+				const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0
+				const previewY = inputsHeight + tabBarHeight
+				const previewHeight = this.size[1] - previewY
 				const previewWidth = this.size[0]
 
 				if (previewHeight < 50) return
 
-				// Draw image scaled to fit
 				const scale = Math.min(previewWidth / img.width, previewHeight / img.height)
 				const drawWidth = img.width * scale
 				const drawHeight = img.height * scale
@@ -185,51 +166,65 @@ export function configureDynamicPreview()
 
 				ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
 
-				// Draw navigation bar if multiple images
-				if (this._totalImages > 1)
+				if (showTabs)
 				{
-					const navY = this.size[1] - NAV_BAR_HEIGHT
+					const tabY = inputsHeight
+					const tabWidths = measureTabWidths(ctx, this._totalImages)
+					const totalTabWidth = tabWidths.reduce((a, b) => a + b, 0) + TAB_GAP * (this._totalImages - 1)
+					let tabX = (this.size[0] - totalTabWidth) / 2
 
-					// Background
-					ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
-					ctx.fillRect(0, navY, this.size[0], NAV_BAR_HEIGHT)
+					this._tabHitAreas = []
 
-					// Left arrow
-					ctx.fillStyle = "#fff"
-					ctx.font = "16px Arial"
-					ctx.textAlign = "center"
-					ctx.textBaseline = "middle"
-					ctx.fillText("◀", 20, navY + NAV_BAR_HEIGHT / 2)
+					for (let i = 0; i < this._totalImages; i++)
+					{
+						const tabWidth = tabWidths[i]
+						const isSelected = i === this._currentImageIndex
 
-					// Counter
-					ctx.fillText(`${idx + 1} / ${this._totalImages}`, this.size[0] / 2, navY + NAV_BAR_HEIGHT / 2)
+						ctx.fillStyle = isSelected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)"
+						ctx.beginPath()
+						ctx.roundRect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4, 4)
+						ctx.fill()
 
-					// Right arrow
-					ctx.fillText("▶", this.size[0] - 20, navY + NAV_BAR_HEIGHT / 2)
+						ctx.fillStyle = isSelected ? "#fff" : "#aaa"
+						ctx.font = "12px Arial"
+						ctx.textAlign = "center"
+						ctx.textBaseline = "middle"
+						ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2)
+
+						this._tabHitAreas.push({
+							x: tabX,
+							y: tabY,
+							width: tabWidth,
+							height: TAB_BAR_HEIGHT,
+							index: i,
+						})
+
+						tabX += tabWidth + TAB_GAP
+					}
 				}
 			}
 
 			const prevOnMouseDown = nodeType.prototype.onMouseDown
 			nodeType.prototype.onMouseDown = function(e, localPos)
 			{
-				if (prevOnMouseDown) prevOnMouseDown.call(this, e, localPos)
-
-				if (this._totalImages <= 1) return
-
-				const navY = this.size[1] - NAV_BAR_HEIGHT
-				if (localPos[1] >= navY)
+				if (this._tabHitAreas && this._tabHitAreas.length > 0)
 				{
-					if (localPos[0] < this.size[0] / 3)
+					for (const area of this._tabHitAreas)
 					{
-						this.navigateImage(-1)
-						return true
-					}
-					else if (localPos[0] > this.size[0] * 2 / 3)
-					{
-						this.navigateImage(1)
-						return true
+						if (
+							localPos[0] >= area.x &&
+							localPos[0] <= area.x + area.width &&
+							localPos[1] >= area.y &&
+							localPos[1] <= area.y + area.height
+						)
+						{
+							this.selectImage(area.index)
+							return true
+						}
 					}
 				}
+
+				if (prevOnMouseDown) return prevOnMouseDown.call(this, e, localPos)
 			}
 
 			const prevOnExecuted = nodeType.prototype.onExecuted
@@ -237,12 +232,14 @@ export function configureDynamicPreview()
 			{
 				this.imgs = null
 
-				const images = message?.images
+				const images = message?.preview_data
+
 				if (!images || images.length === 0)
 				{
 					this._imageElements = []
 					this._totalImages = 0
 					this._currentImageIndex = 0
+					this._tabHitAreas = []
 					return
 				}
 
@@ -255,8 +252,6 @@ export function configureDynamicPreview()
 					img.src = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(imgInfo.subfolder || "")}&type=${encodeURIComponent(imgInfo.type || "output")}`
 					return img
 				})
-
-				lockSize(this)
 
 				const g = getGraph(this)
 				g?.setDirtyCanvas?.(true, true)
@@ -289,8 +284,6 @@ export function configureDynamicPreview()
 						}
 					}
 					catch (e) {}
-
-					lockSize(node)
 
 					deferMicrotask(() =>
 					{
@@ -329,22 +322,11 @@ export function configureDynamicPreview()
 						node.removeInput(disconnectedIndex)
 					}
 
-					unlockSizeIfNoConnections(node)
+					resetStateIfNoConnections(node)
 
 					normalizeInputs(node)
 					applyDynamicTypes(node)
 				})
-			}
-
-			const prevConfigure = nodeType.prototype.configure
-			nodeType.prototype.configure = function(info)
-			{
-				if (prevConfigure) prevConfigure.call(this, info)
-
-				if (info.size && hasAnyConnection(this))
-				{
-					this._previewLockedSize = info.size.slice()
-				}
 			}
 
 			const prevOnAdded = nodeType.prototype.onAdded

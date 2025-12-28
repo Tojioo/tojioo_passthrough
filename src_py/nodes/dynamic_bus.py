@@ -26,8 +26,8 @@ class PT_DynamicBus(BaseNode):
 		Maximum number of input/output sockets (32)
 	"""
 
-	NODE_NAME = "Dynamic Bus Node (Beta)"
-	DESCRIPTION = "Dynamic Bus: pack values into a bus, unpack values from a received bus, or pass through."
+	NODE_NAME = "Dynamic Bus (Beta)"
+	DESCRIPTION = "Pack values into a bus, unpack values from a received bus, or just use it as a passthrough."
 	_MAX_SOCKETS = 32
 
 	@classmethod

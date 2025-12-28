@@ -8,8 +8,9 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 - **Multi-Passthrough Hub**: Optional inputs with typed outputs
 - **Dynamic Nodes**:
     - Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
-    - Dynamic Bus: Context/bus for carrying multiple typed values
-    - Any Type Passthrough: Single wildcard passthrough
+    - Dynamic Single: Single input passthrough with type mirroring
+    - Dynamic Bus (Beta): Context/bus for carrying multiple typed values
+    - Dynamic Preview (Beta): Tabbed multi-input preview with interactive controls.
 - **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
 - **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
 
@@ -28,7 +29,7 @@ Restart ComfyUI.
 **Category Structure:**
 - `Tojioo Passthrough`: Multi-Passthrough hub
 - `Tojioo Passthrough/Simple Passthrough`: All typed passthroughs, Conditioning Passthrough
-- `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Any Type Passthrough
+- `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Dynamic Single Passthrough
 - `Tojioo Passthrough/Dynamic Nodes/Batch Switch Nodes`: Batch switching nodes
 - `Tojioo Passthrough/Dynamic Nodes/Switch Nodes`: First-valid switching nodes
 
