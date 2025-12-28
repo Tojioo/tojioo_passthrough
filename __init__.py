@@ -7,11 +7,13 @@
 import sys
 from pathlib import Path
 
-# Ensure the package directory is in the path for ComfyUI loading
+# Ensure the package directory is in the path for ComfyUI loading.
 _package_dir = Path(__file__).parent
-if str(_package_dir) not in sys.path:
-	sys.path.insert(0, str(_package_dir))
+if _package_dir.as_posix() not in sys.path:
+	sys.path.insert(0, _package_dir.as_posix())
 
-from src_python import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS, WEB_DIRECTORY
+# Give Comfy the relevant stuff from src_py.
+from src_py import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS, WEB_DIRECTORY
 
+# ♪ We're all in this together ♪
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

@@ -1,16 +1,18 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.5.0] - In Development
+## [1.5.0] - 2025-12-28
 ### New Features
-- Added dynamic bus node
+- Added dynamic single node
+  - Same as dynamic passthrough, but only allows a single input / output.
+- Added dynamic bus node (Beta, currently in development)
     - First slot is a static bus type that packs all subsequent inputs into a single bus output
     - Can be used to combine multiple inputs into a single output
     - Can be used to split a single bus input into multiple outputs
     - Input slots are dynamically added/removed
     - Outputs are typed based on connected inputs
-- Added dynamic single node
-    - Same as dynamic passthrough, but only allows a single input / output.
+- Added dynamic preview node (Beta, currently in development)
+    - Same as image preview, but with multiple dynamic inputs that can be selected to preview.
 ### Internal
 - Reorganized codebase into modular `src_python/` and `js/` directories
     - Python modules now organized under `src_python/` (config, controllers, handlers, nodes, utils)

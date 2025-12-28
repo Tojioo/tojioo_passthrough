@@ -1,6 +1,6 @@
 ﻿import {getGraph, getLink} from "../utils/graph.js"
 import {applyDynamicTypes, getLinkTypeFromEndpoints} from "../utils/types.js"
-import {applyNodeLifecycleHooks, deferMicrotask, makeIsGraphLoading} from "../utils/lifecycle.js"
+import {deferMicrotask, makeIsGraphLoading} from "../utils/lifecycle.js"
 import {ANY_TYPE, MAX_SOCKETS} from "../config/constants.js"
 
 export function configureDynamicPassthrough() {
@@ -72,8 +72,14 @@ export function configureDynamicPassthrough() {
 						const inferredType = getLinkTypeFromEndpoints(node, linkObj)
 						if (linkId != null && g?.links?.[linkId] && inferredType && inferredType !== ANY_TYPE) {
 							g.links[linkId].type = inferredType
+
+							if (node.outputs?.[index])
+							{
+								node.outputs[index].type = inferredType
+							}
 						}
-					} catch (e) {}
+					}
+					catch (e) {}
 
 					deferMicrotask(() => {
 						normalizeIO(node)
@@ -186,7 +192,20 @@ export function configureDynamicPassthrough() {
 				})
 			}
 
-			applyNodeLifecycleHooks(nodeType, normalizeIO, isGraphLoading)
+			const prevConfigure = nodeType.prototype.configure
+			nodeType.prototype.configure = function (info) {
+				if (prevConfigure) prevConfigure.call(this, info)
+			}
+
+			const prevOnAdded = nodeType.prototype.onAdded
+			nodeType.prototype.onAdded = function () {
+				if (prevOnAdded) prevOnAdded.apply(this, arguments)
+
+				deferMicrotask(() => {
+					normalizeIO(this)
+					applyDynamicTypes(this)
+				})
+			}
 		}
 	}
 }

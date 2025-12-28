@@ -4,28 +4,30 @@
 # Licensed under the GNU General Public License v3.0 only.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from .base import BaseNode
-from .dynamic_passthrough import any_type, FlexibleOptionalInputType
+from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
 
 
-def parse_slot_occurrence(key):
-	"""
-	Parse slot occurrence from key name.
-	'image' -> 1, 'image_2' -> 2, 'model_3' -> 3
-	"""
-	if '_' in key:
-		parts = key.rsplit('_', 1)
-		try:
-			return int(parts[1])
-		except ValueError:
-			pass
-	return 1
+any_type = AnyType("*")
 
 
 class PT_DynamicBus(BaseNode):
+	"""
+	Dynamic Bus: pack values into a bus, unpack values from a received bus, or pass through.
+	
+	This node allows flexible data routing by:
+	- Packing multiple inputs into a single bus output
+	- Unpacking a received bus into individual outputs
+	- Direct passthrough of individual values
+	
+	Class Attributes
+	----------------
+	_MAX_SOCKETS : int
+		Maximum number of input/output sockets (32)
+	"""
+
+	NODE_NAME = "Dynamic Bus Node (Beta)"
 	DESCRIPTION = "Dynamic Bus: pack values into a bus, unpack values from a received bus, or pass through."
-	NODE_NAME = "Dynamic Bus Node"
 	_MAX_SOCKETS = 32
 
 	@classmethod
@@ -71,3 +73,17 @@ class PT_DynamicBus(BaseNode):
 			outputs.append(None)
 
 		return tuple(outputs[:self._MAX_SOCKETS])
+
+
+def parse_slot_occurrence(key):
+	"""
+	Parse slot occurrence from key name.
+	'image' -> 1, 'image_2' -> 2, 'model_3' -> 3
+	"""
+	if '_' in key:
+		parts = key.rsplit('_', 1)
+		try:
+			return int(parts[1])
+		except ValueError:
+			pass
+	return 1

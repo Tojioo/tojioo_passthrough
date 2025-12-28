@@ -10,6 +10,7 @@ from ..config.categories import CATEGORIES
 from ..config.types import COMFY_TYPES, FORCE_INPUT_TYPES
 from ..handlers.batch_handler import BatchHandler
 
+
 class SwitchController:
 	SWITCH_SPECS = [
 		("PT_AnyImageSwitch", "image", "image", "image", "Any Image Switch"),

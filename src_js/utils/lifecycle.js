@@ -1,47 +1,20 @@
 ﻿import {getGraph, getLink, getNodeById, setLinkType} from "./graph.js"
-import {applyDynamicTypes, getLinkTypeFromEndpoints} from "./types.js"
+import {getLinkTypeFromEndpoints} from "./types.js"
 import {ANY_TYPE} from "../config/constants.js"
 
-export function makeIsGraphLoading() {
+export function makeIsGraphLoading()
+{
 	return () => (new Error().stack ?? "").includes("loadGraphData")
 }
 
-export function deferMicrotask(fn) {
-	if (typeof queueMicrotask === "function") {
+export function deferMicrotask(fn)
+{
+	if (typeof queueMicrotask === "function")
+	{
 		queueMicrotask(fn)
 		return
 	}
 	Promise.resolve().then(fn)
-}
-
-export function applyNodeLifecycleHooks(nodeType, normalizeIO, isGraphLoading = null) {
-	const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange
-	if (isGraphLoading) {
-		nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
-			if (isGraphLoading()) return
-			if (prevOnConnectionsChange) prevOnConnectionsChange.call(this, type, index, connected, link_info)
-
-			const node = this
-			setTimeout(() => {
-				normalizeIO(node)
-				applyDynamicTypes(node)
-			}, 50)
-		}
-	}
-
-	const prevConfigure = nodeType.prototype.configure
-	nodeType.prototype.configure = function (info) {
-		if (prevConfigure) prevConfigure.call(this, info)
-		normalizeIO(this)
-		applyDynamicTypes(this)
-	}
-
-	const prevOnAdded = nodeType.prototype.onAdded
-	nodeType.prototype.onAdded = function () {
-		if (prevOnAdded) prevOnAdded.apply(this, arguments)
-		normalizeIO(this)
-		applyDynamicTypes(this)
-	}
 }
 
 export function deriveDynamicPrefixFromNodeData(nodeData) {
@@ -75,13 +48,18 @@ function resolveInputType(node, inputIndex) {
 
 	const sourceNode = getNodeById(node, link.origin_id)
 	const sourceSlot = sourceNode?.outputs?.[link.origin_slot]
-	if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE) {
+	if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE)
+	{
 		return sourceSlot.type
 	}
 
 	return ANY_TYPE
 }
 
+/**
+ * Applies uniform type across all inputs for Switch nodes.
+ * All inputs converge to the first resolved type.
+ */
 function applySwitchDynamicTypes(node, inputPrefix) {
 	if (!node.inputs || node.inputs.length === 0) return
 
@@ -140,7 +118,12 @@ function applySwitchDynamicTypes(node, inputPrefix) {
 	node.setSize(node.computeSize())
 }
 
-export function applyDynamicInputs(nodeType, inputPrefix, isGraphLoading) {
+/**
+ * Applies dynamic input behavior to Switch nodes.
+ * Handles slot addition/removal and type propagation.
+ */
+export function applyDynamicInputs(nodeType, inputPrefix, isGraphLoading)
+{
 	function normalizeInputs(node) {
 		if (!node.inputs) return
 
@@ -160,7 +143,6 @@ export function applyDynamicInputs(nodeType, inputPrefix, isGraphLoading) {
 
 	const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange
 	nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
-		if (isGraphLoading()) return
 		if (prevOnConnectionsChange) prevOnConnectionsChange.apply(this, arguments)
 
 		if (!link_info) return

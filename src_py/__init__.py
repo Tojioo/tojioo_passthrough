@@ -11,6 +11,7 @@ from .controllers.switch_controller import SwitchController
 from .nodes.conditioning import PT_Conditioning
 from .nodes.dynamic_bus import PT_DynamicBus
 from .nodes.dynamic_passthrough import PT_DynamicPassthrough
+from .nodes.dynamic_preview import PT_DynamicPreview
 from .nodes.dynamic_single import PT_DynamicSingle
 from .nodes.multi_pass import PT_MultiPass
 from .utils.wsl_patch import apply_wsl_safetensors_patch
@@ -23,6 +24,7 @@ NODE_CLASS_MAPPINGS: Dict[str, Any] = {
 	"PT_DynamicPassthrough": PT_DynamicPassthrough,
 	"PT_DynamicBus": PT_DynamicBus,
 	"PT_DynamicSingle": PT_DynamicSingle,
+	"PT_DynamicPreview": PT_DynamicPreview,
 	**PassthroughController.create_nodes(),
 	**SwitchController.create_nodes(),
 }
@@ -31,6 +33,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 	k: v.NODE_NAME for k, v in NODE_CLASS_MAPPINGS.items()
 }
 
-WEB_DIRECTORY = "./js"
+WEB_DIRECTORY = "./src_js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

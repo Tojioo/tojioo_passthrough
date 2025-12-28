@@ -10,6 +10,7 @@ from ..config.categories import CATEGORIES
 from ..config.types import TYPE_SPECS, FORCE_INPUT_TYPES
 from ..handlers.type_handler import TypeHandler
 
+
 class PassthroughController:
 	@staticmethod
 	def create_nodes() -> Dict[str, type]:

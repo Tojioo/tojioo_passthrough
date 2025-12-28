@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+
 class Tensor:
 	def __init__(self, shape):
 		self.shape = tuple(int(x) for x in shape)
@@ -41,7 +42,7 @@ def _cat(tensors, dim=0):
 	return Tensor((batch, *base[1:]))
 
 
-# Install torch stub BEFORE any src_python imports happen
+# Install torch stub BEFORE any src_py imports happen
 torch_stub = types.ModuleType("torch")
 torch_stub.Tensor = Tensor
 torch_stub.randn = _randn

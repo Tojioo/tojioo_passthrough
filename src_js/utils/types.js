@@ -1,7 +1,8 @@
 ﻿import {getGraph, getLink, getNodeById, setLinkType} from "./graph.js"
 import {ANY_TYPE} from "../config/constants.js"
 
-export function getLinkTypeFromEndpoints(node, link) {
+export function getLinkTypeFromEndpoints(node, link)
+{
 	const origin = getNodeById(node, link?.origin_id)
 	const oSlot = link?.origin_slot
 	const originType = origin?.outputs?.[oSlot]?.type
@@ -18,7 +19,8 @@ export function getLinkTypeFromEndpoints(node, link) {
 	return ANY_TYPE
 }
 
-export function resolvePairType(node, zeroBasedIndex) {
+export function resolvePairType(node, zeroBasedIndex)
+{
 	const out = node.outputs?.[zeroBasedIndex]
 	const inp = node.inputs?.[zeroBasedIndex]
 
@@ -26,10 +28,12 @@ export function resolvePairType(node, zeroBasedIndex) {
 	const outLink = getLink(node, outLinkId)
 	let outType = outLink ? getLinkTypeFromEndpoints(node, outLink) : ANY_TYPE
 
-	if (outType === ANY_TYPE && outLink) {
+	if (outType === ANY_TYPE && outLink)
+	{
 		const targetNode = node.graph?.getNodeById?.(outLink.target_id)
 		const targetSlot = targetNode?.inputs?.[outLink.target_slot]
-		if (targetSlot?.type && targetSlot.type !== ANY_TYPE) {
+		if (targetSlot?.type && targetSlot.type !== ANY_TYPE)
+		{
 			outType = targetSlot.type
 		}
 	}
@@ -40,10 +44,12 @@ export function resolvePairType(node, zeroBasedIndex) {
 	const inLink = getLink(node, inLinkId)
 	let inType = inLink ? getLinkTypeFromEndpoints(node, inLink) : ANY_TYPE
 
-	if (inType === ANY_TYPE && inLink) {
+	if (inType === ANY_TYPE && inLink)
+	{
 		const sourceNode = node.graph?.getNodeById?.(inLink.origin_id)
 		const sourceSlot = sourceNode?.outputs?.[inLink.origin_slot]
-		if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE) {
+		if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE)
+		{
 			inType = sourceSlot.type
 		}
 	}
@@ -53,17 +59,25 @@ export function resolvePairType(node, zeroBasedIndex) {
 	return ANY_TYPE
 }
 
-export function updateLinkTypesForSlot(node, zeroBasedIndex, type) {
+export function updateLinkTypesForSlot(node, zeroBasedIndex, type)
+{
 	const inLinkId = node.inputs?.[zeroBasedIndex]?.link
 	if (inLinkId != null) setLinkType(node, inLinkId, type)
 
 	const outLinks = node.outputs?.[zeroBasedIndex]?.links ?? []
-	for (const linkId of outLinks) {
+	for (const linkId of outLinks)
+	{
 		if (linkId != null) setLinkType(node, linkId, type)
 	}
 }
 
-export function applyDynamicTypes(node) {
+/**
+ * Applies dynamic types to paired input/output slots.
+ * Each slot pair (input[i], output[i]) shares a resolved type.
+ * Typed slots get type-based names, untyped get "input"/"output".
+ */
+export function applyDynamicTypes(node)
+{
 	const count = Math.max(node.inputs?.length ?? 0, node.outputs?.length ?? 0)
 	const types = []
 	for (let i = 0; i < count; i++) types.push(resolvePairType(node, i))
@@ -72,11 +86,13 @@ export function applyDynamicTypes(node) {
 	const outputNames = []
 	const typeCounters = {}
 
-	for (let i = 0; i < count; i++) {
+	for (let i = 0; i < count; i++)
+	{
 		const t = types[i]
 		const isTyped = t && t !== ANY_TYPE
 
-		if (isTyped) {
+		if (isTyped)
+		{
 			const baseLabel = t.toLowerCase()
 			if (typeCounters[t] === undefined) typeCounters[t] = 1
 			const occurrence = typeCounters[t]
@@ -85,7 +101,9 @@ export function applyDynamicTypes(node) {
 			const name = occurrence === 1 ? baseLabel : `${baseLabel}_${occurrence}`
 			inputNames.push(name)
 			outputNames.push(name)
-		} else {
+		}
+		else
+		{
 			if (typeCounters["__untyped__"] === undefined) typeCounters["__untyped__"] = 1
 			const occurrence = typeCounters["__untyped__"]
 			typeCounters["__untyped__"]++
@@ -95,13 +113,16 @@ export function applyDynamicTypes(node) {
 		}
 	}
 
-	for (let i = 0; i < count; i++) {
+	for (let i = 0; i < count; i++)
+	{
 		const t = types[i]
-		if (node.inputs?.[i]) {
+		if (node.inputs?.[i])
+		{
 			node.inputs[i].type = t
 			node.inputs[i].name = inputNames[i]
 		}
-		if (node.outputs?.[i]) {
+		if (node.outputs?.[i])
+		{
 			node.outputs[i].type = t
 			node.outputs[i].name = outputNames[i]
 		}

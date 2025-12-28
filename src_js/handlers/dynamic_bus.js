@@ -3,15 +3,18 @@ import {getLinkTypeFromEndpoints} from "../utils/types.js"
 import {deferMicrotask, makeIsGraphLoading} from "../utils/lifecycle.js"
 import {ANY_TYPE, BUS_TYPE, MAX_SOCKETS} from "../config/constants.js"
 
-export function configureDynamicBus() {
+export function configureDynamicBus()
+{
 	return {
 		name: "Tojioo.Passthrough.Dynamic.DynamicBus",
-		beforeRegisterNodeDef(nodeType, nodeData, app) {
+		beforeRegisterNodeDef(nodeType, nodeData, app)
+		{
 			if (nodeData?.name !== "PT_DynamicBus") return
 
 			const isGraphLoading = makeIsGraphLoading()
 
-			function getSourceBusTypes(node) {
+			function getSourceBusTypes(node)
+			{
 				const busInput = node.inputs?.[0]
 				if (!busInput || busInput.link == null) return null
 
@@ -22,14 +25,17 @@ export function configureDynamicBus() {
 				return sourceNode?.properties?._bus_slot_types ?? null
 			}
 
-			function resolveSlotType(node, slotIndex, busTypes) {
+			function resolveSlotType(node, slotIndex, busTypes)
+			{
 				const inp = node.inputs?.[slotIndex]
 				const out = node.outputs?.[slotIndex]
 
 				const inLinkId = inp?.link
-				if (inLinkId != null) {
+				if (inLinkId != null)
+				{
 					const inLink = getLink(node, inLinkId)
-					if (inLink) {
+					if (inLink)
+					{
 						const t = getLinkTypeFromEndpoints(node, inLink)
 						if (t && t !== ANY_TYPE) return t
 
@@ -39,10 +45,17 @@ export function configureDynamicBus() {
 					}
 				}
 
+				if (inp?.type && inp.type !== ANY_TYPE)
+				{
+					return inp.type
+				}
+
 				const outLinkId = out?.links?.[0]
-				if (outLinkId != null) {
+				if (outLinkId != null)
+				{
 					const outLink = getLink(node, outLinkId)
-					if (outLink) {
+					if (outLink)
+					{
 						const t = getLinkTypeFromEndpoints(node, outLink)
 						if (t && t !== ANY_TYPE) return t
 
@@ -52,43 +65,60 @@ export function configureDynamicBus() {
 					}
 				}
 
+				if (out?.type && out.type !== ANY_TYPE)
+				{
+					return out.type
+				}
+
 				const busIndex = slotIndex - 1
-				if (busTypes && busTypes[busIndex] !== undefined) {
+				if (busTypes && busTypes[busIndex] !== undefined)
+				{
 					return busTypes[busIndex]
 				}
 
 				return ANY_TYPE
 			}
 
-			function normalizeIO(node) {
+			function normalizeIO(node)
+			{
 				if (!node.inputs) node.inputs = []
 				if (!node.outputs) node.outputs = []
 
-				if (node.inputs.length === 0) {
+				if (node.inputs.length === 0)
+				{
 					node.addInput("bus", BUS_TYPE)
-				} else {
+				}
+				else
+				{
 					node.inputs[0].name = "bus"
 					node.inputs[0].type = BUS_TYPE
 				}
 
-				if (node.outputs.length === 0) {
+				if (node.outputs.length === 0)
+				{
 					node.addOutput("bus", BUS_TYPE)
-				} else {
+				}
+				else
+				{
 					node.outputs[0].name = "bus"
 					node.outputs[0].type = BUS_TYPE
 				}
 
 				let lastConnectedInput = 0
-				for (let i = node.inputs.length - 1; i >= 1; i--) {
-					if (node.inputs[i]?.link != null) {
+				for (let i = node.inputs.length - 1; i >= 1; i--)
+				{
+					if (node.inputs[i]?.link != null)
+					{
 						lastConnectedInput = i
 						break
 					}
 				}
 
 				let lastConnectedOutput = 0
-				for (let i = node.outputs.length - 1; i >= 1; i--) {
-					if ((node.outputs[i]?.links?.length ?? 0) > 0) {
+				for (let i = node.outputs.length - 1; i >= 1; i--)
+				{
+					if ((node.outputs[i]?.links?.length ?? 0) > 0)
+					{
 						lastConnectedOutput = i
 						break
 					}
@@ -109,55 +139,80 @@ export function configureDynamicBus() {
 				node.setSize(node.computeSize())
 			}
 
-			function applyBusDynamicTypes(node) {
+			function applyBusDynamicTypes(node)
+			{
 				const count = Math.max(node.inputs?.length ?? 0, node.outputs?.length ?? 0)
 				const busTypes = getSourceBusTypes(node)
 
 				const types = [BUS_TYPE]
-				for (let i = 1; i < count; i++) {
+				for (let i = 1; i < count; i++)
+				{
 					types.push(resolveSlotType(node, i, busTypes))
 				}
 
-				const typeCounters = {}
-				const slotNames = ["bus"]
+				for (let i = 1; i < count; i++)
+				{
+					if (types[i] && types[i] !== ANY_TYPE)
+					{
+						if (node.outputs?.[i])
+						{
+							node.outputs[i].type = types[i]
+						}
+					}
+				}
 
-				for (let i = 1; i < count; i++) {
+				const typeCounters = {}
+				const inputNames = ["bus"]
+				const outputNames = ["bus"]
+
+				for (let i = 1; i < count; i++)
+				{
 					const t = types[i]
 					const isTyped = t && t !== ANY_TYPE
 
-					if (isTyped) {
+					if (isTyped)
+					{
 						const baseLabel = t.toLowerCase()
 						if (typeCounters[t] === undefined) typeCounters[t] = 1
 						const occurrence = typeCounters[t]
 						typeCounters[t]++
-						slotNames.push(occurrence === 1 ? baseLabel : `${baseLabel}_${occurrence}`)
-					} else {
+						const name = occurrence === 1 ? baseLabel : `${baseLabel}_${occurrence}`
+						inputNames.push(name)
+						outputNames.push(name)
+					}
+					else
+					{
 						if (typeCounters["__untyped__"] === undefined) typeCounters["__untyped__"] = 1
 						const occurrence = typeCounters["__untyped__"]
 						typeCounters["__untyped__"]++
-						slotNames.push(occurrence === 1 ? "input" : `input_${occurrence}`)
+						inputNames.push(occurrence === 1 ? "input" : `input_${occurrence}`)
+						outputNames.push(occurrence === 1 ? "output" : `output_${occurrence}`)
 					}
 				}
 
-				for (let i = 0; i < count; i++) {
+				for (let i = 0; i < count; i++)
+				{
 					const t = types[i]
-					const name = slotNames[i]
 
-					if (node.inputs?.[i]) {
+					if (node.inputs?.[i])
+					{
 						node.inputs[i].type = t
-						node.inputs[i].name = name
+						node.inputs[i].name = inputNames[i]
 					}
-					if (node.outputs?.[i]) {
+					if (node.outputs?.[i])
+					{
 						node.outputs[i].type = t
-						node.outputs[i].name = name
+						node.outputs[i].name = outputNames[i]
 					}
 
-					if (i > 0 && t && t !== ANY_TYPE) {
+					if (i > 0 && t && t !== ANY_TYPE)
+					{
 						const inLinkId = node.inputs?.[i]?.link
 						if (inLinkId != null) setLinkType(node, inLinkId, t)
 
 						const outLinks = node.outputs?.[i]?.links ?? []
-						for (const linkId of outLinks) {
+						for (const linkId of outLinks)
+						{
 							if (linkId != null) setLinkType(node, linkId, t)
 						}
 					}
@@ -166,15 +221,19 @@ export function configureDynamicBus() {
 				if (!node.properties) node.properties = {}
 				node.properties._bus_slot_types = {}
 
-				if (busTypes) {
-					for (const [idx, t] of Object.entries(busTypes)) {
+				if (busTypes)
+				{
+					for (const [idx, t] of Object.entries(busTypes))
+					{
 						node.properties._bus_slot_types[idx] = t
 					}
 				}
 
-				for (let i = 1; i < count; i++) {
+				for (let i = 1; i < count; i++)
+				{
 					const t = types[i]
-					if (t && t !== ANY_TYPE) {
+					if (t && t !== ANY_TYPE)
+					{
 						node.properties._bus_slot_types[i - 1] = t
 					}
 				}
@@ -185,22 +244,78 @@ export function configureDynamicBus() {
 			}
 
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange
-			nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info) {
+			nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info)
+			{
 				if (isGraphLoading()) return
 				if (prevOnConnectionsChange) prevOnConnectionsChange.call(this, type, index, connected, link_info)
 
 				const node = this
 
-				if (!connected && index > 0) {
+				if (type === LiteGraph.INPUT && connected && index > 0)
+				{
+					try
+					{
+						const g = getGraph(node)
+						const linkId = link_info?.id ?? node.inputs?.[index]?.link
+						const linkObj = link_info ?? (linkId != null ? getLink(node, linkId) : null)
+						if (linkObj)
+						{
+							const sourceNode = getNodeById(node, linkObj.origin_id)
+							const sourceSlot = sourceNode?.outputs?.[linkObj.origin_slot]
+							const inferredType = sourceSlot?.type && sourceSlot.type !== ANY_TYPE
+								? sourceSlot.type
+								: getLinkTypeFromEndpoints(node, linkObj)
+
+							if (inferredType && inferredType !== ANY_TYPE)
+							{
+								if (node.inputs[index]) node.inputs[index].type = inferredType
+								if (node.outputs[index]) node.outputs[index].type = inferredType
+								if (linkId != null && g?.links?.[linkId]) g.links[linkId].type = inferredType
+							}
+						}
+					}
+					catch (e) {}
+				}
+
+				if (type === LiteGraph.OUTPUT && connected && index > 0)
+				{
+					try
+					{
+						const g = getGraph(node)
+						const linkId = link_info?.id
+						const linkObj = link_info ?? (linkId != null ? getLink(node, linkId) : null)
+						if (linkObj)
+						{
+							const targetNode = getNodeById(node, linkObj.target_id)
+							const targetSlot = targetNode?.inputs?.[linkObj.target_slot]
+							const inferredType = targetSlot?.type && targetSlot.type !== ANY_TYPE
+								? targetSlot.type
+								: getLinkTypeFromEndpoints(node, linkObj)
+
+							if (inferredType && inferredType !== ANY_TYPE)
+							{
+								if (node.outputs[index]) node.outputs[index].type = inferredType
+								if (node.inputs[index]) node.inputs[index].type = inferredType
+								if (linkId != null && g?.links?.[linkId]) g.links[linkId].type = inferredType
+							}
+						}
+					}
+					catch (e) {}
+				}
+
+				if (!connected && index > 0)
+				{
 					const disconnectedIndex = index
 					const isInput = type === LiteGraph.INPUT
 
-					deferMicrotask(() => {
+					deferMicrotask(() =>
+					{
 						const slotStillConnected = isInput
 							? node.inputs?.[disconnectedIndex]?.link != null
 							: (node.outputs?.[disconnectedIndex]?.links?.length ?? 0) > 0
 
-						if (slotStillConnected) {
+						if (slotStillConnected)
+						{
 							normalizeIO(node)
 							applyBusDynamicTypes(node)
 							return
@@ -212,14 +327,17 @@ export function configureDynamicBus() {
 
 						let hasConnectionsAfter = false
 						const maxLen = Math.max(node.inputs?.length ?? 0, node.outputs?.length ?? 0)
-						for (let i = disconnectedIndex + 1; i < maxLen; i++) {
-							if (node.inputs?.[i]?.link != null || (node.outputs?.[i]?.links?.length ?? 0) > 0) {
+						for (let i = disconnectedIndex + 1; i < maxLen; i++)
+						{
+							if (node.inputs?.[i]?.link != null || (node.outputs?.[i]?.links?.length ?? 0) > 0)
+							{
 								hasConnectionsAfter = true
 								break
 							}
 						}
 
-						if (hasConnectionsAfter && !pairConnected) {
+						if (hasConnectionsAfter && !pairConnected)
+						{
 							node.removeInput(disconnectedIndex)
 							node.removeOutput(disconnectedIndex)
 						}
@@ -230,24 +348,29 @@ export function configureDynamicBus() {
 					return
 				}
 
-				setTimeout(() => {
+				deferMicrotask(() =>
+				{
 					normalizeIO(node)
 					applyBusDynamicTypes(node)
-				}, 50)
+				})
 			}
 
 			const prevConfigure = nodeType.prototype.configure
-			nodeType.prototype.configure = function (info) {
+			nodeType.prototype.configure = function (info)
+			{
 				if (prevConfigure) prevConfigure.call(this, info)
-				normalizeIO(this)
-				applyBusDynamicTypes(this)
 			}
 
 			const prevOnAdded = nodeType.prototype.onAdded
-			nodeType.prototype.onAdded = function () {
+			nodeType.prototype.onAdded = function ()
+			{
 				if (prevOnAdded) prevOnAdded.apply(this, arguments)
-				normalizeIO(this)
-				applyBusDynamicTypes(this)
+
+				deferMicrotask(() =>
+				{
+					normalizeIO(this)
+					applyBusDynamicTypes(this)
+				})
 			}
 		}
 	}

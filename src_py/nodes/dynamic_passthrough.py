@@ -4,39 +4,16 @@
 # Licensed under the GNU General Public License v3.0 only.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from .base import BaseNode
+from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
-
-
-class AnyType(str):
-	def __eq__(self, other):
-		return isinstance(other, str)
-
-	def __ne__(self, other):
-		return False
-
-	def __hash__(self):
-		return hash("*")
 
 
 any_type = AnyType("*")
 
 
-class FlexibleOptionalInputType(dict):
-	def __init__(self, type_spec):
-		super().__init__()
-		self._type_spec = type_spec
-
-	def __contains__(self, key):
-		return True
-
-	def __getitem__(self, key):
-		return (self._type_spec,)
-
-
 class PT_DynamicPassthrough(BaseNode):
-	DESCRIPTION = "Dynamic passthrough with one output per input; types adapt based on connections."
 	NODE_NAME = "Dynamic Passthrough"
+	DESCRIPTION = "Dynamic passthrough with one output per input; types adapt based on connections."
 	_MAX_SOCKETS = 32
 
 	@classmethod

@@ -10,6 +10,7 @@ import torch
 
 from ..config.types import BATCHABLE_TYPES
 
+
 class BatchHandler:
 	@staticmethod
 	def can_batch(type_name: str) -> bool:

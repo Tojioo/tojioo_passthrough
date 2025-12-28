@@ -72,6 +72,7 @@ tojioo-passthrough/
 │   │   ├── batch_switch.js
 │   │   ├── dynamic_bus.js
 │   │   ├── dynamic_passthrough.js
+│   │   ├── dynamic_preview.js
 │   │   ├── dynamic_single.js
 │   │   └── switch.js
 │   ├── utils/
@@ -79,7 +80,7 @@ tojioo-passthrough/
 │   │   ├── lifecycle.js
 │   │   └── types.js
 │   └── index.js
-├── py/
+├── src_python/
 │   ├── config/
 │   │   ├── categories.py
 │   │   └── types.py
@@ -94,12 +95,14 @@ tojioo-passthrough/
 │   │   ├── conditioning.py
 │   │   ├── dynamic_bus.py
 │   │   ├── dynamic_passthrough.py
+│   │   ├── dynamic_preview.py
 │   │   ├── dynamic_single.py
 │   │   └── multi_pass.py
 │   ├── utils/
 │   │   ├── logger.py
 │   │   └── wsl_patch.py
 │   └── __init__.py
+│   └── extensions.py
 ├── tests/
 │   ├── conftest.py
 │   ├── test_config.py
