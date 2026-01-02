@@ -1,20 +1,111 @@
 name: Publish to Comfy registry
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "pyproject.toml"
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - "pyproject.toml"
 
 jobs:
-  publish-node:
-    name: Publish Custom Node to registry
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Publish Custom Node
-        uses: Comfy-Org/publish-node-action@main
-        with:
-          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+    publish-node:
+        name: Publish Custom Node to registry
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install comfy-cli
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install comfy-cli
+
+            - name: Read versions
+              id: v
+              env:
+                  BEFORE: ${{ github.event.before }}
+              run: |
+                  python - <<'PY'
+                  import os, subprocess, tomllib, pathlib
+
+                  def run(cmd):
+                      return subprocess.run(cmd, check=False, text=True, capture_output=True)
+
+                  def commit_exists(commit):
+                      return run(["git", "cat-file", "-e", f"{commit}^{{commit}}"]).returncode == 0
+
+                  def get_file_at(commit, path):
+                      r = run(["git", "show", f"{commit}:{path}"])
+                      return r.stdout if r.returncode == 0 else None
+
+                  def parse_name_version(toml_text: str):
+                      data = tomllib.loads(toml_text)
+                      proj = data.get("project", {}) if isinstance(data, dict) else {}
+                      return str(proj.get("name") or ""), str(proj.get("version") or "")
+
+                  current_text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+                  node_id, new_ver = parse_name_version(current_text)
+
+                  before = (os.environ.get("BEFORE") or "").strip()
+                  if not before or not commit_exists(before):
+                      r = run(["git", "rev-parse", "HEAD^"])
+                      before = r.stdout.strip() if r.returncode == 0 else ""
+
+                  old_ver = ""
+                  if before:
+                      prev_text = get_file_at(before, "pyproject.toml")
+                      if prev_text:
+                          _, old_ver = parse_name_version(prev_text)
+
+                  changed = "true" if old_ver and new_ver and old_ver != new_ver else "false"
+
+                  out = os.environ["GITHUB_OUTPUT"]
+                  with open(out, "a", encoding="utf-8") as f:
+                      f.write(f"node_id={node_id}\n")
+                      f.write(f"old_version={old_ver}\n")
+                      f.write(f"new_version={new_ver}\n")
+                      f.write(f"version_changed={changed}\n")
+                  PY
+
+            - name: Publish Custom Node
+              env:
+                  REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  log="$(mktemp)"
+                  set +e
+                  comfy --skip-prompt --no-enable-telemetry node publish --token "${REGISTRY_ACCESS_TOKEN}" 2>&1 | tee "$log"
+                  rc="${PIPESTATUS[0]}"
+                  set -e
+
+                  if [ "$rc" -eq 0 ]; then
+                    exit 0
+                  fi
+
+                  # Only suppress failure when the version did not change AND the version already exists in the registry.
+                  if [ "${{ steps.v.outputs.version_changed }}" = "false" ]; then
+                    node_id="${{ steps.v.outputs.node_id }}"
+                    version="${{ steps.v.outputs.new_version }}"
+
+                    if [ -n "$node_id" ] && [ -n "$version" ]; then
+                      http_code="$(curl --silent --show-error --location \
+                        --output /dev/null --write-out "%{http_code}" \
+                        "https://api.comfy.org/nodes/${node_id}/versions/${version}")"
+
+                      if [ "$http_code" = "200" ]; then
+                        echo "Publish failed, but ${node_id}@${version} already exists in the registry, treating as success."
+                        exit 0
+                      fi
+                    fi
+                  fi
+
+                  echo "Publish failed (exit ${rc})."
+                  exit "$rc"
