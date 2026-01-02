@@ -6,24 +6,29 @@
 
 from .base import BaseNode
 from ..config.categories import CATEGORIES
-from ..config.types import COMFY_TYPES
+
 
 class PT_Conditioning(BaseNode):
-	DESCRIPTION = "Passthrough for positive and negative conditioning."
-	NODE_NAME = "Conditioning Passthrough"
-
 	@classmethod
 	def INPUT_TYPES(cls):
 		return {
-			"required": {
-				"positive": (COMFY_TYPES["conditioning"],),
-				"negative": (COMFY_TYPES["conditioning"],),
+			"required": {},
+			"optional": {
+				"positive": ("CONDITIONING",),
+				"negative": ("CONDITIONING",),
 			}
 		}
 
-	RETURN_TYPES = (COMFY_TYPES["conditioning"], COMFY_TYPES["conditioning"])
-	RETURN_NAMES = ("positive", "negative")
+	OUTPUT_NODE = True
+	NODE_NAME = "Conditioning Passthrough"
 	CATEGORY = CATEGORIES["simple"]
+	DESCRIPTION = "Passthrough for positive and negative conditioning."
 
-	def run(self, positive, negative):
+	RETURN_TYPES = ("CONDITIONING", "CONDITIONING")
+	RETURN_NAMES = ("positive", "negative")
+
+	FUNCTION = "run"
+
+	@staticmethod
+	def run(positive=None, negative=None):
 		return positive, negative

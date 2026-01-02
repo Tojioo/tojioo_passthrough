@@ -3,9 +3,9 @@
 Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements.
 
 ### Nodes
-- **Simple Passthroughs**: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool
-- **Conditioning Passthrough**: Positive and negative conditioning
-- **Multi-Passthrough Hub**: Optional inputs with typed outputs
+- **Simple Passthroughs**: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool. Muted or bypassed predecessor nodes are gracefully handled (treated as `None`).
+- **Conditioning Passthrough**: Positive and negative conditioning. Handles missing/muted inputs.
+- **Multi-Passthrough Hub**: Optional inputs with typed outputs.
 - **Dynamic Nodes**:
     - Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
     - Dynamic Single: Single input passthrough with type mirroring
@@ -29,6 +29,7 @@ Restart ComfyUI.
 **Category Structure:**
 - `Tojioo Passthrough`: Multi-Passthrough hub
 - `Tojioo Passthrough/Simple Passthrough`: All typed passthroughs, Conditioning Passthrough
+- `Tojioo Passthrough/Simple Passthrough/Widget Variants`: Widget-based versions of primitive passthroughs
 - `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Dynamic Single Passthrough
 - `Tojioo Passthrough/Dynamic Nodes/Batch Switch Nodes`: Batch switching nodes
 - `Tojioo Passthrough/Dynamic Nodes/Switch Nodes`: First-valid switching nodes
@@ -57,67 +58,6 @@ Restart ComfyUI.
 
 #### Example:
 <img width="873" height="550" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
-
-
-### File Structure
-```
-tojioo-passthrough/
-├── .github/
-│   └── workflows/
-├── example_workflows/
-│   └── Tojioo Passthrough.json
-├── js/
-│   ├── config/
-│   │   └── constants.js
-│   ├── handlers/
-│   │   ├── batch_switch.js
-│   │   ├── dynamic_bus.js
-│   │   ├── dynamic_passthrough.js
-│   │   ├── dynamic_preview.js
-│   │   ├── dynamic_single.js
-│   │   └── switch.js
-│   ├── utils/
-│   │   ├── graph.js
-│   │   ├── lifecycle.js
-│   │   └── types.js
-│   └── index.js
-├── src_python/
-│   ├── config/
-│   │   ├── categories.py
-│   │   └── types.py
-│   ├── controllers/
-│   │   ├── passthrough_controller.py
-│   │   └── switch_controller.py
-│   ├── handlers/
-│   │   ├── batch_handler.py
-│   │   └── type_handler.py
-│   ├── nodes/
-│   │   ├── base.py
-│   │   ├── conditioning.py
-│   │   ├── dynamic_bus.py
-│   │   ├── dynamic_passthrough.py
-│   │   ├── dynamic_preview.py
-│   │   ├── dynamic_single.py
-│   │   └── multi_pass.py
-│   ├── utils/
-│   │   ├── logger.py
-│   │   └── wsl_patch.py
-│   └── __init__.py
-│   └── extensions.py
-├── tests/
-│   ├── conftest.py
-│   ├── test_config.py
-│   ├── test_controllers.py
-│   ├── test_handlers.py
-│   ├── test_logger.py
-│   ├── test_nodes.py
-│   └── test_utils.py
-├── __init__.py
-├── CHANGELOG.md
-├── LICENSE
-├── pyproject.toml
-└── README.md
-```
 
 ### License
 GPL-3.0-only. See [LICENSE](LICENSE).

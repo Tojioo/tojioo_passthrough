@@ -1,0 +1,35 @@
+﻿{
+	"compilerOptions": {
+		"target": "ESNext",
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"types": ["vite/client", "node"],
+		"jsx": "preserve",
+
+		"strict": true,
+		"noFallthroughCasesInSwitch": true,
+
+		"noEmit": true,
+		"isolatedModules": true,
+		"skipDefaultLibCheck": true,
+		"allowArbitraryExtensions": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+
+		"useDefineForClassFields": true,
+		"allowImportingTsExtensions": true,
+
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"],
+			"tojioo": ["src/config/tojioo.ts"]
+		}
+	},
+	"include": [
+		"src",
+		"vite.config.mts"
+	]
+}

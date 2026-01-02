@@ -1,6 +1,24 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.6.0] - 2026-01-02
+### Improved
+- **Python Backend**:
+  - Simple passthrough nodes (Image, Mask, Latent, etc.) now gracefully handle muted or bypassed predecessor nodes by treating them as `None` instead of failing.
+  - Improved `Conditioning Passthrough` to handle missing/muted inputs.
+- **Frontend**:
+  - Node size updates now only expand the node to fit new slots, preventing accidental shrinking and preserving manual resizing (especially important for `Dynamic Preview`).
+  - Improved immediate UI feedback when connecting inputs to dynamic nodes.
+
+### Fixed
+- **Frontend**:
+  - Fixed an issue where output slot labels were not correctly updated in the ComfyUI frontend when a node was renamed or its type changed.
+  - Fixed a bug where dynamic nodes would reset to their default small size when loading a workflow, potentially hiding the preview area in `Dynamic Preview`.
+
+### Internal
+- Migrated the entire frontend extension to TypeScript for better maintainability and type safety.
+- Consolidated web assets under a modern `web/` directory with a Vite build system.
+
 ## [1.5.1] - 2025-12-28
 ### Improved
 - Dynamic Preview Node:

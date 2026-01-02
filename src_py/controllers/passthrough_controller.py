@@ -46,10 +46,13 @@ class PassthroughController:
 
 		def _input_types(_cls):
 			spec = TypeHandler.create_input_spec(type_name, use_force_input)
-			return {"required": {socket_name: spec}}
+			return {
+				"required": {},
+				"optional": {socket_name: spec}
+			}
 
 		def _run(_self, **kwargs):
-			return (kwargs[socket_name],)
+			return (kwargs.get(socket_name),)
 
 		return type(
 			class_name,

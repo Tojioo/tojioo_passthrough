@@ -1,0 +1,276 @@
+﻿# EditorConfig
+# https://editorconfig.org
+
+root = true
+
+# Default settings
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = tab
+tab_width = 4
+insert_final_newline = false
+trim_trailing_whitespace = true
+max_line_length = 215
+ij_continuation_indent_size = 4
+ij_smart_tabs = false
+
+# JavaScript
+[{*.cjs,*.es6,*.js,*.mjs}]
+ij_javascript_align_multiline_parameters = true
+ij_javascript_align_multiline_for = true
+
+# Brace style (Allman)
+ij_javascript_block_brace_style = next_line
+ij_javascript_class_brace_style = next_line
+ij_javascript_method_brace_style = next_line
+ij_javascript_function_expression_brace_style = next_line
+
+# Force braces on control structures
+ij_javascript_if_brace_force = always
+ij_javascript_for_brace_force = always
+ij_javascript_while_brace_force = always
+ij_javascript_do_while_brace_force = always
+
+# Brace/keyword placement (Allman)
+ij_javascript_else_on_new_line = true
+ij_javascript_catch_on_new_line = true
+ij_javascript_finally_on_new_line = true
+ij_javascript_while_on_new_line = true
+
+# Field naming
+ij_javascript_field_prefix = _
+
+# Blank lines
+ij_javascript_blank_lines_after_imports = 1
+ij_javascript_blank_lines_around_class = 1
+ij_javascript_blank_lines_around_field = 0
+ij_javascript_blank_lines_around_function = 1
+ij_javascript_blank_lines_around_method = 1
+ij_javascript_keep_blank_lines_in_code = 1
+
+# Spaces around operators
+ij_javascript_spaces_around_additive_operators = true
+ij_javascript_spaces_around_assignment_operators = true
+ij_javascript_spaces_around_bitwise_operators = true
+ij_javascript_spaces_around_equality_operators = true
+ij_javascript_spaces_around_logical_operators = true
+ij_javascript_spaces_around_multiplicative_operators = true
+ij_javascript_spaces_around_relational_operators = true
+ij_javascript_spaces_around_shift_operators = true
+ij_javascript_spaces_around_arrow_function_operator = true
+ij_javascript_spaces_around_unary_operator = false
+
+# Spaces within
+ij_javascript_spaces_within_parentheses = false
+ij_javascript_spaces_within_brackets = false
+ij_javascript_spaces_within_array_initializer_brackets = false
+ij_javascript_spaces_within_object_literal_braces = false
+ij_javascript_spaces_within_method_call_parentheses = false
+ij_javascript_spaces_within_method_parentheses = false
+ij_javascript_spaces_within_if_parentheses = false
+ij_javascript_spaces_within_for_parentheses = false
+ij_javascript_spaces_within_while_parentheses = false
+ij_javascript_spaces_within_switch_parentheses = false
+ij_javascript_spaces_within_catch_parentheses = false
+
+# Space before parentheses/braces
+ij_javascript_space_before_method_call_parentheses = false
+ij_javascript_space_before_method_parentheses = false
+ij_javascript_space_before_function_left_parenth = false
+ij_javascript_space_before_if_parentheses = true
+ij_javascript_space_before_for_parentheses = true
+ij_javascript_space_before_while_parentheses = true
+ij_javascript_space_before_switch_parentheses = true
+ij_javascript_space_before_catch_parentheses = true
+
+# Wrapping
+ij_javascript_method_parameters_wrap = on_every_item
+ij_javascript_method_parameters_new_line_after_left_paren = true
+ij_javascript_method_parameters_right_paren_on_new_line = false
+ij_javascript_call_parameters_wrap = on_every_item
+ij_javascript_call_parameters_new_line_after_left_paren = true
+ij_javascript_call_parameters_right_paren_on_new_line = true
+ij_javascript_method_call_chain_wrap = on_every_item
+ij_javascript_chained_call_dot_on_new_line = true
+ij_javascript_indent_chained_calls = true
+ij_javascript_array_initializer_wrap = on_every_item
+ij_javascript_object_literal_wrap = on_every_item
+ij_javascript_ternary_operation_wrap = on_every_item
+ij_javascript_ternary_operation_signs_on_next_line = true
+
+# Other
+ij_javascript_use_double_quotes = false
+ij_javascript_use_semicolon_after_statement = true
+ij_javascript_keep_simple_blocks_in_one_line = false
+ij_javascript_keep_simple_methods_in_one_line = false
+ij_javascript_indent_case_from_switch = true
+
+# TypeScript
+[{*.ats,*.cts,*.mts,*.ts}]
+ij_typescript_align_multiline_parameters = true
+ij_typescript_align_multiline_for = true
+
+# Brace style (Allman)
+ij_typescript_block_brace_style = next_line
+ij_typescript_class_brace_style = next_line
+ij_typescript_method_brace_style = next_line
+ij_typescript_function_expression_brace_style = next_line
+
+# Force braces on control structures
+ij_typescript_if_brace_force = always
+ij_typescript_for_brace_force = always
+ij_typescript_while_brace_force = always
+ij_typescript_do_while_brace_force = always
+
+# Brace/keyword placement (Allman)
+ij_typescript_else_on_new_line = true
+ij_typescript_catch_on_new_line = true
+ij_typescript_finally_on_new_line = true
+ij_typescript_while_on_new_line = true
+
+# Field naming
+ij_typescript_field_prefix = _
+
+# Blank lines
+ij_typescript_blank_lines_after_imports = 1
+ij_typescript_blank_lines_around_class = 1
+ij_typescript_blank_lines_around_field = 0
+ij_typescript_blank_lines_around_function = 1
+ij_typescript_blank_lines_around_method = 1
+ij_typescript_blank_lines_around_method_in_interface = 1
+ij_typescript_keep_blank_lines_in_code = 1
+
+# Spaces around operators
+ij_typescript_spaces_around_additive_operators = true
+ij_typescript_spaces_around_assignment_operators = true
+ij_typescript_spaces_around_bitwise_operators = true
+ij_typescript_spaces_around_equality_operators = true
+ij_typescript_spaces_around_logical_operators = true
+ij_typescript_spaces_around_multiplicative_operators = true
+ij_typescript_spaces_around_relational_operators = true
+ij_typescript_spaces_around_shift_operators = true
+ij_typescript_spaces_around_arrow_function_operator = true
+ij_typescript_spaces_around_unary_operator = false
+
+# Spaces within
+ij_typescript_spaces_within_parentheses = false
+ij_typescript_spaces_within_brackets = false
+ij_typescript_spaces_within_array_initializer_brackets = false
+ij_typescript_spaces_within_object_literal_braces = false
+ij_typescript_spaces_within_method_call_parentheses = false
+ij_typescript_spaces_within_method_parentheses = false
+ij_typescript_spaces_within_if_parentheses = false
+ij_typescript_spaces_within_for_parentheses = false
+ij_typescript_spaces_within_while_parentheses = false
+ij_typescript_spaces_within_switch_parentheses = false
+ij_typescript_spaces_within_catch_parentheses = false
+ij_typescript_spaces_within_union_types = true
+ij_typescript_spaces_within_object_type_braces = true
+
+# Space before parentheses/braces
+ij_typescript_space_before_method_call_parentheses = false
+ij_typescript_space_before_method_parentheses = false
+ij_typescript_space_before_function_left_parenth = false
+ij_typescript_space_before_if_parentheses = true
+ij_typescript_space_before_for_parentheses = true
+ij_typescript_space_before_while_parentheses = true
+ij_typescript_space_before_switch_parentheses = true
+ij_typescript_space_before_catch_parentheses = true
+
+# Type colon spacing
+ij_typescript_space_before_type_colon = false
+ij_typescript_space_after_type_colon = true
+
+# Wrapping
+ij_typescript_method_parameters_wrap = on_every_item
+ij_typescript_method_parameters_new_line_after_left_paren = true
+ij_typescript_method_parameters_right_paren_on_new_line = false
+ij_typescript_call_parameters_wrap = on_every_item
+ij_typescript_call_parameters_new_line_after_left_paren = true
+ij_typescript_call_parameters_right_paren_on_new_line = true
+ij_typescript_method_call_chain_wrap = on_every_item
+ij_typescript_chained_call_dot_on_new_line = true
+ij_typescript_indent_chained_calls = true
+ij_typescript_array_initializer_wrap = on_every_item
+ij_typescript_object_literal_wrap = on_every_item
+ij_typescript_object_types_wrap = on_every_item
+ij_typescript_union_types_wrap = on_every_item
+ij_typescript_ternary_operation_wrap = on_every_item
+ij_typescript_ternary_operation_signs_on_next_line = true
+
+# Other
+ij_typescript_use_double_quotes = false
+ij_typescript_use_semicolon_after_statement = true
+ij_typescript_keep_simple_blocks_in_one_line = false
+ij_typescript_keep_simple_methods_in_one_line = false
+ij_typescript_indent_case_from_switch = true
+
+# Python
+[{*.py,*.pyw}]
+ij_python_align_multiline_parameters = true
+ij_python_align_multiline_parameters_in_calls = true
+ij_python_align_collections_and_comprehensions = true
+ij_python_align_multiline_imports = true
+
+# Blank lines
+ij_python_blank_line_at_file_end = false
+ij_python_blank_lines_after_imports = 2
+ij_python_blank_lines_after_local_imports = 1
+ij_python_blank_lines_around_class = 2
+ij_python_blank_lines_around_method = 2
+ij_python_blank_lines_around_top_level_classes_functions = 2
+ij_python_blank_lines_before_first_method = 1
+ij_python_keep_blank_lines_in_code = 1
+ij_python_keep_blank_lines_in_declarations = 1
+
+# Spaces around operators
+ij_python_spaces_around_additive_operators = true
+ij_python_spaces_around_assignment_operators = true
+ij_python_spaces_around_bitwise_operators = true
+ij_python_spaces_around_equality_operators = true
+ij_python_spaces_around_multiplicative_operators = true
+ij_python_spaces_around_power_operator = true
+ij_python_spaces_around_relational_operators = true
+ij_python_spaces_around_shift_operators = true
+ij_python_spaces_around_eq_in_keyword_argument = true
+ij_python_spaces_around_eq_in_named_parameter = true
+
+# Spaces within
+ij_python_spaces_within_braces = false
+ij_python_spaces_within_brackets = false
+ij_python_spaces_within_method_call_parentheses = false
+ij_python_spaces_within_method_parentheses = false
+
+# Space before/after
+ij_python_space_after_comma = true
+ij_python_space_before_comma = false
+ij_python_space_after_py_colon = true
+ij_python_space_before_py_colon = false
+ij_python_space_before_lbracket = false
+ij_python_space_before_method_call_parentheses = false
+ij_python_space_before_method_parentheses = false
+
+# Wrapping
+ij_python_method_parameters_wrap = on_every_item
+ij_python_method_parameters_new_line_after_left_paren = true
+ij_python_method_parameters_right_paren_on_new_line = false
+ij_python_call_parameters_wrap = on_every_item
+ij_python_call_parameters_new_line_after_left_paren = true
+ij_python_call_parameters_right_paren_on_new_line = true
+ij_python_dict_wrapping = on_every_item
+ij_python_dict_new_line_after_left_brace = true
+ij_python_dict_new_line_before_right_brace = true
+ij_python_list_wrapping = on_every_item
+ij_python_list_new_line_after_left_bracket = true
+ij_python_list_new_line_before_right_bracket = true
+ij_python_from_import_wrapping = on_every_item
+ij_python_from_import_new_line_after_left_parenthesis = true
+ij_python_from_import_new_line_before_right_parenthesis = true
+ij_python_wrap_long_lines = true
+
+# Other
+ij_python_keep_line_breaks = true
+ij_python_optimize_imports_sort_imports = true
+ij_python_optimize_imports_sort_by_type_first = true

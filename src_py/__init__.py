@@ -16,6 +16,7 @@ from .nodes.dynamic_single import PT_DynamicSingle
 from .nodes.multi_pass import PT_MultiPass
 from .utils.wsl_patch import apply_wsl_safetensors_patch
 
+
 apply_wsl_safetensors_patch()
 
 NODE_CLASS_MAPPINGS: Dict[str, Any] = {
@@ -32,7 +33,3 @@ NODE_CLASS_MAPPINGS: Dict[str, Any] = {
 NODE_DISPLAY_NAME_MAPPINGS = {
 	k: v.NODE_NAME for k, v in NODE_CLASS_MAPPINGS.items()
 }
-
-WEB_DIRECTORY = "./src_js"
-
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
