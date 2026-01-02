@@ -160,20 +160,20 @@ class TestParseSlotOccurrence:
 		assert parse_slot_occurrence("some_name") == 1
 
 
-class TestDynamicSingle:
+class TestDynamicAny:
 	def test_node_exists(self):
-		from src_py.nodes.dynamic_single import PT_DynamicSingle
-		assert PT_DynamicSingle is not None
+		from src_py.nodes.dynamic_any import PT_DynamicAny
+		assert PT_DynamicAny is not None
 
 	def test_returns_input(self):
-		from src_py.nodes.dynamic_single import PT_DynamicSingle
-		node = PT_DynamicSingle()
+		from src_py.nodes.dynamic_any import PT_DynamicAny
+		node = PT_DynamicAny()
 		result = node.run(input="test")
 		assert result == ("test",)
 
 	def test_returns_none_when_no_input(self):
-		from src_py.nodes.dynamic_single import PT_DynamicSingle
-		node = PT_DynamicSingle()
+		from src_py.nodes.dynamic_any import PT_DynamicAny
+		node = PT_DynamicAny()
 		result = node.run()
 		assert result == (None,)
 

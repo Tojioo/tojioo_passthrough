@@ -1,7 +1,7 @@
 ﻿# SPDX-License-Identifier: GPL-3.0-only
 
-import logging
 
+import logging
 
 class TestLogger:
 	def test_get_logger_returns_logger(self):

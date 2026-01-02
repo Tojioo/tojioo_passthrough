@@ -13,7 +13,39 @@ export function GetLink(node: any, linkId: number | null): LLink | null
 		return null;
 	}
 	const g = GetGraph(node);
-	return g?.links?.[linkId] ?? null;
+	if (!g || !g.links)
+	{
+		return null;
+	}
+	return g.links[linkId] ?? null;
+}
+
+export function GetInputLink(node: any, slotIndex: number): LLink | null
+{
+	if (!node.inputs || !node.inputs[slotIndex])
+	{
+		return null;
+	}
+	return GetLink(node, node.inputs[slotIndex].link);
+}
+
+export function GetOutputLinks(node: any, slotIndex: number): LLink[]
+{
+	if (!node.outputs || !node.outputs[slotIndex])
+	{
+		return [];
+	}
+	const linkIds = node.outputs[slotIndex].links || [];
+	const links: LLink[] = [];
+	for (const id of linkIds)
+	{
+		const link = GetLink(node, id);
+		if (link)
+		{
+			links.push(link);
+		}
+	}
+	return links;
 }
 
 export function GetNodeById(node: any, id: string | number): any | null

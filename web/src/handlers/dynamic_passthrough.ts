@@ -26,27 +26,6 @@ export function configureDynamicPassthrough(): ComfyExtension
 					node.outputs = [];
 				}
 
-				if (!(node as any).__tojioo_dynamic_io_rebuilt)
-				{
-					(node as any).__tojioo_dynamic_io_rebuilt = true;
-
-					const hasAnyLinks =
-						(node.inputs?.some((i: any) => i?.link != null)) ||
-						(node.outputs?.some((o: any) => (o?.links?.length ?? 0) > 0));
-
-					if (!hasAnyLinks)
-					{
-						while (node.inputs.length)
-						{
-							node.removeInput(node.inputs.length - 1);
-						}
-						while (node.outputs.length)
-						{
-							node.removeOutput(node.outputs.length - 1);
-						}
-					}
-				}
-
 				let lastConnectedInput = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
 				{
@@ -91,7 +70,8 @@ export function configureDynamicPassthrough(): ComfyExtension
 					node.outputs[node.outputs.length - 1].label = "output";
 				}
 
-				UpdateNodeSize(node);
+				UpdateNodeSize(node, (node as any).__tojioo_dynamic_io_size_fixed || false);
+				(node as any).__tojioo_dynamic_io_size_fixed = true;
 			}
 
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -116,14 +96,13 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 				const node = this;
 
-				// Handle input connection
 				if (type === LiteGraph.INPUT && isConnected)
 				{
 					try
 					{
 						const g = GetGraph(node);
 						const linkId = link_info?.id ?? node.inputs?.[index]?.link;
-						const linkObj = link_info ?? (linkId != null ? GetLink(node, linkId) : null);
+						const linkObj = link_info ?? GetLink(node, linkId);
 						const inferredType = GetLinkTypeFromEndpoints(node, linkObj);
 
 						if (linkId != null && g?.links?.[linkId] && inferredType && inferredType !== ANY_TYPE)
@@ -134,13 +113,13 @@ export function configureDynamicPassthrough(): ComfyExtension
 							{
 								node.outputs[index].type = inferredType as ISlotType;
 								const n = inferredType.toLowerCase();
-								node.outputs[index].name = n;
+								node.outputs[index].name = `output_${index + 1}`;
 								node.outputs[index].label = n;
 
 								if (node.inputs?.[index])
 								{
 									node.inputs[index].type = inferredType as ISlotType;
-									node.inputs[index].name = n;
+									node.inputs[index].name = `input_${index + 1}`;
 									node.inputs[index].label = n;
 								}
 							}
@@ -217,12 +196,29 @@ export function configureDynamicPassthrough(): ComfyExtension
 					prevConfigure.call(this, info);
 				}
 
-				normalizeIO(this);
-				ApplyDynamicTypes(this);
+				(this as any).__tojioo_dynamic_io_size_fixed = false;
+				DeferMicrotask(() =>
+				{
+					try
+					{
+						normalizeIO(this);
+						ApplyDynamicTypes(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicPassthrough: error in configure", e);
+					}
+				});
 
 				setTimeout(() =>
 				{
-					ApplyDynamicTypes(this);
+					try
+					{
+						(this as any).__tojioo_dynamic_io_size_fixed = false;
+						normalizeIO(this);
+						ApplyDynamicTypes(this);
+					}
+					catch {}
 				}, 100);
 			};
 
@@ -233,10 +229,18 @@ export function configureDynamicPassthrough(): ComfyExtension
 				{
 					prevOnAdded.apply(this, arguments as any);
 				}
+				(this as any).__tojioo_dynamic_io_size_fixed = false;
 				DeferMicrotask(() =>
 				{
-					normalizeIO(this);
-					ApplyDynamicTypes(this);
+					try
+					{
+						normalizeIO(this);
+						ApplyDynamicTypes(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicPassthrough: error in onAdded", e);
+					}
 				});
 			};
 		}

@@ -1,15 +1,16 @@
 ﻿import {ANY_TYPE} from "@/types/tojioo.ts";
 import {DeferMicrotask, IsGraphLoading} from "@/utils/lifecycle";
+import {GetGraph, GetInputLink, GetLink} from "@/utils/graph.ts";
 import {ResolveConnectedType} from "@/utils/types";
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
-export function configureDynamicSingle(): ComfyExtension
+export function configureDynamicAny(): ComfyExtension
 {
 	return {
-		name: "Tojioo.Passthrough.Dynamic.DynamicSingle",
+		name: "Tojioo.Passthrough.Dynamic.DynamicAny",
 		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, _app: ComfyApp): Promise<void> =>
 		{
-			if (nodeData?.name !== "PT_DynamicSingle")
+			if (nodeData?.name !== "PT_DynamicAny")
 			{
 				return;
 			}
@@ -36,7 +37,7 @@ export function configureDynamicSingle(): ComfyExtension
 					node.outputs[0].label = n;
 				}
 
-				const inLink = node.getInputLink(0);
+				const inLink = GetInputLink(node, 0);
 				if (inLink && slotType !== ANY_TYPE)
 				{
 					inLink.type = slotType;
@@ -44,14 +45,14 @@ export function configureDynamicSingle(): ComfyExtension
 
 				for (const linkId of node.outputs?.[0]?.links ?? [])
 				{
-					const link = node.graph?.links?.[linkId];
+					const link = GetLink(node, linkId);
 					if (link && slotType !== ANY_TYPE)
 					{
 						link.type = slotType;
 					}
 				}
 
-				node.graph?.setDirtyCanvas?.(true, true);
+				GetGraph(node)?.setDirtyCanvas?.(true, true);
 			}
 
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -70,15 +71,54 @@ export function configureDynamicSingle(): ComfyExtension
 			nodeType.prototype.configure = function(this, info)
 			{
 				prevConfigure?.call(this, info);
-				applyType(this);
-				setTimeout(() => applyType(this), 100);
+				const loading = IsGraphLoading();
+				DeferMicrotask(() =>
+				{
+					if (loading) (this as any).__tojioo_skip_resize = true;
+					try
+					{
+						applyType(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicAny: error in configure", e);
+					}
+					finally
+					{
+						(this as any).__tojioo_skip_resize = false;
+					}
+				});
+				setTimeout(() =>
+				{
+					try
+					{
+						applyType(this);
+					}
+					catch {}
+				}, 100);
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;
 			nodeType.prototype.onAdded = function(this)
 			{
 				prevOnAdded?.apply(this, arguments as any);
-				applyType(this);
+				const loading = IsGraphLoading();
+				DeferMicrotask(() =>
+				{
+					if (loading) (this as any).__tojioo_skip_resize = true;
+					try
+					{
+						applyType(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicAny: error in onAdded", e);
+					}
+					finally
+					{
+						(this as any).__tojioo_skip_resize = false;
+					}
+				});
 			};
 		}
 	};

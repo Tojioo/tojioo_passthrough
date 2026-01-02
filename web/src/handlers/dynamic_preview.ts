@@ -1,6 +1,6 @@
 ﻿import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from "@/types/tojioo.ts";
-import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from "@/utils/lifecycle";
-import {GetLinkTypeFromEndpoints} from "@/utils/graph";
+import {DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from "@/utils/lifecycle";
+import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints} from "@/utils/graph";
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 export function configureDynamicPreview(): ComfyExtension
@@ -22,6 +22,21 @@ export function configureDynamicPreview(): ComfyExtension
 			function normalizeInputs(node: any): void
 			{
 				if (!node.inputs) node.inputs = [];
+
+				if (!(node as any).__tojioo_dynamic_io_rebuilt)
+				{
+					(node as any).__tojioo_dynamic_io_rebuilt = true;
+
+					const hasAnyLinks = node.inputs?.some((i: any) => i?.link != null);
+
+					if (!hasAnyLinks)
+					{
+						while (node.inputs.length)
+						{
+							node.removeInput(node.inputs.length - 1);
+						}
+					}
+				}
 
 				let lastConnectedIndex = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
@@ -45,7 +60,7 @@ export function configureDynamicPreview(): ComfyExtension
 					node.inputs[node.inputs.length - 1].label = "image";
 				}
 
-				UpdateNodeSize(node);
+				UpdatePreviewNodeSize(node);
 			}
 
 			function applyDynamicTypes(node: any): void
@@ -60,7 +75,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 				for (let i = 0; i < node.inputs.length; i++)
 				{
-					const link = node.getInputLink(i);
+					const link = GetInputLink(node, i);
 					let resolvedType = ANY_TYPE;
 
 					if (link)
@@ -82,25 +97,24 @@ export function configureDynamicPreview(): ComfyExtension
 
 					inp.type = t;
 
+					let label: string;
 					if (isTyped)
 					{
 						const baseLabel = t.toLowerCase();
 						typeCounters[t] = (typeCounters[t] ?? 0) + 1;
-						const n = typeCounters[t] === 1 ? baseLabel : `${baseLabel}_${typeCounters[t]}`;
-						inp.name = n;
-						inp.label = n;
+						label = typeCounters[t] === 1 ? baseLabel : `${baseLabel}_${typeCounters[t]}`;
 					}
 					else
 					{
 						typeCounters["__untyped__"] = (typeCounters["__untyped__"] ?? 0) + 1;
 						const n = typeCounters["__untyped__"];
-						const name = n === 1 ? "image" : `image_${n}`;
-						inp.name = name;
-						inp.label = name;
+						label = n === 1 ? "image" : `image_${n}`;
 					}
+					inp.name = `input_${i + 1}`;
+					inp.label = label;
 				}
 
-				node.graph?.setDirtyCanvas?.(true, true);
+				GetGraph(node)?.setDirtyCanvas?.(true, true);
 			}
 
 			function measureTabWidths(ctx: CanvasRenderingContext2D, count: number): number[]
@@ -281,14 +295,15 @@ export function configureDynamicPreview(): ComfyExtension
 				{
 					try
 					{
-						const link = link_info ?? node.getInputLink(index);
+						const link = link_info ?? GetInputLink(node, index);
 						if (link)
 						{
 							const inferredType = GetLinkTypeFromEndpoints(node, link);
 							const linkId = (link_info as any)?.id ?? node.inputs?.[index]?.link;
-							if (linkId != null && node.graph?.links?.[linkId] && inferredType !== ANY_TYPE)
+							const linkObj = GetLink(node, linkId);
+							if (linkObj && inferredType !== ANY_TYPE)
 							{
-								node.graph.links[linkId].type = inferredType;
+								linkObj.type = inferredType;
 								if (node.inputs[index])
 								{
 									node.inputs[index].type = inferredType;
@@ -347,12 +362,32 @@ export function configureDynamicPreview(): ComfyExtension
 			nodeType.prototype.configure = function(this, info)
 			{
 				prevConfigure?.call(this, info);
-				normalizeInputs(this);
-				applyDynamicTypes(this);
+				const loading = IsGraphLoading();
+				DeferMicrotask(() =>
+				{
+					if (loading) (this as any).__tojioo_skip_resize = true;
+					try
+					{
+						normalizeInputs(this);
+						applyDynamicTypes(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicPreview: error in configure", e);
+					}
+					finally
+					{
+						(this as any).__tojioo_skip_resize = false;
+					}
+				});
 				setTimeout(() =>
 				{
-					normalizeInputs(this);
-					applyDynamicTypes(this);
+					try
+					{
+						normalizeInputs(this);
+						applyDynamicTypes(this);
+					}
+					catch {}
 				}, 100);
 			};
 
@@ -371,10 +406,23 @@ export function configureDynamicPreview(): ComfyExtension
 				}
 				(this as any).imgs = null;
 
+				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					normalizeInputs(this);
-					applyDynamicTypes(this);
+					if (loading) (this as any).__tojioo_skip_resize = true;
+					try
+					{
+						normalizeInputs(this);
+						applyDynamicTypes(this);
+					}
+					catch (e)
+					{
+						console.error("Tojioo.DynamicPreview: error in onAdded", e);
+					}
+					finally
+					{
+						(this as any).__tojioo_skip_resize = false;
+					}
 				});
 			};
 		}

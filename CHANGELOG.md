@@ -1,6 +1,24 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.6.1] - 2026-01-03
+### Improved
+- **Python Backend**:
+	- Enhanced `Dynamic Any` node to support both legacy (`input`) and stable (`input_1`) parameter names for improved backwards compatibility.
+- **Frontend**:
+	- Refined `Dynamic Bus` input/output slot naming and management to correctly track bus indices across slots.
+	- Improved slot pruning logic to preserve slots with active connections while removing truly disconnected ones.
+	- Enhanced bus type propagation to properly handle chained `Dynamic Bus` nodes by introducing `onBusChanged` callbacks for downstream updates.
+	- Strengthened graph access safety in dynamic node handlers by introducing utility functions (`GetGraph`, `GetNodeById`, `GetInputLink`, `GetLink`) to prevent crashes during edge cases.
+	- Improved `Dynamic Bus` type labeling to ensure consistent naming across multi-type connections (e.g., `image`, `image_2`).
+
+### Fixed
+- Fixed slot naming collisions and re-indexing inconsistencies in `Dynamic Bus` nodes.
+- Fixed potential crashes during undo/redo operations by safely accessing graph and link references.
+
+### Renamed
+- Renamed "Dynamic Single" to "Dynamic Any" to better reflect its capability of passing through any data type.
+
 ## [1.6.0] - 2026-01-02
 ### Improved
 - **Python Backend**:

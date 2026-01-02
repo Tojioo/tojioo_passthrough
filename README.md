@@ -7,10 +7,10 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 - **Conditioning Passthrough**: Positive and negative conditioning. Handles missing/muted inputs.
 - **Multi-Passthrough Hub**: Optional inputs with typed outputs.
 - **Dynamic Nodes**:
-    - Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
-    - Dynamic Single: Single input passthrough with type mirroring
-    - Dynamic Bus (Beta): Context/bus for carrying multiple typed values
-    - Dynamic Preview (Beta): Tabbed multi-input preview with interactive controls.
+	- Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
+	- Dynamic Any: Single input passthrough with type mirroring
+	- Dynamic Bus (Beta): Context/bus for carrying multiple typed values
+	- Dynamic Preview (Beta): Tabbed multi-input preview with interactive controls
 - **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
 - **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
 
@@ -34,30 +34,48 @@ Restart ComfyUI.
 - `Tojioo Passthrough/Dynamic Nodes/Batch Switch Nodes`: Batch switching nodes
 - `Tojioo Passthrough/Dynamic Nodes/Switch Nodes`: First-valid switching nodes
 
-#### Batch Switch Behavior:
-- Dynamic inputs: start with one slot, auto-add on connection
-- Single input: pass through unchanged
-- Multiple inputs: automatically batch by compatible shape
-- Muted inputs: ignored
+#### Batch Switch Nodes
+- Purpose: Combine multiple compatible inputs into a single batch while keeping wiring tidy.
+- Behaviour:
+	- Starts with one slot, adds a new slot when the last one gets connected
+	- With a single connected input, passes through unchanged
+	- With multiple connected inputs, builds a batch when shapes are compatible
+	- Muted or bypassed upstream nodes are treated as missing and ignored
 
 #### Example:
 <img width="873" height="884" alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
 
-#### Switch Behavior:
-- Dynamic inputs: auto-add slots
-- Returns first connected input by slot number
-- Muted inputs: ignored
+#### Switch Nodes
+- Purpose: Select the first valid connected input, based on slot order.
+- Behaviour:
+	- Dynamic inputs auto-add slots
+	- Returns the first connected input by slot number
+	- Muted or bypassed upstream nodes are treated as missing and ignored
 
 #### Example:
 <img width="873" height="872" alt="image" src="https://github.com/user-attachments/assets/4eabfea0-4ec4-4a38-83e8-fb391b60afeb" />
 
-#### Dynamic Passthrough:
-- Dynamic multi-input/output
-- Types adapt based on connections
-- Output types mirror connected inputs
+#### Dynamic Passthrough
+- Purpose: A flexible multi-input passthrough where slot types mirror what you connect.
+- Behaviour:
+	- Dynamic inputs and outputs, slots grow as you connect
+	- Output slot types mirror their corresponding connected input types
+	- Updates live as connections change
 
 #### Example:
 <img width="873" height="550" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
+
+#### Dynamic Preview (Beta)
+- Purpose: In-graph image viewer for quick A/B checks across multiple IMAGE inputs.
+- Behaviour:
+	- Accepts multiple IMAGE inputs and shows one at a time
+	- Switch between inputs via the built-in tab selector
+	- Includes interactive viewer controls
+	- No outputs, this node is a pure viewer
+	- Marked Beta because UI and behavior may change as the ComfyUI frontend evolves
+
+#### Example:
+`Under construction i guess ¯\_(ツ)_/¯`
 
 ### License
 GPL-3.0-only. See [LICENSE](LICENSE).

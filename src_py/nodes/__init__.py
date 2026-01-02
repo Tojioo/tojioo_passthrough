@@ -6,11 +6,12 @@
 
 from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from .conditioning import PT_Conditioning
+from .dynamic_any import PT_DynamicAny
 from .dynamic_bus import PT_DynamicBus
 from .dynamic_passthrough import PT_DynamicPassthrough
 from .dynamic_preview import PT_DynamicPreview
-from .dynamic_single import PT_DynamicSingle
 from .multi_pass import PT_MultiPass
+
 
 __all__ = [
 	"BaseNode",
@@ -19,7 +20,7 @@ __all__ = [
 	"PT_Conditioning",
 	"PT_DynamicBus",
 	"PT_DynamicPassthrough",
-	"PT_DynamicSingle",
+    "PT_DynamicAny",
 	"PT_DynamicPreview",
 	"PT_MultiPass",
 ]

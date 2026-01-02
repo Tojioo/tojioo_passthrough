@@ -1,15 +1,9 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
-# Tojioo Passthrough Nodes
-# Copyright (c) 2025 Tojioo
-# Licensed under the GNU General Public License v3.0 only.
-# See https://www.gnu.org/licenses/gpl-3.0.txt
-
-from typing import Any, Dict, Tuple
+﻿from typing import Any, Dict, Tuple
 
 
 class BaseNode:
     """Base class for all Tojioo Passthrough nodes."""
-    
+
     FUNCTION: str = "run"
     NODE_NAME: str = ""
     DESCRIPTION: str = ""
@@ -27,7 +21,7 @@ class BaseNode:
 
 class AnyType(str):
     """A type that matches any other type for dynamic node connections."""
-    
+
     def __eq__(self, other: object) -> bool:
         return isinstance(other, str)
 
@@ -40,7 +34,7 @@ class AnyType(str):
 
 class FlexibleOptionalInputType(dict):
     """Dict-like that accepts any key, returning the same type spec."""
-    
+
     def __init__(self, type_spec: Any) -> None:
         super().__init__()
         self._type_spec = type_spec

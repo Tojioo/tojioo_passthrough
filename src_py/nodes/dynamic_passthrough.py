@@ -1,10 +1,4 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
-# Tojioo Passthrough Nodes
-# Copyright (c) 2025 Tojioo
-# Licensed under the GNU General Public License v3.0 only.
-# See https://www.gnu.org/licenses/gpl-3.0.txt
-
-from .base import BaseNode, AnyType, FlexibleOptionalInputType
+﻿from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
 
 
@@ -32,7 +26,29 @@ class PT_DynamicPassthrough(BaseNode):
 	CATEGORY = CATEGORIES["dynamic"]
 
 	def run(self, **kwargs):
-		values = list(kwargs.values())
-		while len(values) < self._MAX_SOCKETS:
-			values.append(None)
-		return tuple(values[:self._MAX_SOCKETS])
+		# Robustly map inputs to outputs by parsing index from name.
+		indexed_values = {}
+		for key, value in kwargs.items():
+			idx = self._parse_slot_index(key) - 1
+			if 0 <= idx < self._MAX_SOCKETS:
+				indexed_values[idx] = value
+
+		outputs = []
+		for i in range(self._MAX_SOCKETS):
+			outputs.append(indexed_values.get(i))
+
+		return tuple(outputs)
+
+	@staticmethod
+	def _parse_slot_index(key: str) -> int:
+		"""
+		Extract slot index from key name (1-based).
+		'image' -> 1, 'input_2' -> 2, 'anything_3' -> 3
+		"""
+		if '_' in key:
+			parts = key.rsplit('_', 1)
+			try:
+				return int(parts[1])
+			except ValueError:
+				pass
+		return 1

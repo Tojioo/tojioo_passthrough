@@ -9,10 +9,10 @@ from typing import Dict, Any
 from .controllers.passthrough_controller import PassthroughController
 from .controllers.switch_controller import SwitchController
 from .nodes.conditioning import PT_Conditioning
+from .nodes.dynamic_any import PT_DynamicAny
 from .nodes.dynamic_bus import PT_DynamicBus
 from .nodes.dynamic_passthrough import PT_DynamicPassthrough
 from .nodes.dynamic_preview import PT_DynamicPreview
-from .nodes.dynamic_single import PT_DynamicSingle
 from .nodes.multi_pass import PT_MultiPass
 from .utils.wsl_patch import apply_wsl_safetensors_patch
 
@@ -24,7 +24,7 @@ NODE_CLASS_MAPPINGS: Dict[str, Any] = {
 	"PT_Conditioning": PT_Conditioning,
 	"PT_DynamicPassthrough": PT_DynamicPassthrough,
 	"PT_DynamicBus": PT_DynamicBus,
-	"PT_DynamicSingle": PT_DynamicSingle,
+	"PT_DynamicAny": PT_DynamicAny,
 	"PT_DynamicPreview": PT_DynamicPreview,
 	**PassthroughController.create_nodes(),
 	**SwitchController.create_nodes(),

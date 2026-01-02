@@ -1,10 +1,4 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
-# Tojioo Passthrough Nodes
-# Copyright (c) 2025 Tojioo
-# Licensed under the GNU General Public License v3.0 only.
-# See https://www.gnu.org/licenses/gpl-3.0.txt
-
-from .base import BaseNode, AnyType, FlexibleOptionalInputType
+﻿from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
 
 
@@ -14,12 +8,12 @@ any_type = AnyType("*")
 class PT_DynamicBus(BaseNode):
 	"""
 	Dynamic Bus: pack values into a bus, unpack values from a received bus, or pass through.
-	
+
 	This node allows flexible data routing by:
 	- Packing multiple inputs into a single bus output
 	- Unpacking a received bus into individual outputs
 	- Direct passthrough of individual values
-	
+
 	Class Attributes
 	----------------
 	_MAX_SOCKETS : int
@@ -61,16 +55,12 @@ class PT_DynamicBus(BaseNode):
 
 		outputs = [bus_dict]
 
-		max_slot = (max(bus_dict.keys(), default=-1) + 1) if bus_dict else 0
-
-		for idx in range(max_slot):
-			if idx in direct_inputs:
-				outputs.append(direct_inputs[idx])
+		# Use a fixed number of outputs to match RETURN_NAMES
+		for i in range(self._MAX_SOCKETS - 1):
+			if i in direct_inputs:
+				outputs.append(direct_inputs[i])
 			else:
-				outputs.append(bus_dict.get(idx))
-
-		while len(outputs) < self._MAX_SOCKETS:
-			outputs.append(None)
+				outputs.append(bus_dict.get(i))
 
 		return tuple(outputs[:self._MAX_SOCKETS])
 

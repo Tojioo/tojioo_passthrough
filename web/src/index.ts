@@ -5,14 +5,20 @@ import {configureBatchSwitchNodes} from '@/handlers/batch_switch';
 import {configureDynamicBus} from '@/handlers/dynamic_bus';
 import {configureDynamicPassthrough} from '@/handlers/dynamic_passthrough';
 import {configureDynamicPreview} from '@/handlers/dynamic_preview';
-import {configureDynamicSingle} from '@/handlers/dynamic_single';
+import {configureDynamicAny} from '@/handlers/dynamic_any.ts';
 import {configureSwitchNodes} from '@/handlers/switch';
 
-InstallGraphLoadingHook(app);
+app.registerExtension({
+	name: "Tojioo.Passthrough.Core",
+	async setup()
+	{
+		InstallGraphLoadingHook(app);
+	}
+});
 
 app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureDynamicBus());
 app.registerExtension(configureDynamicPassthrough());
 app.registerExtension(configureDynamicPreview());
-app.registerExtension(configureDynamicSingle());
+app.registerExtension(configureDynamicAny());
 app.registerExtension(configureSwitchNodes());

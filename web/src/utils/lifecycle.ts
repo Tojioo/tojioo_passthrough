@@ -140,19 +140,12 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 
 		inp.type = effectiveType;
 
-		if (effectiveType !== ANY_TYPE)
-		{
-			const baseLabel = effectiveType.toLowerCase();
-			const n = i === 0 ? baseLabel : `${baseLabel}_${i + 1}`;
-			inp.name = n;
-			inp.label = n;
-		}
-		else
-		{
-			const n = i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`;
-			inp.name = n;
-			inp.label = n;
-		}
+		const label = (effectiveType !== ANY_TYPE)
+			? (i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}`)
+			: (i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`);
+
+		inp.name = `input_${i + 1}`;
+		inp.label = label;
 
 		const linkId = inp.link;
 		if (linkId != null && effectiveType !== ANY_TYPE)
@@ -170,9 +163,8 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 
 			if (resolvedType !== ANY_TYPE)
 			{
-				const n = resolvedType.toLowerCase();
-				out.name = n;
-				out.label = n;
+				out.name = "output_1";
+				out.label = resolvedType.toLowerCase();
 			}
 
 			const outLinks = out.links ?? [];
@@ -190,20 +182,48 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 	UpdateNodeSize(node);
 }
 
-export function UpdateNodeSize(node: any): void
+export function UpdateNodeSize(node: any, expandOnly?: boolean): void
 {
-	if (IsGraphLoading())
+	try
+	{
+		const isPreview = node.type === "PT_DynamicPreview";
+		const useExpandOnly = expandOnly !== undefined ? expandOnly : isPreview;
+
+		const size = node.computeSize();
+		if (useExpandOnly && node.size)
+		{
+			size[0] = Math.max(size[0], node.size[0]);
+			size[1] = Math.max(size[1], node.size[1]);
+		}
+		node.setSize(size);
+	}
+	catch (e)
+	{
+		// computeSize might fail during certain phases of node lifecycle
+	}
+}
+
+export function UpdatePreviewNodeSize(node: any): void
+{
+	if (IsGraphLoading() || (node as any).__tojioo_skip_resize)
 	{
 		return;
 	}
 
-	const size = node.computeSize();
-	if (node.size)
+	try
 	{
-		size[0] = Math.max(size[0], node.size[0]);
-		size[1] = Math.max(size[1], node.size[1]);
+		const size = node.computeSize();
+		if (node.size)
+		{
+			size[0] = Math.max(size[0], node.size[0]);
+			size[1] = Math.max(size[1], node.size[1]);
+		}
+		node.setSize(size);
 	}
-	node.setSize(size);
+	catch (e)
+	{
+		// computeSize might fail during certain phases of node lifecycle
+	}
 }
 
 export function normalizeInputs(node: any): void

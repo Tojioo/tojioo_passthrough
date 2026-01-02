@@ -1,5 +1,4 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
-# extension entry point for new ComfyUI API
+﻿# extension entry point for new ComfyUI API
 # Currently unused
 
 # from typing import TYPE_CHECKING, override
