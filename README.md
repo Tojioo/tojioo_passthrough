@@ -74,7 +74,7 @@ Restart ComfyUI.
 	- No outputs, this node is a pure viewer
 	- Marked Beta because UI and behavior may change as the ComfyUI frontend evolves
 
-#### Example (toghether with Dynamic Bus Node):
+#### Example (together with Dynamic Bus Node):
 <img width="900" alt="image" src="https://github.com/user-attachments/assets/14202fa5-741a-417c-908c-2589086b2d4a" />
 
 
