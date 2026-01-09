@@ -45,11 +45,23 @@ class PT_DynamicBus(BaseNode):
 			bus_dict = {}
 
 		direct_inputs = {}
+
+		used = {k for k in bus_dict.keys() if isinstance(k, int)}
+		next_idx = 0
+		while next_idx in used:
+			next_idx += 1
+
 		for key, value in kwargs.items():
 			if value is None:
 				continue
-			occurrence = parse_slot_occurrence(key)
-			bus_idx = occurrence - 1
+
+			bus_idx = try_parse_bus_idx(key)
+			if bus_idx is None:
+				while next_idx in used:
+					next_idx += 1
+				bus_idx = next_idx
+
+			used.add(bus_idx)
 			direct_inputs[bus_idx] = value
 			bus_dict[bus_idx] = value
 
@@ -77,3 +89,16 @@ def parse_slot_occurrence(key):
 		except ValueError:
 			pass
 	return 1
+
+def try_parse_bus_idx(key: str):
+	"""
+	Parse bus index from key. 'input_2' -> 1, 'model_3' -> 2.
+	Returns None if no valid suffix.
+	"""
+	if '_' in key:
+		_, tail = key.rsplit('_', 1)
+		if tail.isdigit():
+			n = int(tail)
+			if n > 0:
+				return n - 1
+	return None

@@ -38,6 +38,25 @@ class PT_DynamicPreview:
 		from PIL import Image
 		from PIL.PngImagePlugin import PngInfo
 
+		try:
+			import torch
+		except Exception:
+			torch = None
+
+		def iter_image_tensors(v):
+			if torch is None:
+				return
+			if isinstance(v, torch.Tensor):
+				if v.dim() == 4:
+					for img in v:
+						yield img
+				elif v.dim() == 3:
+					yield v
+				return
+			if isinstance(v, (list, tuple)):
+				for x in v:
+					yield from iter_image_tensors(x)
+
 		all_images = []
 
 		output_dir = folder_paths.get_temp_directory()
@@ -47,9 +66,19 @@ class PT_DynamicPreview:
 			if value is None:
 				continue
 
-			for batch_idx, image in enumerate(value):
-				i = 255.0 * image.cpu().numpy()
-				img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+			for batch_idx, image in enumerate(iter_image_tensors(value)):
+				if torch is not None and isinstance(image, torch.Tensor):
+					if image.dim() != 3:
+						continue
+
+					img_t = image
+					if img_t.shape[-1] not in (1, 3, 4) and img_t.shape[0] in (1, 3, 4):
+						img_t = img_t.permute(1, 2, 0)
+
+					i = 255.0 * img_t.detach().cpu().numpy()
+					img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+				else:
+					continue
 
 				metadata = PngInfo()
 				if prompt is not None:
