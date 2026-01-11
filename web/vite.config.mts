@@ -1,6 +1,7 @@
-﻿import {fileURLToPath} from 'url';
+﻿/// <reference types="vitest" />
+import {fileURLToPath} from 'url';
 import {dirname, resolve} from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig} from 'vitest/config'
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 /** Resolves the absolute path for a given relative path.
@@ -50,5 +51,9 @@ export default defineConfig({
 				},
 			},
 		},
+	},
+	test: {
+		globals: true,
+		environment: "node",
 	},
 });

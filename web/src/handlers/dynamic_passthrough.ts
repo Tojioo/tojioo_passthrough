@@ -1,8 +1,9 @@
 ﻿import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo.ts';
-import {GetGraph, GetLink, GetLinkTypeFromEndpoints} from '@/utils/graph.ts';
-import {ApplyDynamicTypes} from '@/utils/types.ts';
-import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils/lifecycle.ts';
+import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
+import {GetGraph, GetLink, GetLinkTypeFromEndpoints} from '@/utils/graph';
+import {ApplyDynamicTypes} from '@/utils/types';
+import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils/lifecycle';
+import {getLgInput} from '@/utils/compat';
 
 export function configureDynamicPassthrough(): ComfyExtension
 {
@@ -17,14 +18,8 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 			function normalizeIO(node: any)
 			{
-				if (!node.inputs)
-				{
-					node.inputs = [];
-				}
-				if (!node.outputs)
-				{
-					node.outputs = [];
-				}
+				if (!node.inputs) node.inputs = [];
+				if (!node.outputs) node.outputs = [];
 
 				let lastConnectedInput = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
@@ -50,21 +45,21 @@ export function configureDynamicPassthrough(): ComfyExtension
 				const lastConnected = Math.max(lastConnectedInput, lastConnectedOutput);
 				const desiredCount = Math.min(MAX_SOCKETS, Math.max(1, lastConnected + 2));
 
-				while (node.inputs.length > desiredCount)
+				while (node.inputs.length > desiredCount && typeof node.removeInput === "function")
 				{
 					node.removeInput(node.inputs.length - 1);
 				}
-				while (node.outputs.length > desiredCount)
+				while (node.outputs.length > desiredCount && typeof node.removeOutput === "function")
 				{
 					node.removeOutput(node.outputs.length - 1);
 				}
 
-				while (node.inputs.length < desiredCount)
+				while (node.inputs.length < desiredCount && typeof node.addInput === "function")
 				{
 					node.addInput("input", ANY_TYPE as ISlotType);
 					node.inputs[node.inputs.length - 1].label = "input";
 				}
-				while (node.outputs.length < desiredCount)
+				while (node.outputs.length < desiredCount && typeof node.addOutput === "function")
 				{
 					node.addOutput("output", ANY_TYPE as ISlotType);
 					node.outputs[node.outputs.length - 1].label = "output";
@@ -82,21 +77,11 @@ export function configureDynamicPassthrough(): ComfyExtension
 					return;
 				}
 
-				if (prevOnConnectionsChange)
-				{
-					prevOnConnectionsChange.call(
-						this,
-						type,
-						index,
-						isConnected,
-						link_info,
-						inputOrOutput
-					);
-				}
+				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
 				const node = this;
 
-				if (type === LiteGraph.INPUT && isConnected)
+				if (type === getLgInput() && isConnected)
 				{
 					try
 					{
@@ -171,8 +156,8 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 						if (hasConnectionsAfter)
 						{
-							node.removeInput(disconnectedIndex);
-							node.removeOutput(disconnectedIndex);
+							if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
+							if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
 						}
 
 						normalizeIO(this);
@@ -191,10 +176,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 			const prevConfigure = nodeType.prototype.configure;
 			nodeType.prototype.configure = function(this: any, info: any)
 			{
-				if (prevConfigure)
-				{
-					prevConfigure.call(this, info);
-				}
+				prevConfigure?.call(this, info);
 
 				(this as any).__tojioo_dynamic_io_size_fixed = false;
 				DeferMicrotask(() =>
@@ -225,10 +207,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 			const prevOnAdded = nodeType.prototype.onAdded;
 			nodeType.prototype.onAdded = function(this: any)
 			{
-				if (prevOnAdded)
-				{
-					prevOnAdded.apply(this, arguments as any);
-				}
+				prevOnAdded?.apply(this, arguments as any);
 				(this as any).__tojioo_dynamic_io_size_fixed = false;
 				DeferMicrotask(() =>
 				{
@@ -244,5 +223,5 @@ export function configureDynamicPassthrough(): ComfyExtension
 				});
 			};
 		}
-	}
+	};
 }

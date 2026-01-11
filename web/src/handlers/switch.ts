@@ -1,6 +1,7 @@
 ﻿import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from '@/utils/lifecycle.ts';
-import {ANY_TYPE} from "@/types/tojioo.ts";
+import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from '@/utils/lifecycle';
+import {getLgInput} from '@/utils/compat';
+import {ANY_TYPE} from '@/types/tojioo';
 
 function isSwitch(nodeData: ComfyNodeDef): boolean
 {
@@ -35,7 +36,7 @@ export function configureSwitchNodes(): ComfyExtension
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (!link_info || type !== LiteGraph.INPUT)
+				if (!link_info || type !== getLgInput())
 				{
 					return;
 				}
@@ -61,7 +62,7 @@ export function configureSwitchNodes(): ComfyExtension
 						}
 
 						const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
-						if (hasConnectionsAfter)
+						if (hasConnectionsAfter && typeof node.removeInput === "function")
 						{
 							node.removeInput(index);
 						}
@@ -76,7 +77,7 @@ export function configureSwitchNodes(): ComfyExtension
 				applySwitchDynamicTypes(node, inputPrefix);
 
 				const lastIndex = node.inputs.length - 1;
-				if (index === lastIndex && node.inputs[lastIndex]?.link != null)
+				if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function")
 				{
 					const resolvedType = resolveInputType(node, lastIndex);
 					const socketType = resolvedType !== ANY_TYPE

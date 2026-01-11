@@ -7,8 +7,4 @@ declare global {
     type LGraph = any;
     type LLink = any;
     type LGraphNode = any;
-
-    // LiteGraph constants
-    const INPUT: number;
-    const OUTPUT: number;
 }

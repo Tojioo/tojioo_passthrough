@@ -52,8 +52,58 @@ function GetLinkTypeFromEndpoints(node, link) {
   }
   return ANY_TYPE$3;
 }
+const LG_INPUT = 1;
+const LG_OUTPUT = 2;
+const LG_NODE_SLOT_HEIGHT = 20;
+function getLiteGraph() {
+  if (typeof LiteGraph !== "undefined") {
+    return LiteGraph;
+  }
+  if (typeof window !== "undefined" && window.LiteGraph) {
+    return window.LiteGraph;
+  }
+  return null;
+}
+function getLgInput() {
+  const lg = getLiteGraph();
+  return lg?.INPUT ?? LG_INPUT;
+}
+function getLgOutput() {
+  const lg = getLiteGraph();
+  return lg?.OUTPUT ?? LG_OUTPUT;
+}
+function getLgSlotHeight() {
+  const lg = getLiteGraph();
+  return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
+}
+function isNodes2Mode() {
+  try {
+    const app2 = window.app;
+    if (app2?.extensionManager?.setting?.get) {
+      const setting = app2.extensionManager.setting.get("Comfy.UseNewMenu");
+      if (setting === "Top" || setting === "Bottom") {
+        return true;
+      }
+    }
+    const lg = getLiteGraph();
+    if (!lg) {
+      return true;
+    }
+    if (typeof document !== "undefined") {
+      const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
+      if (vueCanvas) {
+        return true;
+      }
+    }
+  } catch {
+  }
+  return false;
+}
 const ANY_TYPE$2 = "*";
 let _graphLoading = false;
+let _pendingCanvasUpdate = null;
+let _pendingSizeUpdates = /* @__PURE__ */ new Set();
+let _sizeUpdateTimer = null;
 function InstallGraphLoadingHook(app2) {
   const original = app2?.loadGraphData;
   if (typeof original !== "function") {
@@ -125,6 +175,46 @@ function resolveInputType(node, inputIndex) {
   }
   return ANY_TYPE$2;
 }
+function ScheduleCanvasUpdate(node) {
+  if (_pendingCanvasUpdate !== null) {
+    return;
+  }
+  _pendingCanvasUpdate = requestAnimationFrame(() => {
+    _pendingCanvasUpdate = null;
+    const g = GetGraph(node);
+    g?.setDirtyCanvas?.(true, true);
+  });
+}
+function ScheduleSizeUpdate(node) {
+  _pendingSizeUpdates.add(node);
+  if (_sizeUpdateTimer !== null) {
+    return;
+  }
+  _sizeUpdateTimer = requestAnimationFrame(() => {
+    _sizeUpdateTimer = null;
+    const nodes = Array.from(_pendingSizeUpdates);
+    _pendingSizeUpdates.clear();
+    for (const n of nodes) {
+      UpdateNodeSizeImmediate(n);
+    }
+  });
+}
+function UpdateNodeSizeImmediate(node, expandOnly) {
+  try {
+    if (typeof node.computeSize !== "function" || typeof node.setSize !== "function") {
+      return;
+    }
+    const isPreview = node.type === "PT_DynamicPreview";
+    const useExpandOnly = expandOnly !== void 0 ? expandOnly : isPreview;
+    const size = node.computeSize();
+    if (useExpandOnly && node.size) {
+      size[0] = Math.max(size[0], node.size[0]);
+      size[1] = Math.max(size[1], node.size[1]);
+    }
+    node.setSize(size);
+  } catch {
+  }
+}
 function applySwitchDynamicTypes(node, inputPrefix) {
   if (!node.inputs || node.inputs.length === 0) {
     return;
@@ -138,7 +228,6 @@ function applySwitchDynamicTypes(node, inputPrefix) {
       resolvedType = t;
     }
   }
-  const g = GetGraph(node);
   for (let i = 0; i < node.inputs.length; i++) {
     const inp = node.inputs[i];
     const currentType = inputTypes[i];
@@ -168,35 +257,20 @@ function applySwitchDynamicTypes(node, inputPrefix) {
       }
     }
   }
-  g?.setDirtyCanvas?.(true, true);
-  UpdateNodeSize(node);
+  ScheduleCanvasUpdate(node);
+  ScheduleSizeUpdate(node);
 }
 function UpdateNodeSize(node, expandOnly) {
-  try {
-    const isPreview = node.type === "PT_DynamicPreview";
-    const useExpandOnly = expandOnly !== void 0 ? expandOnly : isPreview;
-    const size = node.computeSize();
-    if (useExpandOnly && node.size) {
-      size[0] = Math.max(size[0], node.size[0]);
-      size[1] = Math.max(size[1], node.size[1]);
-    }
-    node.setSize(size);
-  } catch (e) {
+  if (IsGraphLoading()) {
+    return;
   }
+  ScheduleSizeUpdate(node);
 }
 function UpdatePreviewNodeSize(node) {
   if (IsGraphLoading() || node.__tojioo_skip_resize) {
     return;
   }
-  try {
-    const size = node.computeSize();
-    if (node.size) {
-      size[0] = Math.max(size[0], node.size[0]);
-      size[1] = Math.max(size[1], node.size[1]);
-    }
-    node.setSize(size);
-  } catch (e) {
-  }
+  ScheduleSizeUpdate(node);
 }
 function normalizeInputs(node) {
   if (!node.inputs) {
@@ -211,9 +285,39 @@ function normalizeInputs(node) {
   }
   const keepCount = Math.max(1, lastConnectedIndex + 2);
   while (node.inputs.length > keepCount) {
-    node.removeInput(node.inputs.length - 1);
+    if (typeof node.removeInput === "function") {
+      node.removeInput(node.inputs.length - 1);
+    } else {
+      break;
+    }
   }
-  UpdateNodeSize(node);
+  ScheduleSizeUpdate(node);
+}
+function RegisterSlotMenuEntries(type, nodeTypes) {
+  const lg = getLiteGraph();
+  if (!lg) {
+    return;
+  }
+  if (!lg.slot_types_default_out) {
+    lg.slot_types_default_out = {};
+  }
+  if (!lg.slot_types_default_in) {
+    lg.slot_types_default_in = {};
+  }
+  if (!lg.slot_types_default_out[type]) {
+    lg.slot_types_default_out[type] = [];
+  }
+  if (!lg.slot_types_default_in[type]) {
+    lg.slot_types_default_in[type] = [];
+  }
+  for (const nodeType of nodeTypes) {
+    if (!lg.slot_types_default_out[type].includes(nodeType)) {
+      lg.slot_types_default_out[type].push(nodeType);
+    }
+    if (!lg.slot_types_default_in[type].includes(nodeType)) {
+      lg.slot_types_default_in[type].push(nodeType);
+    }
+  }
 }
 const ANY_TYPE$1 = "*";
 const BUS_TYPE = "BUS";
@@ -228,7 +332,7 @@ function isBatchSwitch(nodeData) {
 function configureBatchSwitchNodes() {
   return {
     name: "Tojioo.Passthrough.Dynamic.BatchSwitchNodes",
-    beforeRegisterNodeDef: async (nodeType, nodeData, app2) => {
+    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
       if (!isBatchSwitch(nodeData)) {
         return;
       }
@@ -242,7 +346,7 @@ function configureBatchSwitchNodes() {
           return;
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== LiteGraph.INPUT) {
+        if (!link_info || type !== getLgInput()) {
           return;
         }
         const node = this;
@@ -259,7 +363,7 @@ function configureBatchSwitchNodes() {
               return;
             }
             const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
-            if (hasConnectionsAfter) {
+            if (hasConnectionsAfter && typeof node.removeInput === "function") {
               node.removeInput(index);
             }
             normalizeInputs(node);
@@ -270,7 +374,7 @@ function configureBatchSwitchNodes() {
         normalizeInputs(node);
         applySwitchDynamicTypes(node, inputPrefix);
         const lastIndex = node.inputs.length - 1;
-        if (index === lastIndex && node.inputs[lastIndex]?.link != null) {
+        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
           const resolvedType = resolveInputType(node, lastIndex);
           const socketType = resolvedType !== ANY_TYPE$1 ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE$1;
           node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
@@ -469,13 +573,13 @@ function ApplyDynamicTypes(node) {
   }
   const g = GetGraph(node);
   g?.setDirtyCanvas?.(true, true);
-  const isPreview = node.type === "PT_DynamicPreview";
-  UpdateNodeSize(node, isPreview);
+  node.type === "PT_DynamicPreview";
+  UpdateNodeSize(node);
 }
 function configureDynamicBus() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicBus",
-    beforeRegisterNodeDef: async (nodeType, nodeData, app2) => {
+    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
       if (nodeData.name !== "PT_DynamicBus") {
         return;
       }
@@ -522,24 +626,24 @@ function configureDynamicBus() {
         }
         for (let i = maxLen - 1; i >= 1; i--) {
           if (!slotsToKeep.has(i)) {
-            if (i < node.inputs.length) {
+            if (i < node.inputs.length && typeof node.removeInput === "function") {
               node.removeInput(i);
             }
-            if (i < node.outputs.length) {
+            if (i < node.outputs.length && typeof node.removeOutput === "function") {
               node.removeOutput(i);
             }
           }
         }
-        if (node.inputs.length === 0) {
+        if (node.inputs.length === 0 && typeof node.addInput === "function") {
           node.addInput("bus", BUS_TYPE);
-        } else {
+        } else if (node.inputs[0]) {
           node.inputs[0].name = "bus";
           node.inputs[0].label = "bus";
           node.inputs[0].type = BUS_TYPE;
         }
-        if (node.outputs.length === 0) {
+        if (node.outputs.length === 0 && typeof node.addOutput === "function") {
           node.addOutput("bus", BUS_TYPE);
-        } else {
+        } else if (node.outputs[0]) {
           node.outputs[0].name = "bus";
           node.outputs[0].label = "bus";
           node.outputs[0].type = BUS_TYPE;
@@ -553,7 +657,8 @@ function configureDynamicBus() {
           const m = input.name?.match(/input_(\d+)/);
           if (m) currentIdx = parseInt(m[1]) - 1;
           const isInputConnected = input.link != null;
-          if (currentIdx === -1 || localIndicesInUse.has(currentIdx) || isInputConnected && occupiedInBus.has(currentIdx)) {
+          const isOutputConnected = (node.outputs?.[i]?.links?.length ?? 0) > 0;
+          if (currentIdx === -1 || localIndicesInUse.has(currentIdx) || (isInputConnected || isOutputConnected) && occupiedInBus.has(currentIdx)) {
             let nextIdx = 0;
             while (occupiedInBus.has(nextIdx) || localIndicesInUse.has(nextIdx)) nextIdx++;
             input.name = `input_${nextIdx + 1}`;
@@ -564,13 +669,17 @@ function configureDynamicBus() {
           }
         }
         let nextBusIdx = 0;
-        while (localIndicesInUse.has(nextBusIdx)) nextBusIdx++;
-        node.addInput("input", ANY_TYPE$1);
-        node.inputs[node.inputs.length - 1].name = `input_${nextBusIdx + 1}`;
-        node.inputs[node.inputs.length - 1].label = "input";
-        node.addOutput("output", ANY_TYPE$1);
-        node.outputs[node.outputs.length - 1].name = `output_${nextBusIdx + 1}`;
-        node.outputs[node.outputs.length - 1].label = "output";
+        while (occupiedInBus.has(nextBusIdx) || localIndicesInUse.has(nextBusIdx)) nextBusIdx++;
+        if (typeof node.addInput === "function") {
+          node.addInput("input", ANY_TYPE$1);
+          node.inputs[node.inputs.length - 1].name = `input_${nextBusIdx + 1}`;
+          node.inputs[node.inputs.length - 1].label = "input";
+        }
+        if (typeof node.addOutput === "function") {
+          node.addOutput("output", ANY_TYPE$1);
+          node.outputs[node.outputs.length - 1].name = `output_${nextBusIdx + 1}`;
+          node.outputs[node.outputs.length - 1].label = "output";
+        }
         UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
         node.__tojioo_dynamic_io_size_fixed = true;
       }
@@ -726,7 +835,9 @@ function configureDynamicBus() {
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
-        if (type === LiteGraph.INPUT && isConnected && index > 0) {
+        const LG_INPUT2 = getLgInput();
+        const LG_OUTPUT2 = getLgOutput();
+        if (type === LG_INPUT2 && isConnected && index > 0) {
           try {
             const link = link_info ?? GetInputLink(node, index);
             if (link) {
@@ -751,7 +862,7 @@ function configureDynamicBus() {
           } catch {
           }
         }
-        if (type === LiteGraph.OUTPUT && isConnected && index > 0) {
+        if (type === LG_OUTPUT2 && isConnected && index > 0) {
           try {
             const linkId = link_info?.id;
             const link = link_info ?? (linkId != null ? GetLink(node, linkId) : null);
@@ -777,7 +888,7 @@ function configureDynamicBus() {
           }
         }
         if (!isConnected && index > 0) {
-          const isInput = type === LiteGraph.INPUT;
+          const isInput = type === LG_INPUT2;
           DeferMicrotask(() => {
             const slotStillConnected = isInput ? node.inputs?.[index]?.link != null : (node.outputs?.[index]?.links?.length ?? 0) > 0;
             if (slotStillConnected) {
@@ -795,8 +906,8 @@ function configureDynamicBus() {
               }
             }
             if (hasConnectionsAfter && !pairConnected) {
-              node.removeInput(index);
-              node.removeOutput(index);
+              if (typeof node.removeInput === "function") node.removeInput(index);
+              if (typeof node.removeOutput === "function") node.removeOutput(index);
             }
             normalizeIO(node);
             applyBusDynamicTypes(node);
@@ -853,12 +964,8 @@ function configureDynamicPassthrough() {
         return;
       }
       function normalizeIO(node) {
-        if (!node.inputs) {
-          node.inputs = [];
-        }
-        if (!node.outputs) {
-          node.outputs = [];
-        }
+        if (!node.inputs) node.inputs = [];
+        if (!node.outputs) node.outputs = [];
         let lastConnectedInput = -1;
         for (let i = node.inputs.length - 1; i >= 0; i--) {
           if (node.inputs[i]?.link != null) {
@@ -876,17 +983,17 @@ function configureDynamicPassthrough() {
         }
         const lastConnected = Math.max(lastConnectedInput, lastConnectedOutput);
         const desiredCount = Math.min(MAX_SOCKETS, Math.max(1, lastConnected + 2));
-        while (node.inputs.length > desiredCount) {
+        while (node.inputs.length > desiredCount && typeof node.removeInput === "function") {
           node.removeInput(node.inputs.length - 1);
         }
-        while (node.outputs.length > desiredCount) {
+        while (node.outputs.length > desiredCount && typeof node.removeOutput === "function") {
           node.removeOutput(node.outputs.length - 1);
         }
-        while (node.inputs.length < desiredCount) {
+        while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
           node.addInput("input", ANY_TYPE$1);
           node.inputs[node.inputs.length - 1].label = "input";
         }
-        while (node.outputs.length < desiredCount) {
+        while (node.outputs.length < desiredCount && typeof node.addOutput === "function") {
           node.addOutput("output", ANY_TYPE$1);
           node.outputs[node.outputs.length - 1].label = "output";
         }
@@ -898,18 +1005,9 @@ function configureDynamicPassthrough() {
         if (IsGraphLoading()) {
           return;
         }
-        if (prevOnConnectionsChange) {
-          prevOnConnectionsChange.call(
-            this,
-            type,
-            index,
-            isConnected,
-            link_info,
-            inputOrOutput
-          );
-        }
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
-        if (type === LiteGraph.INPUT && isConnected) {
+        if (type === getLgInput() && isConnected) {
           try {
             const g = GetGraph(node);
             const linkId = link_info?.id ?? node.inputs?.[index]?.link;
@@ -960,8 +1058,8 @@ function configureDynamicPassthrough() {
               }
             }
             if (hasConnectionsAfter) {
-              node.removeInput(disconnectedIndex);
-              node.removeOutput(disconnectedIndex);
+              if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
+              if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
             }
             normalizeIO(this);
             ApplyDynamicTypes(this);
@@ -975,9 +1073,7 @@ function configureDynamicPassthrough() {
       };
       const prevConfigure = nodeType.prototype.configure;
       nodeType.prototype.configure = function(info) {
-        if (prevConfigure) {
-          prevConfigure.call(this, info);
-        }
+        prevConfigure?.call(this, info);
         this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
           try {
@@ -998,9 +1094,7 @@ function configureDynamicPassthrough() {
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
-        if (prevOnAdded) {
-          prevOnAdded.apply(this, arguments);
-        }
+        prevOnAdded?.apply(this, arguments);
         this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
           try {
@@ -1030,7 +1124,7 @@ function configureDynamicPreview() {
         if (!node.__tojioo_dynamic_io_rebuilt) {
           node.__tojioo_dynamic_io_rebuilt = true;
           const hasAnyLinks = node.inputs?.some((i) => i?.link != null);
-          if (!hasAnyLinks) {
+          if (!hasAnyLinks && typeof node.removeInput === "function") {
             while (node.inputs.length) {
               node.removeInput(node.inputs.length - 1);
             }
@@ -1044,19 +1138,17 @@ function configureDynamicPreview() {
           }
         }
         const desiredCount = Math.min(MAX_SOCKETS, Math.max(1, lastConnectedIndex + 2));
-        while (node.inputs.length > desiredCount) {
+        while (node.inputs.length > desiredCount && typeof node.removeInput === "function") {
           node.removeInput(node.inputs.length - 1);
         }
-        while (node.inputs.length < desiredCount) {
+        while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
           node.addInput("image", ANY_TYPE$1);
           node.inputs[node.inputs.length - 1].label = "image";
         }
         UpdatePreviewNodeSize(node);
       }
       function applyDynamicTypes(node) {
-        if (!node.inputs?.length) {
-          return;
-        }
+        if (!node.inputs?.length) return;
         const types = [];
         const typeCounters = {};
         for (let i = 0; i < node.inputs.length; i++) {
@@ -1064,9 +1156,7 @@ function configureDynamicPreview() {
           let resolvedType = ANY_TYPE$1;
           if (link) {
             const t = GetLinkTypeFromEndpoints(node, link);
-            if (t !== ANY_TYPE$1) {
-              resolvedType = t;
-            }
+            if (t !== ANY_TYPE$1) resolvedType = t;
           }
           types.push(resolvedType);
         }
@@ -1099,34 +1189,28 @@ function configureDynamicPreview() {
         return widths;
       }
       nodeType.prototype.selectImage = function(index) {
-        if (index < 0 || index >= this._totalImages) {
-          return;
-        }
+        if (index < 0 || index >= this._totalImages) return;
         this._currentImageIndex = index;
         this.graph?.setDirtyCanvas?.(true, true);
       };
       const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
       nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement) {
         prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
+        if (!ctx || isNodes2Mode()) return;
         const node = this;
-        if (!node._imageElements?.length || node._totalImages === 0) {
-          return;
-        }
+        if (!node._imageElements?.length || node._totalImages === 0) return;
         const imgs = node._imageElements;
         const idx = Math.min(node._currentImageIndex, imgs.length - 1);
         const img = imgs[idx];
-        if (!img?.complete || img.naturalWidth === 0) {
-          return;
-        }
-        const inputsHeight = (node.inputs?.length || 1) * LiteGraph.NODE_SLOT_HEIGHT + 10;
+        if (!img?.complete || img.naturalWidth === 0) return;
+        const slotHeight = getLgSlotHeight();
+        const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
         const showTabs = node._totalImages >= 2;
         const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
         const previewY = inputsHeight + tabBarHeight;
         const previewHeight = node.size[1] - previewY;
         const previewWidth = node.size[0];
-        if (previewHeight < 50) {
-          return;
-        }
+        if (previewHeight < 50) return;
         const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
         const drawWidth = img.width * scale;
         const drawHeight = img.height * scale;
@@ -1155,13 +1239,7 @@ function configureDynamicPreview() {
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2);
-            node._tabHitAreas.push({
-              x: tabX,
-              y: tabY,
-              width: tabWidth,
-              height: TAB_BAR_HEIGHT,
-              index: i
-            });
+            node._tabHitAreas.push({ x: tabX, y: tabY, width: tabWidth, height: TAB_BAR_HEIGHT, index: i });
             tabX += tabWidth + TAB_GAP;
           }
         }
@@ -1204,13 +1282,9 @@ function configureDynamicPreview() {
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) {
-          return;
-        }
+        if (IsGraphLoading()) return;
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (type !== LiteGraph.INPUT) {
-          return;
-        }
+        if (type !== getLgInput()) return;
         const node = this;
         if (isConnected) {
           try {
@@ -1238,16 +1312,14 @@ function configureDynamicPreview() {
           return;
         }
         DeferMicrotask(() => {
-          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
-            return;
-          }
+          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) return;
           if (node.inputs[index]?.link != null) {
             normalizeInputs2(node);
             applyDynamicTypes(node);
             return;
           }
           const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
-          if (hasConnectionsAfter) {
+          if (hasConnectionsAfter && typeof node.removeInput === "function") {
             node.removeInput(index);
           }
           const hasAny = node.inputs?.some((inp) => inp?.link != null);
@@ -1289,9 +1361,7 @@ function configureDynamicPreview() {
         prevOnAdded?.apply(this, arguments);
         if (this.widgets) {
           const imgWidgetIndex = this.widgets.findIndex((w) => w.name === "image" || w.type === "preview");
-          if (imgWidgetIndex !== -1) {
-            this.widgets.splice(imgWidgetIndex, 1);
-          }
+          if (imgWidgetIndex !== -1) this.widgets.splice(imgWidgetIndex, 1);
         }
         this.imgs = null;
         const loading = IsGraphLoading();
@@ -1413,7 +1483,7 @@ function configureSwitchNodes() {
           return;
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== LiteGraph.INPUT) {
+        if (!link_info || type !== getLgInput()) {
           return;
         }
         const node = this;
@@ -1430,7 +1500,7 @@ function configureSwitchNodes() {
               return;
             }
             const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
-            if (hasConnectionsAfter) {
+            if (hasConnectionsAfter && typeof node.removeInput === "function") {
               node.removeInput(index);
             }
             normalizeInputs(node);
@@ -1441,7 +1511,7 @@ function configureSwitchNodes() {
         normalizeInputs(node);
         applySwitchDynamicTypes(node, inputPrefix);
         const lastIndex = node.inputs.length - 1;
-        if (index === lastIndex && node.inputs[lastIndex]?.link != null) {
+        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
           const resolvedType = resolveInputType(node, lastIndex);
           const socketType = resolvedType !== ANY_TYPE$1 ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE$1;
           node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
@@ -1471,6 +1541,7 @@ app.registerExtension({
   name: "Tojioo.Passthrough.Core",
   async setup() {
     InstallGraphLoadingHook(app);
+    RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
   }
 });
 app.registerExtension(configureBatchSwitchNodes());

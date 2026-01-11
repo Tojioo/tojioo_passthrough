@@ -1,17 +1,21 @@
 {
   "name": "tojioo-passthrough",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --config vite.config.mts",
     "build": "vite build --config vite.config.mts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@comfyorg/comfyui-frontend-types": "^1.37.2",
-    "@types/node": "^20.19.27",
+    "@types/node": "^25.0.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
-    "vite-plugin-css-injected-by-js": "^3.5.2"
+    "vite-plugin-css-injected-by-js": "^3.5.2",
+    "vitest": "^4.0.16"
   }
 }

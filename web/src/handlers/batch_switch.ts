@@ -1,5 +1,6 @@
-﻿import {ANY_TYPE} from "@/types/tojioo.ts";
-import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from "@/utils/lifecycle";
+﻿import {ANY_TYPE} from '@/types/tojioo';
+import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from '@/utils/lifecycle';
+import {getLgInput} from '@/utils/compat';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 function isBatchSwitch(nodeData: ComfyNodeDef): boolean
@@ -12,7 +13,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 {
 	return {
 		name: "Tojioo.Passthrough.Dynamic.BatchSwitchNodes",
-		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, app: ComfyApp): Promise<void> =>
+		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, _app: ComfyApp): Promise<void> =>
 		{
 			if (!isBatchSwitch(nodeData))
 			{
@@ -35,7 +36,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (!link_info || type !== LiteGraph.INPUT)
+				if (!link_info || type !== getLgInput())
 				{
 					return;
 				}
@@ -61,7 +62,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 						}
 
 						const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
-						if (hasConnectionsAfter)
+						if (hasConnectionsAfter && typeof node.removeInput === "function")
 						{
 							node.removeInput(index);
 						}
@@ -76,7 +77,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 				applySwitchDynamicTypes(node, inputPrefix);
 
 				const lastIndex = node.inputs.length - 1;
-				if (index === lastIndex && node.inputs[lastIndex]?.link != null)
+				if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function")
 				{
 					const resolvedType = resolveInputType(node, lastIndex);
 					const socketType = resolvedType !== ANY_TYPE

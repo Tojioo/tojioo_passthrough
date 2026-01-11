@@ -1,0 +1,47 @@
+[project]
+name = "tojioo-passthrough"
+version = "1.7.0"
+description = "Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements."
+license = {file = "../LICENSE"}
+requires-python = ">=3.10"
+readme = "../README.md"
+
+[project.optional-dependencies]
+test = [
+	"pytest>=7.0.0",
+	"pytest-cov>=4.0.0",
+	"torch",
+	"numpy",
+	"Pillow",
+]
+
+[project.urls]
+Repository = "https://github.com/Tojioo/tojioo_passthrough"
+Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki"
+"Bug Tracker" = "https://github.com/Tojioo/tojioo_passthrough/issues"
+
+[tool.comfy]
+PublisherId = "tojioo"
+DisplayName = "Tojioo Passthrough"
+Icon = "https://avatars.githubusercontent.com/u/132622614?s=256"
+includes = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["tojioo_passthrough"]
+omit = ["tests/*", ".venv/*"]
+
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tojioo_passthrough", "tojioo_passthrough.*"]
+exclude = ["tests*", "web*", "example_workflows*"]

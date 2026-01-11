@@ -1,14 +1,15 @@
-﻿import {ANY_TYPE, BUS_TYPE} from "@/types/tojioo.ts";
-import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from "@/utils/lifecycle";
-import {ResolveConnectedType} from "@/utils/types";
-import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints, GetNodeById} from "@/utils/graph";
+﻿import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
+import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils/lifecycle';
+import {ResolveConnectedType} from '@/utils/types';
+import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints, GetNodeById} from '@/utils/graph';
+import {getLgInput, getLgOutput} from '@/utils/compat';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 export function configureDynamicBus(): ComfyExtension
 {
 	return {
 		name: "Tojioo.Passthrough.Dynamic.DynamicBus",
-		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, app: ComfyApp): Promise<void> =>
+		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, _app: ComfyApp): Promise<void> =>
 		{
 			if (nodeData.name !== "PT_DynamicBus")
 			{
@@ -81,33 +82,33 @@ export function configureDynamicBus(): ComfyExtension
 				{
 					if (!slotsToKeep.has(i))
 					{
-						if (i < node.inputs.length)
+						if (i < node.inputs.length && typeof node.removeInput === "function")
 						{
 							node.removeInput(i);
 						}
-						if (i < node.outputs.length)
+						if (i < node.outputs.length && typeof node.removeOutput === "function")
 						{
 							node.removeOutput(i);
 						}
 					}
 				}
 
-				if (node.inputs.length === 0)
+				if (node.inputs.length === 0 && typeof node.addInput === "function")
 				{
 					node.addInput("bus", BUS_TYPE as ISlotType);
 				}
-				else
+				else if (node.inputs[0])
 				{
 					node.inputs[0].name = "bus";
 					node.inputs[0].label = "bus";
 					node.inputs[0].type = BUS_TYPE as ISlotType;
 				}
 
-				if (node.outputs.length === 0)
+				if (node.outputs.length === 0 && typeof node.addOutput === "function")
 				{
 					node.addOutput("bus", BUS_TYPE as ISlotType);
 				}
-				else
+				else if (node.outputs[0])
 				{
 					node.outputs[0].name = "bus";
 					node.outputs[0].label = "bus";
@@ -126,7 +127,8 @@ export function configureDynamicBus(): ComfyExtension
 					if (m) currentIdx = parseInt(m[1]) - 1;
 
 					const isInputConnected = input.link != null;
-					if (currentIdx === -1 || localIndicesInUse.has(currentIdx) || (isInputConnected && occupiedInBus.has(currentIdx)))
+					const isOutputConnected = (node.outputs?.[i]?.links?.length ?? 0) > 0;
+					if (currentIdx === -1 || localIndicesInUse.has(currentIdx) || ((isInputConnected || isOutputConnected) && occupiedInBus.has(currentIdx)))
 					{
 						let nextIdx = 0;
 						while (occupiedInBus.has(nextIdx) || localIndicesInUse.has(nextIdx)) nextIdx++;
@@ -142,15 +144,21 @@ export function configureDynamicBus(): ComfyExtension
 				}
 
 				let nextBusIdx = 0;
-				while (localIndicesInUse.has(nextBusIdx)) nextBusIdx++;
+				while (occupiedInBus.has(nextBusIdx) || localIndicesInUse.has(nextBusIdx)) nextBusIdx++;
 
-				node.addInput("input", ANY_TYPE as ISlotType);
-				node.inputs[node.inputs.length - 1].name = `input_${nextBusIdx + 1}`;
-				node.inputs[node.inputs.length - 1].label = "input";
+				if (typeof node.addInput === "function")
+				{
+					node.addInput("input", ANY_TYPE as ISlotType);
+					node.inputs[node.inputs.length - 1].name = `input_${nextBusIdx + 1}`;
+					node.inputs[node.inputs.length - 1].label = "input";
+				}
 
-				node.addOutput("output", ANY_TYPE as ISlotType);
-				node.outputs[node.outputs.length - 1].name = `output_${nextBusIdx + 1}`;
-				node.outputs[node.outputs.length - 1].label = "output";
+				if (typeof node.addOutput === "function")
+				{
+					node.addOutput("output", ANY_TYPE as ISlotType);
+					node.outputs[node.outputs.length - 1].name = `output_${nextBusIdx + 1}`;
+					node.outputs[node.outputs.length - 1].label = "output";
+				}
 
 				UpdateNodeSize(node, (node as any).__tojioo_dynamic_io_size_fixed || false);
 				(node as any).__tojioo_dynamic_io_size_fixed = true;
@@ -378,8 +386,10 @@ export function configureDynamicBus(): ComfyExtension
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
 				const node = this;
+				const LG_INPUT = getLgInput();
+				const LG_OUTPUT = getLgOutput();
 
-				if (type === LiteGraph.INPUT && isConnected && index > 0)
+				if (type === LG_INPUT && isConnected && index > 0)
 				{
 					try
 					{
@@ -414,7 +424,7 @@ export function configureDynamicBus(): ComfyExtension
 					catch {}
 				}
 
-				if (type === LiteGraph.OUTPUT && isConnected && index > 0)
+				if (type === LG_OUTPUT && isConnected && index > 0)
 				{
 					try
 					{
@@ -451,7 +461,7 @@ export function configureDynamicBus(): ComfyExtension
 
 				if (!isConnected && index > 0)
 				{
-					const isInput = type === LiteGraph.INPUT;
+					const isInput = type === LG_INPUT;
 
 					DeferMicrotask(() =>
 					{
@@ -483,8 +493,8 @@ export function configureDynamicBus(): ComfyExtension
 
 						if (hasConnectionsAfter && !pairConnected)
 						{
-							node.removeInput(index);
-							node.removeOutput(index);
+							if (typeof node.removeInput === "function") node.removeInput(index);
+							if (typeof node.removeOutput === "function") node.removeOutput(index);
 						}
 
 						normalizeIO(node);

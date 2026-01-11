@@ -1,9 +1,13 @@
 ﻿import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph.ts';
+import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
+import {getLgInput} from './compat';
 
 const ANY_TYPE: string = "*";
 
 let _graphLoading = false;
+let _pendingCanvasUpdate: number | null = null;
+let _pendingSizeUpdates = new Set<any>();
+let _sizeUpdateTimer: number | null = null;
 
 export function InstallGraphLoadingHook(app: any): void
 {
@@ -110,6 +114,68 @@ export function resolveInputType(node: any, inputIndex: number): string
 	return ANY_TYPE;
 }
 
+export function ScheduleCanvasUpdate(node: any): void
+{
+	if (_pendingCanvasUpdate !== null)
+	{
+		return;
+	}
+
+	_pendingCanvasUpdate = requestAnimationFrame(() =>
+	{
+		_pendingCanvasUpdate = null;
+		const g = GetGraph(node);
+		g?.setDirtyCanvas?.(true, true);
+	});
+}
+
+export function ScheduleSizeUpdate(node: any): void
+{
+	_pendingSizeUpdates.add(node);
+
+	if (_sizeUpdateTimer !== null)
+	{
+		return;
+	}
+
+	_sizeUpdateTimer = requestAnimationFrame(() =>
+	{
+		_sizeUpdateTimer = null;
+		const nodes = Array.from(_pendingSizeUpdates);
+		_pendingSizeUpdates.clear();
+
+		for (const n of nodes)
+		{
+			UpdateNodeSizeImmediate(n);
+		}
+	});
+}
+
+function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
+{
+	try
+	{
+		if (typeof node.computeSize !== "function" || typeof node.setSize !== "function")
+		{
+			return;
+		}
+
+		const isPreview = node.type === "PT_DynamicPreview";
+		const useExpandOnly = expandOnly !== undefined ? expandOnly : isPreview;
+
+		const size = node.computeSize();
+		if (useExpandOnly && node.size)
+		{
+			size[0] = Math.max(size[0], node.size[0]);
+			size[1] = Math.max(size[1], node.size[1]);
+		}
+		node.setSize(size);
+	}
+	catch
+	{
+	}
+}
+
 export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): void
 {
 	if (!node.inputs || node.inputs.length === 0)
@@ -129,8 +195,6 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 			resolvedType = t;
 		}
 	}
-
-	const g = GetGraph(node);
 
 	for (let i = 0; i < node.inputs.length; i++)
 	{
@@ -178,29 +242,17 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 		}
 	}
 
-	g?.setDirtyCanvas?.(true, true);
-	UpdateNodeSize(node);
+	ScheduleCanvasUpdate(node);
+	ScheduleSizeUpdate(node);
 }
 
 export function UpdateNodeSize(node: any, expandOnly?: boolean): void
 {
-	try
+	if (IsGraphLoading())
 	{
-		const isPreview = node.type === "PT_DynamicPreview";
-		const useExpandOnly = expandOnly !== undefined ? expandOnly : isPreview;
-
-		const size = node.computeSize();
-		if (useExpandOnly && node.size)
-		{
-			size[0] = Math.max(size[0], node.size[0]);
-			size[1] = Math.max(size[1], node.size[1]);
-		}
-		node.setSize(size);
+		return;
 	}
-	catch (e)
-	{
-		// computeSize might fail during certain phases of node lifecycle
-	}
+	ScheduleSizeUpdate(node);
 }
 
 export function UpdatePreviewNodeSize(node: any): void
@@ -209,21 +261,7 @@ export function UpdatePreviewNodeSize(node: any): void
 	{
 		return;
 	}
-
-	try
-	{
-		const size = node.computeSize();
-		if (node.size)
-		{
-			size[0] = Math.max(size[0], node.size[0]);
-			size[1] = Math.max(size[1], node.size[1]);
-		}
-		node.setSize(size);
-	}
-	catch (e)
-	{
-		// computeSize might fail during certain phases of node lifecycle
-	}
+	ScheduleSizeUpdate(node);
 }
 
 export function normalizeInputs(node: any): void
@@ -246,8 +284,20 @@ export function normalizeInputs(node: any): void
 	const keepCount = Math.max(1, lastConnectedIndex + 2);
 	while (node.inputs.length > keepCount)
 	{
-		node.removeInput(node.inputs.length - 1);
+		if (typeof node.removeInput === "function")
+		{
+			node.removeInput(node.inputs.length - 1);
+		}
+		else
+		{
+			break;
+		}
 	}
 
-	UpdateNodeSize(node);
+	ScheduleSizeUpdate(node);
+}
+
+export function isInputConnectionChange(type: number): boolean
+{
+	return type === getLgInput();
 }

@@ -1,4 +1,5 @@
 ﻿import {InstallGraphLoadingHook} from '@/utils/lifecycle.ts';
+import {RegisterSlotMenuEntries} from '@/utils/slot_menu.ts';
 import {app} from 'scripts/app.js';
 
 import {configureBatchSwitchNodes} from '@/handlers/batch_switch';
@@ -13,6 +14,7 @@ app.registerExtension({
 	async setup()
 	{
 		InstallGraphLoadingHook(app);
+		RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
 	}
 });
 
