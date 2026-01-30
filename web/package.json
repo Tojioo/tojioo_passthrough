@@ -1,8 +1,10 @@
 {
   "name": "tojioo-passthrough",
-  "version": "1.7.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node -e \"const v=require('fs').readFileSync('../VERSION','utf8').trim();const p=require('./package.json');p.version=v;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "prebuild": "node -e \"const v=require('fs').readFileSync('../VERSION','utf8').trim();const p=require('./package.json');p.version=v;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "dev": "vite build --watch --config vite.config.mts",
     "build": "vite build --config vite.config.mts",
     "typecheck": "tsc --noEmit",

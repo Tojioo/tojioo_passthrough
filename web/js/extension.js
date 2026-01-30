@@ -1,5 +1,4 @@
-import {app} from "../../scripts/app.js";
-
+import { app } from "../../scripts/app.js";
 const ANY_TYPE$3 = "*";
 function GetGraph(node) {
   return (node.rootGraph ?? node.graph) || window.app?.graph;

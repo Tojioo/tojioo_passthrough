@@ -1,0 +1,20 @@
+﻿[project]
+name = "tojioo-passthrough"
+dynamic = ["version"]
+description = "Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements."
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/Tojioo/tojioo_passthrough"
+Documentation = "https://github.com/Tojioo/tojioo_passthrough/wiki"
+"Bug Tracker" = "https://github.com/Tojioo/tojioo_passthrough/issues"
+
+[tool.comfy]
+PublisherId = "tojioo"
+DisplayName = "Tojioo Passthrough"
+Icon = "https://avatars.githubusercontent.com/u/132622614?s=256"
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
