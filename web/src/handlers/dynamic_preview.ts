@@ -1,9 +1,10 @@
 ﻿import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
 import {DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils/lifecycle';
 import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints} from '@/utils/graph';
-import {getLgInput, getLgSlotHeight, isNodes2Mode} from '@/utils/compat';
+import {GetLgInput, getLgSlotHeight, isNodes2Mode} from '@/utils/compat';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
+// Todo: Fix broken node ._.
 export function configureDynamicPreview(): ComfyExtension
 {
 	return {
@@ -256,7 +257,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (type !== getLgInput()) return;
+				if (type !== GetLgInput()) return;
 
 				const node = this;
 

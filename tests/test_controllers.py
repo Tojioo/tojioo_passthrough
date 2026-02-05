@@ -1,7 +1,7 @@
 ﻿class TestPassthroughController:
 
 	def test_create_nodes_returns_dict(self):
-		from python.tojioo_passthrough.controllers.passthrough_controller import PassthroughController
+		from python.controllers.passthrough_controller import PassthroughController
 
 		nodes = PassthroughController.create_nodes()
 		assert isinstance(nodes, dict)
@@ -9,7 +9,7 @@
 
 
 	def test_creates_simple_passthroughs(self):
-		from python.tojioo_passthrough.controllers.passthrough_controller import PassthroughController
+		from python.controllers.passthrough_controller import PassthroughController
 
 		nodes = PassthroughController.create_nodes()
 		assert "PT_Image" in nodes
@@ -18,7 +18,7 @@
 
 
 	def test_creates_widget_variants(self):
-		from python.tojioo_passthrough.controllers.passthrough_controller import PassthroughController
+		from python.controllers.passthrough_controller import PassthroughController
 
 		nodes = PassthroughController.create_nodes()
 		assert "PT_IntWidget" in nodes
@@ -28,7 +28,7 @@
 
 
 	def test_node_has_required_attributes(self):
-		from python.tojioo_passthrough.controllers.passthrough_controller import PassthroughController
+		from python.controllers.passthrough_controller import PassthroughController
 
 		nodes = PassthroughController.create_nodes()
 		node_class = nodes["PT_Image"]
@@ -42,7 +42,7 @@
 
 
 	def test_passthrough_returns_input(self):
-		from python.tojioo_passthrough.controllers.passthrough_controller import PassthroughController
+		from python.controllers.passthrough_controller import PassthroughController
 
 		nodes = PassthroughController.create_nodes()
 		node = nodes["PT_Image"]()
@@ -55,7 +55,7 @@
 class TestSwitchController:
 
 	def test_create_nodes_returns_dict(self):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		assert isinstance(nodes, dict)
@@ -63,7 +63,7 @@ class TestSwitchController:
 
 
 	def test_creates_switch_nodes(self):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		assert "PT_AnyImageSwitch" in nodes
@@ -72,7 +72,7 @@ class TestSwitchController:
 
 
 	def test_creates_batch_switch_nodes(self):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		assert "PT_AnyImageBatchSwitch" in nodes
@@ -80,7 +80,7 @@ class TestSwitchController:
 
 
 	def test_switch_returns_first_connected(self):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		node = nodes["PT_AnyImageSwitch"]()
@@ -90,7 +90,7 @@ class TestSwitchController:
 
 
 	def test_batch_switch_single_input(self, torch_stub):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		node = nodes["PT_AnyImageBatchSwitch"]()
@@ -101,7 +101,7 @@ class TestSwitchController:
 
 
 	def test_batch_switch_multiple_inputs(self, torch_stub):
-		from python.tojioo_passthrough.controllers.switch_controller import SwitchController
+		from python.controllers.switch_controller import SwitchController
 
 		nodes = SwitchController.create_nodes()
 		node = nodes["PT_AnyImageBatchSwitch"]()

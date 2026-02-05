@@ -1,13 +1,13 @@
 ﻿class TestBaseNode:
 
 	def test_base_node_exists(self):
-		from python.tojioo_passthrough.nodes.base import BaseNode
+		from python.nodes.base import BaseNode
 
 		assert BaseNode is not None
 
 
 	def test_base_node_defaults(self):
-		from python.tojioo_passthrough.nodes.base import BaseNode
+		from python.nodes.base import BaseNode
 
 		assert BaseNode.FUNCTION == "run"
 		assert BaseNode.CATEGORY == "Tojioo Passthrough"
@@ -16,7 +16,7 @@
 class TestAnyType:
 
 	def test_any_type_equals_any_string(self):
-		from python.tojioo_passthrough.nodes.base import AnyType
+		from python.nodes.base import AnyType
 
 		any_type = AnyType("*")
 		assert any_type == "IMAGE"
@@ -25,7 +25,7 @@ class TestAnyType:
 
 
 	def test_any_type_not_equals_non_string(self):
-		from python.tojioo_passthrough.nodes.base import AnyType
+		from python.nodes.base import AnyType
 
 		any_type = AnyType("*")
 		assert (any_type == 123) is False
@@ -33,7 +33,7 @@ class TestAnyType:
 
 
 	def test_any_type_hash(self):
-		from python.tojioo_passthrough.nodes.base import AnyType
+		from python.nodes.base import AnyType
 
 		any_type = AnyType("*")
 		assert hash(any_type) == hash("*")
@@ -42,7 +42,7 @@ class TestAnyType:
 class TestFlexibleOptionalInputType:
 
 	def test_contains_any_key(self):
-		from python.tojioo_passthrough.nodes.base import FlexibleOptionalInputType
+		from python.nodes.base import FlexibleOptionalInputType
 
 		flex = FlexibleOptionalInputType("TEST")
 		assert "anything" in flex
@@ -51,7 +51,7 @@ class TestFlexibleOptionalInputType:
 
 
 	def test_getitem_returns_tuple(self):
-		from python.tojioo_passthrough.nodes.base import FlexibleOptionalInputType
+		from python.nodes.base import FlexibleOptionalInputType
 
 		flex = FlexibleOptionalInputType("TEST")
 		assert flex["anything"] == ("TEST",)
@@ -61,13 +61,13 @@ class TestFlexibleOptionalInputType:
 class TestMultiPass:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough.nodes.multi_pass import PT_MultiPass
+		from python.nodes.multi_pass import PT_MultiPass
 
 		assert PT_MultiPass is not None
 
 
 	def test_has_required_attributes(self):
-		from python.tojioo_passthrough.nodes.multi_pass import PT_MultiPass
+		from python.nodes.multi_pass import PT_MultiPass
 
 		assert hasattr(PT_MultiPass, "INPUT_TYPES")
 		assert hasattr(PT_MultiPass, "RETURN_TYPES")
@@ -75,7 +75,7 @@ class TestMultiPass:
 
 
 	def test_returns_all_inputs(self):
-		from python.tojioo_passthrough.nodes.multi_pass import PT_MultiPass
+		from python.nodes.multi_pass import PT_MultiPass
 
 		node = PT_MultiPass()
 		result = node.run(image = "img", mask = "msk", clip = "clp")
@@ -84,7 +84,7 @@ class TestMultiPass:
 
 
 	def test_returns_none_for_missing(self):
-		from python.tojioo_passthrough.nodes.multi_pass import PT_MultiPass
+		from python.nodes.multi_pass import PT_MultiPass
 
 		node = PT_MultiPass()
 		result = node.run(image = "img")
@@ -95,13 +95,13 @@ class TestMultiPass:
 class TestConditioning:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough import PT_Conditioning
+		from python import PT_Conditioning
 
 		assert PT_Conditioning is not None
 
 
 	def test_returns_both_conditionings(self):
-		from python.tojioo_passthrough import PT_Conditioning
+		from python import PT_Conditioning
 
 		node = PT_Conditioning()
 		result = node.run(positive = "pos", negative = "neg")
@@ -109,7 +109,7 @@ class TestConditioning:
 
 
 	def test_returns_none_when_no_input(self):
-		from python.tojioo_passthrough import PT_Conditioning
+		from python import PT_Conditioning
 
 		node = PT_Conditioning()
 		result = node.run()
@@ -119,13 +119,13 @@ class TestConditioning:
 class TestDynamicPassthrough:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough.nodes.dynamic_passthrough import PT_DynamicPassthrough
+		from python.nodes.dynamic_passthrough import PT_DynamicPassthrough
 
 		assert PT_DynamicPassthrough is not None
 
 
 	def test_outputs_match_inputs(self):
-		from python.tojioo_passthrough.nodes.dynamic_passthrough import PT_DynamicPassthrough
+		from python.nodes.dynamic_passthrough import PT_DynamicPassthrough
 
 		node = PT_DynamicPassthrough()
 		result = node.run(input = "a", input_2 = "b", input_3 = "c")
@@ -135,7 +135,7 @@ class TestDynamicPassthrough:
 
 
 	def test_pads_to_max_sockets(self):
-		from python.tojioo_passthrough.nodes.dynamic_passthrough import PT_DynamicPassthrough
+		from python.nodes.dynamic_passthrough import PT_DynamicPassthrough
 
 		node = PT_DynamicPassthrough()
 		result = node.run(input = "a")
@@ -147,13 +147,13 @@ class TestDynamicPassthrough:
 class TestDynamicBus:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough import PT_DynamicBus
+		from python import PT_DynamicBus
 
 		assert PT_DynamicBus is not None
 
 
 	def test_creates_bus_dict(self):
-		from python.tojioo_passthrough import PT_DynamicBus
+		from python import PT_DynamicBus
 
 		node = PT_DynamicBus()
 		result = node.run(input = "a", input_2 = "b")
@@ -164,7 +164,7 @@ class TestDynamicBus:
 
 
 	def test_unpacks_existing_bus(self):
-		from python.tojioo_passthrough import PT_DynamicBus
+		from python import PT_DynamicBus
 
 		node = PT_DynamicBus()
 		existing_bus = {0: "first", 1: "second"}
@@ -175,7 +175,7 @@ class TestDynamicBus:
 
 
 	def test_overrides_bus_with_direct_input(self):
-		from python.tojioo_passthrough import PT_DynamicBus
+		from python import PT_DynamicBus
 
 		node = PT_DynamicBus()
 		existing_bus = {0: "old"}
@@ -187,20 +187,20 @@ class TestDynamicBus:
 class TestParseSlotOccurrence:
 
 	def test_simple_key(self):
-		from python.tojioo_passthrough.nodes.dynamic_bus import parse_slot_occurrence
+		from python.nodes.dynamic_bus import parse_slot_occurrence
 
 		assert parse_slot_occurrence("image") == 1
 
 
 	def test_numbered_key(self):
-		from python.tojioo_passthrough.nodes.dynamic_bus import parse_slot_occurrence
+		from python.nodes.dynamic_bus import parse_slot_occurrence
 
 		assert parse_slot_occurrence("image_2") == 2
 		assert parse_slot_occurrence("model_3") == 3
 
 
 	def test_non_numeric_suffix(self):
-		from python.tojioo_passthrough.nodes.dynamic_bus import parse_slot_occurrence
+		from python.nodes.dynamic_bus import parse_slot_occurrence
 
 		assert parse_slot_occurrence("some_name") == 1
 
@@ -208,13 +208,13 @@ class TestParseSlotOccurrence:
 class TestDynamicAny:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough.nodes.dynamic_any import PT_DynamicAny
+		from python.nodes.dynamic_any import PT_DynamicAny
 
 		assert PT_DynamicAny is not None
 
 
 	def test_returns_input(self):
-		from python.tojioo_passthrough.nodes.dynamic_any import PT_DynamicAny
+		from python.nodes.dynamic_any import PT_DynamicAny
 
 		node = PT_DynamicAny()
 		result = node.run(input = "test")
@@ -222,7 +222,7 @@ class TestDynamicAny:
 
 
 	def test_returns_none_when_no_input(self):
-		from python.tojioo_passthrough.nodes.dynamic_any import PT_DynamicAny
+		from python.nodes.dynamic_any import PT_DynamicAny
 
 		node = PT_DynamicAny()
 		result = node.run()
@@ -232,13 +232,13 @@ class TestDynamicAny:
 class TestDynamicPreview:
 
 	def test_node_exists(self):
-		from python.tojioo_passthrough.nodes.dynamic_preview import PT_DynamicPreview
+		from python.nodes.dynamic_preview import PT_DynamicPreview
 
 		assert PT_DynamicPreview is not None
 
 
 	def test_has_required_attributes(self):
-		from python.tojioo_passthrough.nodes.dynamic_preview import PT_DynamicPreview
+		from python.nodes.dynamic_preview import PT_DynamicPreview
 
 		assert hasattr(PT_DynamicPreview, "INPUT_TYPES")
 		assert hasattr(PT_DynamicPreview, "RETURN_TYPES")
@@ -248,7 +248,7 @@ class TestDynamicPreview:
 
 
 	def test_empty_input_returns_empty(self):
-		from python.tojioo_passthrough.nodes.dynamic_preview import PT_DynamicPreview
+		from python.nodes.dynamic_preview import PT_DynamicPreview
 
 		node = PT_DynamicPreview()
 		result = node.preview_images()
@@ -256,7 +256,7 @@ class TestDynamicPreview:
 
 
 	def test_parse_slot_order(self):
-		from python.tojioo_passthrough.nodes.dynamic_preview import PT_DynamicPreview
+		from python.nodes.dynamic_preview import PT_DynamicPreview
 
 		assert PT_DynamicPreview._parse_slot_order("image") == 1
 		assert PT_DynamicPreview._parse_slot_order("image_2") == 2

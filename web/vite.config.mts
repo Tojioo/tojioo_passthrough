@@ -1,21 +1,27 @@
 ﻿/// <reference types="vitest" />
 import {fileURLToPath} from 'url';
 import {dirname, resolve} from 'path';
+import {readFileSync} from 'fs';
 import {defineConfig} from 'vitest/config'
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
-/** Resolves the absolute path for a given relative path.
- * @param {string} filePath The relative path to resolve.
- * @returns {string} The absolute path resolved from the provided relative path. */
-const resolvePath = (filePath: string): string =>
-{
-	const __filename = fileURLToPath(import.meta.url);
-	const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-	return resolve(__dirname, filePath);
-}
+/**
+ * Resolves absolute path relative to module directory.
+ *
+ * @param {string} filePath - Relative path to resolve.
+ * @returns {string} Absolute path.
+ */
+const resolvePath = (filePath: string): string => resolve(__dirname, filePath);
+
+const version = readFileSync(resolve(__dirname, '../VERSION'), 'utf-8').trim();
 
 export default defineConfig({
+	define: {
+		__VERSION__: JSON.stringify(version),
+	},
 	plugins: [
 		cssInjectedByJsPlugin({styleId: 'tojioo-passthrough-styles'}),
 	],

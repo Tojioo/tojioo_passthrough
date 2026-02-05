@@ -20,6 +20,3 @@ __pycache__/
 
 # Node.js Dependencies
 node_modules/
-
-# Local Development Notes
-NOTES.md

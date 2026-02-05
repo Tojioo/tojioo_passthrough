@@ -1,6 +1,6 @@
 ﻿import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
-import {getLgInput} from './compat';
+import {GetLgInput} from './compat';
 
 const ANY_TYPE: string = "*";
 
@@ -151,7 +151,7 @@ export function ScheduleSizeUpdate(node: any): void
 	});
 }
 
-function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
+export function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
 {
 	try
 	{
@@ -246,9 +246,9 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 	ScheduleSizeUpdate(node);
 }
 
-export function UpdateNodeSize(node: any, expandOnly?: boolean): void
+export function UpdateNodeSize(node: any, expandOnly?: boolean, force?: boolean): void
 {
-	if (IsGraphLoading())
+	if (!force && IsGraphLoading())
 	{
 		return;
 	}
@@ -295,9 +295,4 @@ export function normalizeInputs(node: any): void
 	}
 
 	ScheduleSizeUpdate(node);
-}
-
-export function isInputConnectionChange(type: number): boolean
-{
-	return type === getLgInput();
 }

@@ -1,9 +1,6 @@
 ﻿import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
-import {GetGraph, GetLink, GetLinkTypeFromEndpoints} from '@/utils/graph';
-import {ApplyDynamicTypes} from '@/utils/types';
-import {DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils/lifecycle';
-import {getLgInput} from '@/utils/compat';
+import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetLgInput, ApplyDynamicTypes, DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils';
 
 export function configureDynamicPassthrough(): ComfyExtension
 {
@@ -81,7 +78,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 				const node = this;
 
-				if (type === getLgInput() && isConnected)
+				if (type === GetLgInput() && isConnected)
 				{
 					try
 					{

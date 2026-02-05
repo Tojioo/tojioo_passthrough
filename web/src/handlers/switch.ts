@@ -1,6 +1,6 @@
 ﻿import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from '@/utils/lifecycle';
-import {getLgInput} from '@/utils/compat';
+import {GetLgInput} from '@/utils/compat';
 import {ANY_TYPE} from '@/types/tojioo';
 
 function isSwitch(nodeData: ComfyNodeDef): boolean
@@ -36,7 +36,7 @@ export function configureSwitchNodes(): ComfyExtension
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (!link_info || type !== getLgInput())
+				if (!link_info || type !== GetLgInput())
 				{
 					return;
 				}

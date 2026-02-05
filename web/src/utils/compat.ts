@@ -17,13 +17,13 @@ export function getLiteGraph(): any | null
 	return null;
 }
 
-export function getLgInput(): number
+export function GetLgInput(): number
 {
 	const lg = getLiteGraph();
 	return lg?.INPUT ?? LG_INPUT;
 }
 
-export function getLgOutput(): number
+export function GetLgOutput(): number
 {
 	const lg = getLiteGraph();
 	return lg?.OUTPUT ?? LG_OUTPUT;

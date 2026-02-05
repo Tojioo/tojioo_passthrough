@@ -63,11 +63,11 @@ function getLiteGraph() {
   }
   return null;
 }
-function getLgInput() {
+function GetLgInput() {
   const lg = getLiteGraph();
   return lg?.INPUT ?? LG_INPUT;
 }
-function getLgOutput() {
+function GetLgOutput() {
   const lg = getLiteGraph();
   return lg?.OUTPUT ?? LG_OUTPUT;
 }
@@ -259,7 +259,7 @@ function applySwitchDynamicTypes(node, inputPrefix) {
   ScheduleCanvasUpdate(node);
   ScheduleSizeUpdate(node);
 }
-function UpdateNodeSize(node, expandOnly) {
+function UpdateNodeSize(node, expandOnly, force) {
   if (IsGraphLoading()) {
     return;
   }
@@ -345,7 +345,7 @@ function configureBatchSwitchNodes() {
           return;
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== getLgInput()) {
+        if (!link_info || type !== GetLgInput()) {
           return;
         }
         const node = this;
@@ -575,6 +575,23 @@ function ApplyDynamicTypes(node) {
   node.type === "PT_DynamicPreview";
   UpdateNodeSize(node);
 }
+const createLoggerMethod = (method) => {
+  return (...args) => {
+    console[method](
+      "%c[Tojioo Passthrough]%c",
+      "color: #00d4ff; font-weight: bold",
+      "color: #888",
+      ...args
+    );
+  };
+};
+const logger_internal = {
+  log: createLoggerMethod("log"),
+  warn: createLoggerMethod("warn"),
+  error: createLoggerMethod("error"),
+  info: createLoggerMethod("info"),
+  debug: createLoggerMethod("debug")
+};
 function configureDynamicBus() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicBus",
@@ -582,250 +599,259 @@ function configureDynamicBus() {
       if (nodeData.name !== "PT_DynamicBus") {
         return;
       }
-      function getSourceBusTypes(node) {
+      function getUpstreamBusTypes(node) {
         const busInput = node.inputs?.[0];
         if (!busInput || busInput.link == null) {
-          return null;
+          return {};
         }
         const link = GetInputLink(node, 0);
         if (!link) {
-          return null;
+          return {};
         }
         const sourceNode = GetNodeById(node, link.origin_id);
-        return sourceNode?.properties?._bus_slot_types ?? null;
+        return sourceNode?.properties?._busTypes ?? {};
       }
-      function resolveSlotType(node, slotIndex, busTypes) {
-        const inp = node.inputs?.[slotIndex];
-        const out = node.outputs?.[slotIndex];
-        const t = ResolveConnectedType(node, inp, out);
-        if (t !== ANY_TYPE$1) {
-          return t;
+      function getSlotType(node, slotIdx) {
+        const input = node.inputs?.[slotIdx];
+        const output = node.outputs?.[slotIdx];
+        if (input?.type && input.type !== ANY_TYPE$1 && input.type !== -1) {
+          return input.type;
         }
-        const isConnected = inp?.link != null || (out?.links?.length ?? 0) > 0;
-        if (isConnected) {
-          const busIndex = slotIndex - 1;
-          if (busTypes?.[busIndex] !== void 0) {
-            return busTypes[busIndex];
-          }
+        if (output?.type && output.type !== ANY_TYPE$1 && output.type !== -1) {
+          return output.type;
         }
         return ANY_TYPE$1;
       }
-      function normalizeIO(node) {
-        if (!node.inputs) node.inputs = [];
-        if (!node.outputs) node.outputs = [];
-        const slotsToKeep = /* @__PURE__ */ new Set();
-        slotsToKeep.add(0);
-        const maxLen = Math.max(node.inputs.length, node.outputs.length);
-        for (let i = 1; i < maxLen; i++) {
-          const inputConnected = i < node.inputs.length && node.inputs[i]?.link != null;
-          const outputConnected = i < node.outputs.length && (node.outputs[i]?.links?.length ?? 0) > 0;
-          if (inputConnected || outputConnected) {
-            slotsToKeep.add(i);
+      function generateLabels(types) {
+        const sorted = Object.entries(types).map(([k, v]) => ({ idx: Number(k), type: v })).sort((a, b) => a.idx - b.idx);
+        const counters = {};
+        const labels = {};
+        for (const entry of sorted) {
+          const isTyped = entry.type !== ANY_TYPE$1;
+          const base = isTyped ? entry.type.toLowerCase() : "value";
+          const key = isTyped ? entry.type : "__any__";
+          counters[key] = (counters[key] || 0) + 1;
+          labels[entry.idx] = counters[key] === 1 ? base : `${base}_${counters[key]}`;
+        }
+        return labels;
+      }
+      function buildSlotTypes(node) {
+        const types = [];
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          const input = node.inputs[slotIdx];
+          if (input?.link != null) {
+            const type = input.type && input.type !== ANY_TYPE$1 && input.type !== -1 ? input.type : ANY_TYPE$1;
+            types.push(`${slotIdx}:${type}`);
           }
         }
-        for (let i = maxLen - 1; i >= 1; i--) {
-          if (!slotsToKeep.has(i)) {
-            if (i < node.inputs.length && typeof node.removeInput === "function") {
-              node.removeInput(i);
+        return types.join(",");
+      }
+      function buildOutputHints(node) {
+        const hints = [];
+        for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
+          const out = node.outputs[slotIdx];
+          const hasOutputLink = (out?.links?.length ?? 0) > 0;
+          if (!hasOutputLink) {
+            continue;
+          }
+          const hasInputLink = node.inputs[slotIdx]?.link != null;
+          let expectedType = ANY_TYPE$1;
+          if (!hasInputLink) {
+            const linkId = out.links[0];
+            const link = GetLink(node, linkId);
+            if (link) {
+              const targetNode = GetNodeById(node, link.target_id);
+              const targetSlot = targetNode?.inputs?.[link.target_slot];
+              if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
+                expectedType = targetSlot.type;
+              }
             }
-            if (i < node.outputs.length && typeof node.removeOutput === "function") {
-              node.removeOutput(i);
-            }
+          } else {
+            expectedType = getSlotType(node, slotIdx);
+          }
+          hints.push(`${slotIdx}:${expectedType}:${hasInputLink ? 1 : 0}`);
+        }
+        return hints.join(",");
+      }
+      function findOrCreateWidget(node, name) {
+        if (!node.widgets) {
+          node.widgets = [];
+        }
+        let widget = node.widgets.find((w) => w.name === name);
+        if (!widget) {
+          widget = {
+            name,
+            type: "hidden",
+            value: "",
+            options: { serialize: true },
+            computeSize: () => [0, -4]
+          };
+          node.widgets.push(widget);
+        } else {
+          widget.type = "hidden";
+          widget.computeSize = () => [0, -4];
+        }
+        return widget;
+      }
+      function resetNodeToCleanState(node) {
+        for (let i = 1; i < node.inputs?.length; i++) {
+          if (node.inputs[i]) {
+            node.inputs[i].type = ANY_TYPE$1;
+            node.inputs[i].label = "input";
           }
         }
-        if (node.inputs.length === 0 && typeof node.addInput === "function") {
-          node.addInput("bus", BUS_TYPE);
-        } else if (node.inputs[0]) {
+        for (let i = 1; i < node.outputs?.length; i++) {
+          if (node.outputs[i]) {
+            node.outputs[i].type = ANY_TYPE$1;
+            node.outputs[i].label = "output";
+          }
+        }
+        while (node.inputs.length > 1) {
+          node.removeInput(node.inputs.length - 1);
+        }
+        while (node.outputs.length > 1) {
+          node.removeOutput(node.outputs.length - 1);
+        }
+        node.addInput?.("input", ANY_TYPE$1);
+        node.inputs[1].name = "input_1";
+        node.inputs[1].label = "input";
+        node.inputs[1].type = ANY_TYPE$1;
+        node.addOutput?.("output", ANY_TYPE$1);
+        node.outputs[1].name = "output_1";
+        node.outputs[1].label = "output";
+        node.outputs[1].type = ANY_TYPE$1;
+        const slotTypesWidget = node.widgets?.find((w) => w.name === "_slot_types");
+        if (slotTypesWidget) {
+          slotTypesWidget.value = "";
+        }
+        const outputHintsWidget = node.widgets?.find((w) => w.name === "_output_hints");
+        if (outputHintsWidget) {
+          outputHintsWidget.value = "";
+        }
+        if (node.properties) {
+          node.properties._busTypes = {};
+        }
+      }
+      function synchronize(node) {
+        if (!node.inputs) {
+          node.inputs = [];
+        }
+        if (!node.outputs) {
+          node.outputs = [];
+        }
+        const upstreamTypes = getUpstreamBusTypes(node);
+        if (node.inputs.length === 0) {
+          node.addInput?.("bus", BUS_TYPE);
+        } else {
           node.inputs[0].name = "bus";
           node.inputs[0].label = "bus";
           node.inputs[0].type = BUS_TYPE;
         }
-        if (node.outputs.length === 0 && typeof node.addOutput === "function") {
-          node.addOutput("bus", BUS_TYPE);
-        } else if (node.outputs[0]) {
+        if (node.outputs.length === 0) {
+          node.addOutput?.("bus", BUS_TYPE);
+        } else {
           node.outputs[0].name = "bus";
           node.outputs[0].label = "bus";
           node.outputs[0].type = BUS_TYPE;
         }
-        const busTypes = getSourceBusTypes(node) || {};
-        const occupiedInBus = new Set(Object.keys(busTypes).map(Number));
-        const localIndicesInUse = /* @__PURE__ */ new Set();
-        for (let i = 1; i < node.inputs.length; i++) {
-          const input = node.inputs[i];
-          let currentIdx = -1;
-          const m = input.name?.match(/input_(\d+)/);
-          if (m) currentIdx = parseInt(m[1]) - 1;
-          const isInputConnected = input.link != null;
-          const isOutputConnected = (node.outputs?.[i]?.links?.length ?? 0) > 0;
-          if (currentIdx === -1 || localIndicesInUse.has(currentIdx) || (isInputConnected || isOutputConnected) && occupiedInBus.has(currentIdx)) {
-            let nextIdx = 0;
-            while (occupiedInBus.has(nextIdx) || localIndicesInUse.has(nextIdx)) nextIdx++;
-            input.name = `input_${nextIdx + 1}`;
-            if (node.outputs[i]) node.outputs[i].name = `output_${nextIdx + 1}`;
-            localIndicesInUse.add(nextIdx);
-          } else {
-            localIndicesInUse.add(currentIdx);
+        let maxNeededSlot = 0;
+        const maxLen = Math.max(node.inputs.length, node.outputs.length);
+        for (let slotIdx = 1; slotIdx < maxLen; slotIdx++) {
+          const hasInput = node.inputs[slotIdx]?.link != null;
+          const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+          if (hasInput || hasOutput) {
+            maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
           }
         }
-        let nextBusIdx = 0;
-        while (occupiedInBus.has(nextBusIdx) || localIndicesInUse.has(nextBusIdx)) nextBusIdx++;
-        if (typeof node.addInput === "function") {
-          node.addInput("input", ANY_TYPE$1);
-          node.inputs[node.inputs.length - 1].name = `input_${nextBusIdx + 1}`;
-          node.inputs[node.inputs.length - 1].label = "input";
-        }
-        if (typeof node.addOutput === "function") {
-          node.addOutput("output", ANY_TYPE$1);
-          node.outputs[node.outputs.length - 1].name = `output_${nextBusIdx + 1}`;
-          node.outputs[node.outputs.length - 1].label = "output";
-        }
-        UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
-        node.__tojioo_dynamic_io_size_fixed = true;
-      }
-      function AssignBusTypeAndName(types, i, node, inputNames, outputNames) {
-        const currentType = types[i];
-        if (node.inputs?.[i]) {
-          node.inputs[i].type = currentType;
-          if (i === 0) {
-            node.inputs[i].name = "bus";
-          } else {
-            let idx = i;
-            if (node.inputs[i].name) {
-              const m = node.inputs[i].name.match(/input_(\d+)/);
-              if (m) idx = parseInt(m[1]);
-            }
-            node.inputs[i].name = `input_${idx}`;
+        const targetCount = maxNeededSlot + 2;
+        while (node.inputs.length > targetCount) {
+          const lastIdx = node.inputs.length - 1;
+          if (node.inputs[lastIdx]?.link != null) {
+            break;
           }
-          node.inputs[i].label = inputNames[i];
+          node.removeInput?.(lastIdx);
         }
-        if (node.outputs?.[i]) {
-          node.outputs[i].type = currentType;
-          if (i === 0) {
-            node.outputs[i].name = "bus";
-          } else {
-            let idx = i;
-            if (node.outputs[i].name) {
-              const m = node.outputs[i].name.match(/output_(\d+)/);
-              if (m) idx = parseInt(m[1]);
-            }
-            node.outputs[i].name = `output_${idx}`;
+        while (node.outputs.length > targetCount) {
+          const lastIdx = node.outputs.length - 1;
+          if ((node.outputs[lastIdx]?.links?.length ?? 0) > 0) {
+            break;
           }
-          node.outputs[i].label = outputNames[i];
+          node.removeOutput?.(lastIdx);
         }
-        return currentType;
-      }
-      function applyBusDynamicTypes(node) {
-        const count = Math.max(node.inputs?.length ?? 0, node.outputs?.length ?? 0);
-        const busTypes = getSourceBusTypes(node) || {};
-        const types = [BUS_TYPE];
-        for (let i = 1; i < count; i++) {
-          types.push(resolveSlotType(node, i, busTypes));
+        while (node.inputs.length < targetCount) {
+          const slotIdx = node.inputs.length;
+          node.addInput?.("input", ANY_TYPE$1);
+          node.inputs[slotIdx].name = `input_${slotIdx}`;
         }
-        for (let i = 1; i < count; i++) {
-          if (types[i] !== ANY_TYPE$1 && node.outputs?.[i]) {
-            node.outputs[i].type = types[i];
+        while (node.outputs.length < targetCount) {
+          const slotIdx = node.outputs.length;
+          node.addOutput?.("output", ANY_TYPE$1);
+          node.outputs[slotIdx].name = `output_${slotIdx}`;
+        }
+        const slotTypes = {};
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          const type = getSlotType(node, slotIdx);
+          if (type !== ANY_TYPE$1) {
+            slotTypes[slotIdx] = type;
           }
         }
-        const typeCounters = {};
-        const inputNames = ["bus"];
-        const outputNames = ["bus"];
-        const slotIdxToBusIdx = /* @__PURE__ */ new Map();
-        const busIdxToSlotIdx = /* @__PURE__ */ new Map();
-        for (let i = 1; i < count; i++) {
-          const m = node.inputs[i]?.name?.match(/input_(\d+)/);
-          if (m) {
-            const busIdx = parseInt(m[1]) - 1;
-            slotIdxToBusIdx.set(i, busIdx);
-            busIdxToSlotIdx.set(busIdx, i);
+        const labels = generateLabels(slotTypes);
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          const type = slotTypes[slotIdx] || ANY_TYPE$1;
+          if (node.inputs[slotIdx]) {
+            node.inputs[slotIdx].name = `input_${slotIdx}`;
+            node.inputs[slotIdx].label = labels[slotIdx] || "input";
+            node.inputs[slotIdx].type = type;
           }
-        }
-        let maxIdx = -1;
-        for (const idxStr of Object.keys(busTypes)) {
-          maxIdx = Math.max(maxIdx, parseInt(idxStr));
-        }
-        for (const busIdx of slotIdxToBusIdx.values()) {
-          maxIdx = Math.max(maxIdx, busIdx);
-        }
-        const orderedInputLabels = {};
-        const orderedOutputLabels = {};
-        for (let idx = 0; idx <= maxIdx; idx++) {
-          const slotI = busIdxToSlotIdx.get(idx);
-          const t = slotI !== void 0 ? types[slotI] : busTypes[idx];
-          if (!t) continue;
-          const isTyped = t !== ANY_TYPE$1;
-          const baseLabel = isTyped ? t.toLowerCase() : "input";
-          const counterKey = isTyped ? t : "__untyped__";
-          typeCounters[counterKey] = (typeCounters[counterKey] || 0) + 1;
-          const occurrence = typeCounters[counterKey];
-          const label = occurrence === 1 ? baseLabel : `${baseLabel}_${occurrence}`;
-          if (slotI !== void 0) {
-            orderedInputLabels[slotI] = label;
-            orderedOutputLabels[slotI] = label;
+          if (node.outputs[slotIdx]) {
+            node.outputs[slotIdx].name = `output_${slotIdx}`;
+            node.outputs[slotIdx].label = labels[slotIdx] || "output";
+            node.outputs[slotIdx].type = type;
           }
-        }
-        for (let i = 1; i < count; i++) {
-          inputNames[i] = orderedInputLabels[i] || "input";
-          outputNames[i] = orderedOutputLabels[i] || "output";
-        }
-        for (let i = 0; i < count; i++) {
-          const currentType = AssignBusTypeAndName(types, i, node, inputNames, outputNames);
-          if (i > 0 && currentType !== ANY_TYPE$1) {
-            const inLink = GetInputLink(node, i);
-            if (inLink) {
-              inLink.type = currentType;
-            }
-            for (const linkId of node.outputs?.[i]?.links ?? []) {
-              const link = GetLink(node, linkId);
-              if (link) {
-                link.type = currentType;
-              }
+          const inLink = GetInputLink(node, slotIdx);
+          if (inLink && type !== ANY_TYPE$1) {
+            inLink.type = type;
+          }
+          for (const linkId of node.outputs[slotIdx]?.links ?? []) {
+            const link = GetLink(node, linkId);
+            if (link && type !== ANY_TYPE$1) {
+              link.type = type;
             }
           }
         }
-        const busInLink = GetInputLink(node, 0);
-        if (busInLink) {
-          busInLink.type = BUS_TYPE;
+        if (!node.properties) {
+          node.properties = {};
         }
-        for (const linkId of node.outputs?.[0]?.links ?? []) {
-          const link = GetLink(node, linkId);
-          if (link) {
-            link.type = BUS_TYPE;
+        const combinedTypes = { ...upstreamTypes };
+        let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          if (node.inputs[slotIdx]?.link != null) {
+            combinedTypes[nextIdx] = slotTypes[slotIdx] || ANY_TYPE$1;
+            nextIdx++;
           }
         }
-        if (!node.properties) node.properties = {};
-        node.properties._bus_slot_types = {};
-        if (busTypes) {
-          for (const [idx, t] of Object.entries(busTypes)) {
-            node.properties._bus_slot_types[idx] = t;
-          }
-        }
-        for (let i = 1; i < count; i++) {
-          if (types[i] !== ANY_TYPE$1) {
-            const m = node.inputs[i]?.name?.match(/input_(\d+)/);
-            const busIdx = m ? parseInt(m[1]) - 1 : i - 1;
-            node.properties._bus_slot_types[busIdx] = types[i];
-          }
-        }
-        GetGraph(node)?.setDirtyCanvas?.(true, true);
-        UpdateNodeSize(node);
+        node.properties._busTypes = combinedTypes;
+        const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
+        slotTypesWidget.value = buildSlotTypes(node);
+        const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
+        outputHintsWidget.value = buildOutputHints(node);
         const busOutLinks = node.outputs?.[0]?.links;
-        if (busOutLinks && busOutLinks.length > 0) {
+        if (busOutLinks?.length) {
           for (const linkId of busOutLinks) {
             const link = GetLink(node, linkId);
             if (link) {
               const targetNode = GetNodeById(node, link.target_id);
               if (targetNode && targetNode.onBusChanged) {
-                DeferMicrotask(() => {
-                  targetNode.onBusChanged();
-                });
+                DeferMicrotask(() => targetNode.onBusChanged());
               }
             }
           }
         }
+        GetGraph(node)?.setDirtyCanvas?.(true, true);
+        UpdateNodeSize(node);
       }
       nodeType.prototype.onBusChanged = function() {
-        normalizeIO(this);
-        applyBusDynamicTypes(this);
+        synchronize(this);
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
@@ -834,107 +860,70 @@ function configureDynamicBus() {
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
-        const LG_INPUT2 = getLgInput();
-        const LG_OUTPUT2 = getLgOutput();
-        if (type === LG_INPUT2 && isConnected && index > 0) {
+        const LG_INPUT2 = GetLgInput();
+        const LG_OUTPUT2 = GetLgOutput();
+        if (isConnected && index > 0) {
           try {
-            const link = link_info ?? GetInputLink(node, index);
-            if (link) {
-              const sourceNode = GetNodeById(node, link.origin_id);
-              const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
-              const inferredType = sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1 ? sourceSlot.type : GetLinkTypeFromEndpoints(node, link);
-              if (inferredType !== ANY_TYPE$1) {
-                const n = inferredType.toLowerCase();
-                if (node.inputs[index]) {
-                  node.inputs[index].type = inferredType;
-                  node.inputs[index].label = n;
+            if (type === LG_INPUT2) {
+              const link = link_info ?? GetInputLink(node, index);
+              if (link) {
+                const sourceNode = GetNodeById(node, link.origin_id);
+                const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
+                if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
+                  if (node.inputs[index]) {
+                    node.inputs[index].type = sourceSlot.type;
+                  }
+                  if (node.outputs[index]) {
+                    node.outputs[index].type = sourceSlot.type;
+                  }
                 }
-                if (node.outputs[index]) {
-                  node.outputs[index].type = inferredType;
-                  node.outputs[index].label = n;
+              }
+            } else if (type === LG_OUTPUT2) {
+              const linkId = link_info?.id;
+              const link = link_info ?? (linkId != null ? GetLink(node, linkId) : null);
+              if (link) {
+                const targetNode = GetNodeById(node, link.target_id);
+                const targetSlot = targetNode?.inputs?.[link.target_slot];
+                if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
+                  if (node.outputs[index]) {
+                    node.outputs[index].type = targetSlot.type;
+                  }
+                  if (node.inputs[index]) {
+                    node.inputs[index].type = targetSlot.type;
+                  }
                 }
-                const linkId = link_info?.id ?? node.inputs?.[index]?.link;
-                const linkObj = GetLink(node, linkId);
-                if (linkObj) linkObj.type = inferredType;
               }
             }
           } catch {
           }
         }
-        if (type === LG_OUTPUT2 && isConnected && index > 0) {
-          try {
-            const linkId = link_info?.id;
-            const link = link_info ?? (linkId != null ? GetLink(node, linkId) : null);
-            if (link) {
-              const targetNode = GetNodeById(node, link.target_id);
-              const targetSlot = targetNode?.inputs?.[link.target_slot];
-              const inferredType = targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1 ? targetSlot.type : GetLinkTypeFromEndpoints(node, link);
-              if (inferredType !== ANY_TYPE$1) {
-                const n = inferredType.toLowerCase();
-                if (node.outputs[index]) {
-                  node.outputs[index].type = inferredType;
-                  node.outputs[index].label = n;
-                }
-                if (node.inputs[index]) {
-                  node.inputs[index].type = inferredType;
-                  node.inputs[index].label = n;
-                }
-                const linkObj = GetLink(node, linkId);
-                if (linkObj) linkObj.type = inferredType;
-              }
-            }
-          } catch {
-          }
-        }
-        if (!isConnected && index > 0) {
-          const isInput = type === LG_INPUT2;
-          DeferMicrotask(() => {
-            const slotStillConnected = isInput ? node.inputs?.[index]?.link != null : (node.outputs?.[index]?.links?.length ?? 0) > 0;
-            if (slotStillConnected) {
-              normalizeIO(node);
-              applyBusDynamicTypes(node);
-              return;
-            }
-            const pairConnected = isInput ? (node.outputs?.[index]?.links?.length ?? 0) > 0 : node.inputs?.[index]?.link != null;
-            const maxLen = Math.max(node.inputs?.length ?? 0, node.outputs?.length ?? 0);
-            let hasConnectionsAfter = false;
-            for (let i = index + 1; i < maxLen; i++) {
-              if (node.inputs?.[i]?.link != null || (node.outputs?.[i]?.links?.length ?? 0) > 0) {
-                hasConnectionsAfter = true;
-                break;
-              }
-            }
-            if (hasConnectionsAfter && !pairConnected) {
-              if (typeof node.removeInput === "function") node.removeInput(index);
-              if (typeof node.removeOutput === "function") node.removeOutput(index);
-            }
-            normalizeIO(node);
-            applyBusDynamicTypes(node);
-          });
-          return;
-        }
-        DeferMicrotask(() => {
-          normalizeIO(node);
-          applyBusDynamicTypes(node);
-        });
+        DeferMicrotask(() => synchronize(node));
       };
       const prevConfigure = nodeType.prototype.configure;
       nodeType.prototype.configure = function(info) {
         prevConfigure?.call(this, info);
-        this.__tojioo_dynamic_io_size_fixed = false;
+        const node = this;
         DeferMicrotask(() => {
           try {
-            normalizeIO(this);
-            applyBusDynamicTypes(this);
+            const graph = GetGraph(node);
+            const hasOrphanedLinks = info.inputs?.some(
+              (inp) => inp.link != null && (!graph?.links || !graph.links[inp.link])
+            );
+            const hasTypedUnconnectedSlots = info.inputs?.slice(1).some(
+              (inp) => inp.type && inp.type !== ANY_TYPE$1 && inp.type !== -1 && inp.link == null
+            );
+            if (hasOrphanedLinks || hasTypedUnconnectedSlots) {
+              resetNodeToCleanState(node);
+            }
+            synchronize(node);
           } catch (e) {
-            console.error("Tojioo.DynamicBus: error in configure", e);
+            logger_internal.error("DynamicBus configure error", e);
           }
         });
         setTimeout(() => {
           try {
-            this.__tojioo_dynamic_io_size_fixed = false;
-            normalizeIO(this);
-            applyBusDynamicTypes(this);
+            synchronize(this);
+            UpdateNodeSizeImmediate(this);
           } catch {
           }
         }, 100);
@@ -942,13 +931,11 @@ function configureDynamicBus() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
-        this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
           try {
-            normalizeIO(this);
-            applyBusDynamicTypes(this);
+            synchronize(this);
           } catch (e) {
-            console.error("Tojioo.DynamicBus: error in onAdded", e);
+            logger_internal.error("DynamicBus onAdded error", e);
           }
         });
       };
@@ -1006,7 +993,7 @@ function configureDynamicPassthrough() {
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
-        if (type === getLgInput() && isConnected) {
+        if (type === GetLgInput() && isConnected) {
           try {
             const g = GetGraph(node);
             const linkId = link_info?.id ?? node.inputs?.[index]?.link;
@@ -1283,7 +1270,7 @@ function configureDynamicPreview() {
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) return;
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (type !== getLgInput()) return;
+        if (type !== GetLgInput()) return;
         const node = this;
         if (isConnected) {
           try {
@@ -1482,7 +1469,7 @@ function configureSwitchNodes() {
           return;
         }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== getLgInput()) {
+        if (!link_info || type !== GetLgInput()) {
           return;
         }
         const node = this;
@@ -1541,6 +1528,7 @@ app.registerExtension({
   async setup() {
     InstallGraphLoadingHook(app);
     RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
+    console.log(`%c[Tojioo Passthrough]%c v${"1.7.0"}`, "color: #00d4ff; font-weight: bold", "color: #888");
   }
 });
 app.registerExtension(configureBatchSwitchNodes());
