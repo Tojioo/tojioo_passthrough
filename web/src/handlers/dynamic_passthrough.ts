@@ -1,6 +1,6 @@
-﻿import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetLgInput, ApplyDynamicTypes, DeferMicrotask, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
-import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetLgInput, ApplyDynamicTypes, DeferMicrotask, IsGraphLoading, UpdateNodeSize} from '@/utils';
 
 export function configureDynamicPassthrough(): ComfyExtension
 {
@@ -196,6 +196,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 						(this as any).__tojioo_dynamic_io_size_fixed = false;
 						normalizeIO(this);
 						ApplyDynamicTypes(this);
+						UpdateNodeSizeImmediate(this);
 					}
 					catch {}
 				}, 100);

@@ -1,8 +1,6 @@
-﻿import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
-import {DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils/lifecycle';
-import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints} from '@/utils/graph';
-import {GetLgInput, getLgSlotHeight, isNodes2Mode} from '@/utils/compat';
+﻿import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints, GetLgInput, GetLgSlotHeight, IsNodes2Mode, DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
 
 // Todo: Fix broken node ._.
 export function configureDynamicPreview(): ComfyExtension
@@ -133,7 +131,7 @@ export function configureDynamicPreview(): ComfyExtension
 			{
 				prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
 
-				if (!ctx || isNodes2Mode()) return;
+				if (!ctx || IsNodes2Mode()) return;
 
 				const node = this as any;
 				if (!node._imageElements?.length || node._totalImages === 0) return;
@@ -144,7 +142,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 				if (!img?.complete || img.naturalWidth === 0) return;
 
-				const slotHeight = getLgSlotHeight();
+				const slotHeight = GetLgSlotHeight();
 				const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
 				const showTabs = node._totalImages >= 2;
 				const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;

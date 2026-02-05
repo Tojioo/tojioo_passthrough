@@ -1,5 +1,4 @@
-﻿
-const ANY_TYPE = "*";
+﻿const ANY_TYPE = "*";
 
 export function GetGraph(node: any): LGraph | null
 {

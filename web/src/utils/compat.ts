@@ -1,8 +1,6 @@
-﻿// Compatibility layer for LiteGraph access across Nodes 2.0 and legacy mode.
-
-export const LG_INPUT = 1;
+﻿export const LG_NODE_SLOT_HEIGHT = 20;
 export const LG_OUTPUT = 2;
-export const LG_NODE_SLOT_HEIGHT = 20;
+export const LG_INPUT = 1;
 
 export function getLiteGraph(): any | null
 {
@@ -29,13 +27,13 @@ export function GetLgOutput(): number
 	return lg?.OUTPUT ?? LG_OUTPUT;
 }
 
-export function getLgSlotHeight(): number
+export function GetLgSlotHeight(): number
 {
 	const lg = getLiteGraph();
 	return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
 }
 
-export function isNodes2Mode(): boolean
+export function IsNodes2Mode(): boolean
 {
 	try
 	{

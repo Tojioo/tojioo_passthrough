@@ -1,4 +1,51 @@
 import { app } from "../../scripts/app.js";
+const LG_NODE_SLOT_HEIGHT = 20;
+const LG_OUTPUT = 2;
+const LG_INPUT = 1;
+function getLiteGraph() {
+  if (typeof LiteGraph !== "undefined") {
+    return LiteGraph;
+  }
+  if (typeof window !== "undefined" && window.LiteGraph) {
+    return window.LiteGraph;
+  }
+  return null;
+}
+function GetLgInput() {
+  const lg = getLiteGraph();
+  return lg?.INPUT ?? LG_INPUT;
+}
+function GetLgOutput() {
+  const lg = getLiteGraph();
+  return lg?.OUTPUT ?? LG_OUTPUT;
+}
+function GetLgSlotHeight() {
+  const lg = getLiteGraph();
+  return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
+}
+function IsNodes2Mode() {
+  try {
+    const app2 = window.app;
+    if (app2?.extensionManager?.setting?.get) {
+      const setting = app2.extensionManager.setting.get("Comfy.UseNewMenu");
+      if (setting === "Top" || setting === "Bottom") {
+        return true;
+      }
+    }
+    const lg = getLiteGraph();
+    if (!lg) {
+      return true;
+    }
+    if (typeof document !== "undefined") {
+      const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
+      if (vueCanvas) {
+        return true;
+      }
+    }
+  } catch {
+  }
+  return false;
+}
 const ANY_TYPE$3 = "*";
 function GetGraph(node) {
   return (node.rootGraph ?? node.graph) || window.app?.graph;
@@ -51,53 +98,6 @@ function GetLinkTypeFromEndpoints(node, link) {
   }
   return ANY_TYPE$3;
 }
-const LG_INPUT = 1;
-const LG_OUTPUT = 2;
-const LG_NODE_SLOT_HEIGHT = 20;
-function getLiteGraph() {
-  if (typeof LiteGraph !== "undefined") {
-    return LiteGraph;
-  }
-  if (typeof window !== "undefined" && window.LiteGraph) {
-    return window.LiteGraph;
-  }
-  return null;
-}
-function GetLgInput() {
-  const lg = getLiteGraph();
-  return lg?.INPUT ?? LG_INPUT;
-}
-function GetLgOutput() {
-  const lg = getLiteGraph();
-  return lg?.OUTPUT ?? LG_OUTPUT;
-}
-function getLgSlotHeight() {
-  const lg = getLiteGraph();
-  return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
-}
-function isNodes2Mode() {
-  try {
-    const app2 = window.app;
-    if (app2?.extensionManager?.setting?.get) {
-      const setting = app2.extensionManager.setting.get("Comfy.UseNewMenu");
-      if (setting === "Top" || setting === "Bottom") {
-        return true;
-      }
-    }
-    const lg = getLiteGraph();
-    if (!lg) {
-      return true;
-    }
-    if (typeof document !== "undefined") {
-      const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
-      if (vueCanvas) {
-        return true;
-      }
-    }
-  } catch {
-  }
-  return false;
-}
 const ANY_TYPE$2 = "*";
 let _graphLoading = false;
 let _pendingCanvasUpdate = null;
@@ -132,7 +132,7 @@ function DeferMicrotask(fn) {
   }
   Promise.resolve().then(fn);
 }
-function deriveDynamicPrefixFromNodeData(nodeData) {
+function DeriveDynamicPrefixFromNodeData(nodeData) {
   const opt = nodeData?.input?.optional;
   if (!opt) {
     return null;
@@ -149,7 +149,7 @@ function deriveDynamicPrefixFromNodeData(nodeData) {
   const baseName = keys[0];
   return baseName.replace(/_\d+$/, "").replace(/\d+$/, "");
 }
-function resolveInputType(node, inputIndex) {
+function ResolveInputType(node, inputIndex) {
   const inp = node.inputs?.[inputIndex];
   if (!inp) {
     return ANY_TYPE$2;
@@ -214,14 +214,14 @@ function UpdateNodeSizeImmediate(node, expandOnly) {
   } catch {
   }
 }
-function applySwitchDynamicTypes(node, inputPrefix) {
+function ApplySwitchDynamicTypes(node, inputPrefix) {
   if (!node.inputs || node.inputs.length === 0) {
     return;
   }
   let resolvedType = ANY_TYPE$2;
   const inputTypes = [];
   for (let i = 0; i < node.inputs.length; i++) {
-    const t = resolveInputType(node, i);
+    const t = ResolveInputType(node, i);
     inputTypes.push(t);
     if (t && t !== ANY_TYPE$2 && resolvedType === ANY_TYPE$2) {
       resolvedType = t;
@@ -271,7 +271,7 @@ function UpdatePreviewNodeSize(node) {
   }
   ScheduleSizeUpdate(node);
 }
-function normalizeInputs(node) {
+function NormalizeInputs(node) {
   if (!node.inputs) {
     return;
   }
@@ -319,107 +319,26 @@ function RegisterSlotMenuEntries(type, nodeTypes) {
   }
 }
 const ANY_TYPE$1 = "*";
-const BUS_TYPE = "BUS";
-const MAX_SOCKETS = 32;
-const TAB_BAR_HEIGHT = 28;
-const TAB_PADDING = 10;
-const TAB_GAP = 4;
-function isBatchSwitch(nodeData) {
-  const n = nodeData?.name ?? "";
-  return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
-}
-function configureBatchSwitchNodes() {
-  return {
-    name: "Tojioo.Passthrough.Dynamic.BatchSwitchNodes",
-    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
-      if (!isBatchSwitch(nodeData)) {
-        return;
-      }
-      const inputPrefix = deriveDynamicPrefixFromNodeData(nodeData);
-      if (!inputPrefix) {
-        return;
-      }
-      const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
-      nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) {
-          return;
-        }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== GetLgInput()) {
-          return;
-        }
-        const node = this;
-        if (!isConnected) {
-          DeferMicrotask(() => {
-            if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
-              normalizeInputs(node);
-              applySwitchDynamicTypes(node, inputPrefix);
-              return;
-            }
-            if (node.inputs[index]?.link != null) {
-              normalizeInputs(node);
-              applySwitchDynamicTypes(node, inputPrefix);
-              return;
-            }
-            const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
-            if (hasConnectionsAfter && typeof node.removeInput === "function") {
-              node.removeInput(index);
-            }
-            normalizeInputs(node);
-            applySwitchDynamicTypes(node, inputPrefix);
-          });
-          return;
-        }
-        normalizeInputs(node);
-        applySwitchDynamicTypes(node, inputPrefix);
-        const lastIndex = node.inputs.length - 1;
-        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
-          const resolvedType = resolveInputType(node, lastIndex);
-          const socketType = resolvedType !== ANY_TYPE$1 ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE$1;
-          node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
-          normalizeInputs(node);
-          applySwitchDynamicTypes(node, inputPrefix);
-        }
-      };
-      const prevConfigure = nodeType.prototype.configure;
-      nodeType.prototype.configure = function(info) {
-        prevConfigure?.call(this, info);
-        if (!this.inputs?.length) {
-          return;
-        }
-        normalizeInputs(this);
-        applySwitchDynamicTypes(this, inputPrefix);
-      };
-      const prevOnAdded = nodeType.prototype.onAdded;
-      nodeType.prototype.onAdded = function() {
-        prevOnAdded?.apply(this, arguments);
-        normalizeInputs(this);
-        applySwitchDynamicTypes(this, inputPrefix);
-      };
-    }
-  };
-}
-const ANY_TYPE = "*";
 function ResolvePairType(node, zeroBasedIndex) {
   const out = node.outputs?.[zeroBasedIndex];
   const inp = node.inputs?.[zeroBasedIndex];
   const hasOutputLink = (out?.links?.length ?? 0) > 0;
   const hasInputLink = inp?.link != null;
   if (!hasOutputLink && !hasInputLink) {
-    return ANY_TYPE;
+    return ANY_TYPE$1;
   }
   const outLinkId = out?.links?.[0];
   const outLink = GetLink(node, outLinkId ?? null);
   if (outLink) {
     let outType = GetLinkTypeFromEndpoints(node, outLink);
-    if (outType === ANY_TYPE) {
+    if (outType === ANY_TYPE$1) {
       const targetNode = GetNodeById(node, outLink.target_id);
       const targetSlot = targetNode?.inputs?.[outLink.target_slot];
-      if (targetSlot?.type && targetSlot.type !== ANY_TYPE && targetSlot.type !== -1) {
+      if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
         outType = targetSlot.type;
       }
     }
-    if (outType && outType !== ANY_TYPE) {
+    if (outType && outType !== ANY_TYPE$1) {
       return outType;
     }
   }
@@ -427,18 +346,18 @@ function ResolvePairType(node, zeroBasedIndex) {
   const inLink = GetLink(node, inLinkId ?? null);
   if (inLink) {
     let inType = GetLinkTypeFromEndpoints(node, inLink);
-    if (inType === ANY_TYPE) {
+    if (inType === ANY_TYPE$1) {
       const sourceNode = GetNodeById(node, inLink.origin_id);
       const sourceSlot = sourceNode?.outputs?.[inLink.origin_slot];
-      if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE && sourceSlot.type !== -1) {
+      if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
         inType = sourceSlot.type;
       }
     }
-    if (inType && inType !== ANY_TYPE) {
+    if (inType && inType !== ANY_TYPE$1) {
       return inType;
     }
   }
-  return ANY_TYPE;
+  return ANY_TYPE$1;
 }
 function UpdateLinkTypesForSlot(node, zeroBasedIndex, type) {
   const inLinkId = node.inputs?.[zeroBasedIndex]?.link;
@@ -453,11 +372,11 @@ function UpdateLinkTypesForSlot(node, zeroBasedIndex, type) {
   }
 }
 function ResolveConnectedType(node, inp, out) {
-  const isConcrete = (t) => t != null && t !== ANY_TYPE && t !== -1;
+  const isConcrete = (t) => t != null && t !== ANY_TYPE$1 && t !== -1;
   const hasInputLink = inp?.link != null;
   const hasOutputLink = (out?.links?.length ?? 0) > 0;
   if (!hasInputLink && !hasOutputLink) {
-    return ANY_TYPE;
+    return ANY_TYPE$1;
   }
   const tryFromLink = (linkId, peer) => {
     if (linkId == null) {
@@ -494,11 +413,11 @@ function ResolveConnectedType(node, inp, out) {
   if (hasOutputLink && isConcrete(out?.type)) {
     return out.type;
   }
-  return ANY_TYPE;
+  return ANY_TYPE$1;
 }
 function ProcessTypeNames(types, i, typeCounters, inputNames, outputNames) {
   const t = types[i];
-  const isTyped = t && t !== ANY_TYPE;
+  const isTyped = t && t !== ANY_TYPE$1;
   if (isTyped) {
     const baseLabel = t.toLowerCase();
     if (typeCounters[t] === void 0) {
@@ -566,7 +485,7 @@ function ApplyDynamicTypes(node) {
   }
   for (let i = 0; i < count; i++) {
     const currentType = AssignTypeAndName(types, i, node, inputNames, outputNames);
-    if (currentType && currentType !== ANY_TYPE) {
+    if (currentType && currentType !== ANY_TYPE$1) {
       UpdateLinkTypesForSlot(node, i, currentType);
     }
   }
@@ -574,6 +493,169 @@ function ApplyDynamicTypes(node) {
   g?.setDirtyCanvas?.(true, true);
   node.type === "PT_DynamicPreview";
   UpdateNodeSize(node);
+}
+const ANY_TYPE = "*";
+const BUS_TYPE = "BUS";
+const MAX_SOCKETS = 32;
+const TAB_BAR_HEIGHT = 28;
+const TAB_PADDING = 10;
+const TAB_GAP = 4;
+function isBatchSwitch(nodeData) {
+  const n = nodeData?.name ?? "";
+  return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
+}
+function configureBatchSwitchNodes() {
+  return {
+    name: "Tojioo.Passthrough.Dynamic.BatchSwitchNodes",
+    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
+      if (!isBatchSwitch(nodeData)) {
+        return;
+      }
+      const inputPrefix = DeriveDynamicPrefixFromNodeData(nodeData);
+      if (!inputPrefix) {
+        return;
+      }
+      const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
+      nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        if (IsGraphLoading()) {
+          return;
+        }
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
+        if (!link_info || type !== GetLgInput()) {
+          return;
+        }
+        const node = this;
+        if (!isConnected) {
+          DeferMicrotask(() => {
+            if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
+              NormalizeInputs(node);
+              ApplySwitchDynamicTypes(node, inputPrefix);
+              return;
+            }
+            if (node.inputs[index]?.link != null) {
+              NormalizeInputs(node);
+              ApplySwitchDynamicTypes(node, inputPrefix);
+              return;
+            }
+            const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
+            if (hasConnectionsAfter && typeof node.removeInput === "function") {
+              node.removeInput(index);
+            }
+            NormalizeInputs(node);
+            ApplySwitchDynamicTypes(node, inputPrefix);
+          });
+          return;
+        }
+        NormalizeInputs(node);
+        ApplySwitchDynamicTypes(node, inputPrefix);
+        const lastIndex = node.inputs.length - 1;
+        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
+          const resolvedType = ResolveInputType(node, lastIndex);
+          const socketType = resolvedType !== ANY_TYPE ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE;
+          node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
+          NormalizeInputs(node);
+          ApplySwitchDynamicTypes(node, inputPrefix);
+        }
+      };
+      const prevConfigure = nodeType.prototype.configure;
+      nodeType.prototype.configure = function(info) {
+        prevConfigure?.call(this, info);
+        if (!this.inputs?.length) {
+          return;
+        }
+        NormalizeInputs(this);
+        ApplySwitchDynamicTypes(this, inputPrefix);
+      };
+      const prevOnAdded = nodeType.prototype.onAdded;
+      nodeType.prototype.onAdded = function() {
+        prevOnAdded?.apply(this, arguments);
+        NormalizeInputs(this);
+        ApplySwitchDynamicTypes(this, inputPrefix);
+      };
+    }
+  };
+}
+function configureDynamicAny() {
+  return {
+    name: "Tojioo.Passthrough.Dynamic.DynamicAny",
+    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
+      if (nodeData?.name !== "PT_DynamicAny") {
+        return;
+      }
+      function applyType(node) {
+        const t = ResolveConnectedType(node, node.inputs?.[0], node.outputs?.[0]);
+        const isTyped = t !== ANY_TYPE;
+        const slotType = isTyped ? t : ANY_TYPE;
+        const slotName = isTyped ? t.toLowerCase() : "input";
+        if (node.inputs?.[0]) {
+          node.inputs[0].type = slotType;
+          node.inputs[0].name = slotName;
+          node.inputs[0].label = slotName;
+        }
+        if (node.outputs?.[0]) {
+          node.outputs[0].type = slotType;
+          const n = isTyped ? t.toLowerCase() : "output";
+          node.outputs[0].name = n;
+          node.outputs[0].label = n;
+        }
+        const inLink = GetInputLink(node, 0);
+        if (inLink && slotType !== ANY_TYPE) {
+          inLink.type = slotType;
+        }
+        for (const linkId of node.outputs?.[0]?.links ?? []) {
+          const link = GetLink(node, linkId);
+          if (link && slotType !== ANY_TYPE) {
+            link.type = slotType;
+          }
+        }
+        GetGraph(node)?.setDirtyCanvas?.(true, true);
+      }
+      const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
+      nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        if (IsGraphLoading()) {
+          return;
+        }
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
+        DeferMicrotask(() => applyType(this));
+      };
+      const prevConfigure = nodeType.prototype.configure;
+      nodeType.prototype.configure = function(info) {
+        prevConfigure?.call(this, info);
+        const loading = IsGraphLoading();
+        DeferMicrotask(() => {
+          if (loading) this.__tojioo_skip_resize = true;
+          try {
+            applyType(this);
+          } catch (e) {
+            console.error("Tojioo.DynamicAny: error in configure", e);
+          } finally {
+            this.__tojioo_skip_resize = false;
+          }
+        });
+        setTimeout(() => {
+          try {
+            applyType(this);
+          } catch {
+          }
+        }, 100);
+      };
+      const prevOnAdded = nodeType.prototype.onAdded;
+      nodeType.prototype.onAdded = function() {
+        prevOnAdded?.apply(this, arguments);
+        const loading = IsGraphLoading();
+        DeferMicrotask(() => {
+          if (loading) this.__tojioo_skip_resize = true;
+          try {
+            applyType(this);
+          } catch (e) {
+            console.error("Tojioo.DynamicAny: error in onAdded", e);
+          } finally {
+            this.__tojioo_skip_resize = false;
+          }
+        });
+      };
+    }
+  };
 }
 const createLoggerMethod = (method) => {
   return (...args) => {
@@ -614,20 +696,20 @@ function configureDynamicBus() {
       function getSlotType(node, slotIdx) {
         const input = node.inputs?.[slotIdx];
         const output = node.outputs?.[slotIdx];
-        if (input?.type && input.type !== ANY_TYPE$1 && input.type !== -1) {
+        if (input?.type && input.type !== ANY_TYPE && input.type !== -1) {
           return input.type;
         }
-        if (output?.type && output.type !== ANY_TYPE$1 && output.type !== -1) {
+        if (output?.type && output.type !== ANY_TYPE && output.type !== -1) {
           return output.type;
         }
-        return ANY_TYPE$1;
+        return ANY_TYPE;
       }
       function generateLabels(types) {
         const sorted = Object.entries(types).map(([k, v]) => ({ idx: Number(k), type: v })).sort((a, b) => a.idx - b.idx);
         const counters = {};
         const labels = {};
         for (const entry of sorted) {
-          const isTyped = entry.type !== ANY_TYPE$1;
+          const isTyped = entry.type !== ANY_TYPE;
           const base = isTyped ? entry.type.toLowerCase() : "value";
           const key = isTyped ? entry.type : "__any__";
           counters[key] = (counters[key] || 0) + 1;
@@ -640,7 +722,7 @@ function configureDynamicBus() {
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
           const input = node.inputs[slotIdx];
           if (input?.link != null) {
-            const type = input.type && input.type !== ANY_TYPE$1 && input.type !== -1 ? input.type : ANY_TYPE$1;
+            const type = input.type && input.type !== ANY_TYPE && input.type !== -1 ? input.type : ANY_TYPE;
             types.push(`${slotIdx}:${type}`);
           }
         }
@@ -655,14 +737,14 @@ function configureDynamicBus() {
             continue;
           }
           const hasInputLink = node.inputs[slotIdx]?.link != null;
-          let expectedType = ANY_TYPE$1;
+          let expectedType = ANY_TYPE;
           if (!hasInputLink) {
             const linkId = out.links[0];
             const link = GetLink(node, linkId);
             if (link) {
               const targetNode = GetNodeById(node, link.target_id);
               const targetSlot = targetNode?.inputs?.[link.target_slot];
-              if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
+              if (targetSlot?.type && targetSlot.type !== ANY_TYPE && targetSlot.type !== -1) {
                 expectedType = targetSlot.type;
               }
             }
@@ -696,13 +778,13 @@ function configureDynamicBus() {
       function resetNodeToCleanState(node) {
         for (let i = 1; i < node.inputs?.length; i++) {
           if (node.inputs[i]) {
-            node.inputs[i].type = ANY_TYPE$1;
+            node.inputs[i].type = ANY_TYPE;
             node.inputs[i].label = "input";
           }
         }
         for (let i = 1; i < node.outputs?.length; i++) {
           if (node.outputs[i]) {
-            node.outputs[i].type = ANY_TYPE$1;
+            node.outputs[i].type = ANY_TYPE;
             node.outputs[i].label = "output";
           }
         }
@@ -712,14 +794,14 @@ function configureDynamicBus() {
         while (node.outputs.length > 1) {
           node.removeOutput(node.outputs.length - 1);
         }
-        node.addInput?.("input", ANY_TYPE$1);
+        node.addInput?.("input", ANY_TYPE);
         node.inputs[1].name = "input_1";
         node.inputs[1].label = "input";
-        node.inputs[1].type = ANY_TYPE$1;
-        node.addOutput?.("output", ANY_TYPE$1);
+        node.inputs[1].type = ANY_TYPE;
+        node.addOutput?.("output", ANY_TYPE);
         node.outputs[1].name = "output_1";
         node.outputs[1].label = "output";
-        node.outputs[1].type = ANY_TYPE$1;
+        node.outputs[1].type = ANY_TYPE;
         const slotTypesWidget = node.widgets?.find((w) => w.name === "_slot_types");
         if (slotTypesWidget) {
           slotTypesWidget.value = "";
@@ -780,24 +862,24 @@ function configureDynamicBus() {
         }
         while (node.inputs.length < targetCount) {
           const slotIdx = node.inputs.length;
-          node.addInput?.("input", ANY_TYPE$1);
+          node.addInput?.("input", ANY_TYPE);
           node.inputs[slotIdx].name = `input_${slotIdx}`;
         }
         while (node.outputs.length < targetCount) {
           const slotIdx = node.outputs.length;
-          node.addOutput?.("output", ANY_TYPE$1);
+          node.addOutput?.("output", ANY_TYPE);
           node.outputs[slotIdx].name = `output_${slotIdx}`;
         }
         const slotTypes = {};
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
           const type = getSlotType(node, slotIdx);
-          if (type !== ANY_TYPE$1) {
+          if (type !== ANY_TYPE) {
             slotTypes[slotIdx] = type;
           }
         }
         const labels = generateLabels(slotTypes);
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          const type = slotTypes[slotIdx] || ANY_TYPE$1;
+          const type = slotTypes[slotIdx] || ANY_TYPE;
           if (node.inputs[slotIdx]) {
             node.inputs[slotIdx].name = `input_${slotIdx}`;
             node.inputs[slotIdx].label = labels[slotIdx] || "input";
@@ -809,12 +891,12 @@ function configureDynamicBus() {
             node.outputs[slotIdx].type = type;
           }
           const inLink = GetInputLink(node, slotIdx);
-          if (inLink && type !== ANY_TYPE$1) {
+          if (inLink && type !== ANY_TYPE) {
             inLink.type = type;
           }
           for (const linkId of node.outputs[slotIdx]?.links ?? []) {
             const link = GetLink(node, linkId);
-            if (link && type !== ANY_TYPE$1) {
+            if (link && type !== ANY_TYPE) {
               link.type = type;
             }
           }
@@ -826,7 +908,7 @@ function configureDynamicBus() {
         let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
           if (node.inputs[slotIdx]?.link != null) {
-            combinedTypes[nextIdx] = slotTypes[slotIdx] || ANY_TYPE$1;
+            combinedTypes[nextIdx] = slotTypes[slotIdx] || ANY_TYPE;
             nextIdx++;
           }
         }
@@ -869,7 +951,7 @@ function configureDynamicBus() {
               if (link) {
                 const sourceNode = GetNodeById(node, link.origin_id);
                 const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
-                if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
+                if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE && sourceSlot.type !== -1) {
                   if (node.inputs[index]) {
                     node.inputs[index].type = sourceSlot.type;
                   }
@@ -884,7 +966,7 @@ function configureDynamicBus() {
               if (link) {
                 const targetNode = GetNodeById(node, link.target_id);
                 const targetSlot = targetNode?.inputs?.[link.target_slot];
-                if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
+                if (targetSlot?.type && targetSlot.type !== ANY_TYPE && targetSlot.type !== -1) {
                   if (node.outputs[index]) {
                     node.outputs[index].type = targetSlot.type;
                   }
@@ -910,7 +992,7 @@ function configureDynamicBus() {
               (inp) => inp.link != null && (!graph?.links || !graph.links[inp.link])
             );
             const hasTypedUnconnectedSlots = info.inputs?.slice(1).some(
-              (inp) => inp.type && inp.type !== ANY_TYPE$1 && inp.type !== -1 && inp.link == null
+              (inp) => inp.type && inp.type !== ANY_TYPE && inp.type !== -1 && inp.link == null
             );
             if (hasOrphanedLinks || hasTypedUnconnectedSlots) {
               resetNodeToCleanState(node);
@@ -976,11 +1058,11 @@ function configureDynamicPassthrough() {
           node.removeOutput(node.outputs.length - 1);
         }
         while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
-          node.addInput("input", ANY_TYPE$1);
+          node.addInput("input", ANY_TYPE);
           node.inputs[node.inputs.length - 1].label = "input";
         }
         while (node.outputs.length < desiredCount && typeof node.addOutput === "function") {
-          node.addOutput("output", ANY_TYPE$1);
+          node.addOutput("output", ANY_TYPE);
           node.outputs[node.outputs.length - 1].label = "output";
         }
         UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
@@ -999,7 +1081,7 @@ function configureDynamicPassthrough() {
             const linkId = link_info?.id ?? node.inputs?.[index]?.link;
             const linkObj = link_info ?? GetLink(node, linkId);
             const inferredType = GetLinkTypeFromEndpoints(node, linkObj);
-            if (linkId != null && g?.links?.[linkId] && inferredType && inferredType !== ANY_TYPE$1) {
+            if (linkId != null && g?.links?.[linkId] && inferredType && inferredType !== ANY_TYPE) {
               g.links[linkId].type = inferredType;
               if (node.outputs?.[index]) {
                 node.outputs[index].type = inferredType;
@@ -1074,6 +1156,7 @@ function configureDynamicPassthrough() {
             this.__tojioo_dynamic_io_size_fixed = false;
             normalizeIO(this);
             ApplyDynamicTypes(this);
+            UpdateNodeSizeImmediate(this);
           } catch {
           }
         }, 100);
@@ -1105,7 +1188,7 @@ function configureDynamicPreview() {
       nodeType.prototype._imageElements = [];
       nodeType.prototype._totalImages = 0;
       nodeType.prototype._tabHitAreas = [];
-      function normalizeInputs2(node) {
+      function normalizeInputs(node) {
         if (!node.inputs) node.inputs = [];
         if (!node.__tojioo_dynamic_io_rebuilt) {
           node.__tojioo_dynamic_io_rebuilt = true;
@@ -1128,7 +1211,7 @@ function configureDynamicPreview() {
           node.removeInput(node.inputs.length - 1);
         }
         while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
-          node.addInput("image", ANY_TYPE$1);
+          node.addInput("image", ANY_TYPE);
           node.inputs[node.inputs.length - 1].label = "image";
         }
         UpdatePreviewNodeSize(node);
@@ -1139,17 +1222,17 @@ function configureDynamicPreview() {
         const typeCounters = {};
         for (let i = 0; i < node.inputs.length; i++) {
           const link = GetInputLink(node, i);
-          let resolvedType = ANY_TYPE$1;
+          let resolvedType = ANY_TYPE;
           if (link) {
             const t = GetLinkTypeFromEndpoints(node, link);
-            if (t !== ANY_TYPE$1) resolvedType = t;
+            if (t !== ANY_TYPE) resolvedType = t;
           }
           types.push(resolvedType);
         }
         for (let i = 0; i < node.inputs.length; i++) {
           const inp = node.inputs[i];
           const t = types[i];
-          const isTyped = t !== ANY_TYPE$1;
+          const isTyped = t !== ANY_TYPE;
           inp.type = t;
           let label;
           if (isTyped) {
@@ -1182,14 +1265,14 @@ function configureDynamicPreview() {
       const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
       nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement) {
         prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-        if (!ctx || isNodes2Mode()) return;
+        if (!ctx || IsNodes2Mode()) return;
         const node = this;
         if (!node._imageElements?.length || node._totalImages === 0) return;
         const imgs = node._imageElements;
         const idx = Math.min(node._currentImageIndex, imgs.length - 1);
         const img = imgs[idx];
         if (!img?.complete || img.naturalWidth === 0) return;
-        const slotHeight = getLgSlotHeight();
+        const slotHeight = GetLgSlotHeight();
         const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
         const showTabs = node._totalImages >= 2;
         const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
@@ -1279,7 +1362,7 @@ function configureDynamicPreview() {
               const inferredType = GetLinkTypeFromEndpoints(node, link);
               const linkId = link_info?.id ?? node.inputs?.[index]?.link;
               const linkObj = GetLink(node, linkId);
-              if (linkObj && inferredType !== ANY_TYPE$1) {
+              if (linkObj && inferredType !== ANY_TYPE) {
                 linkObj.type = inferredType;
                 if (node.inputs[index]) {
                   node.inputs[index].type = inferredType;
@@ -1292,7 +1375,7 @@ function configureDynamicPreview() {
           } catch {
           }
           DeferMicrotask(() => {
-            normalizeInputs2(node);
+            normalizeInputs(node);
             applyDynamicTypes(node);
           });
           return;
@@ -1300,7 +1383,7 @@ function configureDynamicPreview() {
         DeferMicrotask(() => {
           if (!node.inputs?.length || index < 0 || index >= node.inputs.length) return;
           if (node.inputs[index]?.link != null) {
-            normalizeInputs2(node);
+            normalizeInputs(node);
             applyDynamicTypes(node);
             return;
           }
@@ -1315,7 +1398,7 @@ function configureDynamicPreview() {
             node._totalImages = 0;
             node._tabHitAreas = [];
           }
-          normalizeInputs2(node);
+          normalizeInputs(node);
           applyDynamicTypes(node);
         });
       };
@@ -1326,7 +1409,7 @@ function configureDynamicPreview() {
         DeferMicrotask(() => {
           if (loading) this.__tojioo_skip_resize = true;
           try {
-            normalizeInputs2(this);
+            normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
             console.error("Tojioo.DynamicPreview: error in configure", e);
@@ -1336,7 +1419,7 @@ function configureDynamicPreview() {
         });
         setTimeout(() => {
           try {
-            normalizeInputs2(this);
+            normalizeInputs(this);
             applyDynamicTypes(this);
           } catch {
           }
@@ -1354,92 +1437,10 @@ function configureDynamicPreview() {
         DeferMicrotask(() => {
           if (loading) this.__tojioo_skip_resize = true;
           try {
-            normalizeInputs2(this);
+            normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
             console.error("Tojioo.DynamicPreview: error in onAdded", e);
-          } finally {
-            this.__tojioo_skip_resize = false;
-          }
-        });
-      };
-    }
-  };
-}
-function configureDynamicAny() {
-  return {
-    name: "Tojioo.Passthrough.Dynamic.DynamicAny",
-    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
-      if (nodeData?.name !== "PT_DynamicAny") {
-        return;
-      }
-      function applyType(node) {
-        const t = ResolveConnectedType(node, node.inputs?.[0], node.outputs?.[0]);
-        const isTyped = t !== ANY_TYPE$1;
-        const slotType = isTyped ? t : ANY_TYPE$1;
-        const slotName = isTyped ? t.toLowerCase() : "input";
-        if (node.inputs?.[0]) {
-          node.inputs[0].type = slotType;
-          node.inputs[0].name = slotName;
-          node.inputs[0].label = slotName;
-        }
-        if (node.outputs?.[0]) {
-          node.outputs[0].type = slotType;
-          const n = isTyped ? t.toLowerCase() : "output";
-          node.outputs[0].name = n;
-          node.outputs[0].label = n;
-        }
-        const inLink = GetInputLink(node, 0);
-        if (inLink && slotType !== ANY_TYPE$1) {
-          inLink.type = slotType;
-        }
-        for (const linkId of node.outputs?.[0]?.links ?? []) {
-          const link = GetLink(node, linkId);
-          if (link && slotType !== ANY_TYPE$1) {
-            link.type = slotType;
-          }
-        }
-        GetGraph(node)?.setDirtyCanvas?.(true, true);
-      }
-      const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
-      nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) {
-          return;
-        }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        DeferMicrotask(() => applyType(this));
-      };
-      const prevConfigure = nodeType.prototype.configure;
-      nodeType.prototype.configure = function(info) {
-        prevConfigure?.call(this, info);
-        const loading = IsGraphLoading();
-        DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
-          try {
-            applyType(this);
-          } catch (e) {
-            console.error("Tojioo.DynamicAny: error in configure", e);
-          } finally {
-            this.__tojioo_skip_resize = false;
-          }
-        });
-        setTimeout(() => {
-          try {
-            applyType(this);
-          } catch {
-          }
-        }, 100);
-      };
-      const prevOnAdded = nodeType.prototype.onAdded;
-      nodeType.prototype.onAdded = function() {
-        prevOnAdded?.apply(this, arguments);
-        const loading = IsGraphLoading();
-        DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
-          try {
-            applyType(this);
-          } catch (e) {
-            console.error("Tojioo.DynamicAny: error in onAdded", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -1459,7 +1460,7 @@ function configureSwitchNodes() {
       if (!isSwitch(nodeData)) {
         return;
       }
-      const inputPrefix = deriveDynamicPrefixFromNodeData(nodeData);
+      const inputPrefix = DeriveDynamicPrefixFromNodeData(nodeData);
       if (!inputPrefix) {
         return;
       }
@@ -1476,33 +1477,33 @@ function configureSwitchNodes() {
         if (!isConnected) {
           DeferMicrotask(() => {
             if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
-              normalizeInputs(node);
-              applySwitchDynamicTypes(node, inputPrefix);
+              NormalizeInputs(node);
+              ApplySwitchDynamicTypes(node, inputPrefix);
               return;
             }
             if (node.inputs[index]?.link != null) {
-              normalizeInputs(node);
-              applySwitchDynamicTypes(node, inputPrefix);
+              NormalizeInputs(node);
+              ApplySwitchDynamicTypes(node, inputPrefix);
               return;
             }
             const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
             if (hasConnectionsAfter && typeof node.removeInput === "function") {
               node.removeInput(index);
             }
-            normalizeInputs(node);
-            applySwitchDynamicTypes(node, inputPrefix);
+            NormalizeInputs(node);
+            ApplySwitchDynamicTypes(node, inputPrefix);
           });
           return;
         }
-        normalizeInputs(node);
-        applySwitchDynamicTypes(node, inputPrefix);
+        NormalizeInputs(node);
+        ApplySwitchDynamicTypes(node, inputPrefix);
         const lastIndex = node.inputs.length - 1;
         if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
-          const resolvedType = resolveInputType(node, lastIndex);
-          const socketType = resolvedType !== ANY_TYPE$1 ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE$1;
+          const resolvedType = ResolveInputType(node, lastIndex);
+          const socketType = resolvedType !== ANY_TYPE ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE;
           node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
-          normalizeInputs(node);
-          applySwitchDynamicTypes(node, inputPrefix);
+          NormalizeInputs(node);
+          ApplySwitchDynamicTypes(node, inputPrefix);
         }
       };
       const prevConfigure = nodeType.prototype.configure;
@@ -1511,14 +1512,14 @@ function configureSwitchNodes() {
         if (!this.inputs?.length) {
           return;
         }
-        normalizeInputs(this);
-        applySwitchDynamicTypes(this, inputPrefix);
+        NormalizeInputs(this);
+        ApplySwitchDynamicTypes(this, inputPrefix);
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
-        normalizeInputs(this);
-        applySwitchDynamicTypes(this, inputPrefix);
+        NormalizeInputs(this);
+        ApplySwitchDynamicTypes(this, inputPrefix);
       };
     }
   };
@@ -1528,7 +1529,7 @@ app.registerExtension({
   async setup() {
     InstallGraphLoadingHook(app);
     RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
-    console.log(`%c[Tojioo Passthrough]%c v${"1.7.0"}`, "color: #00d4ff; font-weight: bold", "color: #888");
+    console.log(`%c[Tojioo Passthrough]%c Loaded Version ${"1.7.0"}`, "color: #00d4ff; font-weight: bold", "color: #888");
   }
 });
 app.registerExtension(configureBatchSwitchNodes());

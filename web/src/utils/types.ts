@@ -1,5 +1,5 @@
-﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType} from './graph.ts';
-import {UpdateNodeSize} from './lifecycle.ts';
+﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType} from './graph';
+import {UpdateNodeSize} from './lifecycle';
 
 const ANY_TYPE: string = "*";
 

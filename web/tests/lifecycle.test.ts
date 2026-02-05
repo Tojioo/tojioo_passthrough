@@ -1,13 +1,13 @@
 ﻿import {describe, expect, it, vi} from 'vitest';
 
 import {
-	applySwitchDynamicTypes,
+	ApplySwitchDynamicTypes,
 	DeferMicrotask,
-	deriveDynamicPrefixFromNodeData,
+	DeriveDynamicPrefixFromNodeData,
 	InstallGraphLoadingHook,
 	IsGraphLoading,
-	normalizeInputs,
-	resolveInputType,
+	NormalizeInputs,
+	ResolveInputType,
 	UpdateNodeSize,
 	UpdatePreviewNodeSize,
 } from '../src/utils/lifecycle';
@@ -85,18 +85,18 @@ describe('lifecycle utilities', () => {
 
   it('deriveDynamicPrefixFromNodeData handles numbered suffixes', () => {
     const nodeData1: any = {input: {optional: {foo_1: {}, foo_2: {}}}};
-    expect(deriveDynamicPrefixFromNodeData(nodeData1)).toBe('foo');
+    expect(DeriveDynamicPrefixFromNodeData(nodeData1)).toBe('foo');
 
     const nodeData2: any = {input: {optional: {bar2: {}, bar10: {}}}};
-    expect(deriveDynamicPrefixFromNodeData(nodeData2)).toBe('bar');
+    expect(DeriveDynamicPrefixFromNodeData(nodeData2)).toBe('bar');
 
     const nodeData3: any = {input: {optional: {only: {}}}};
-    expect(deriveDynamicPrefixFromNodeData(nodeData3)).toBe('only');
+    expect(DeriveDynamicPrefixFromNodeData(nodeData3)).toBe('only');
 
     const nodeData4: any = {input: {optional: {}}};
-    expect(deriveDynamicPrefixFromNodeData(nodeData4)).toBeNull();
+    expect(DeriveDynamicPrefixFromNodeData(nodeData4)).toBeNull();
 
-    expect(deriveDynamicPrefixFromNodeData({} as any)).toBeNull();
+    expect(DeriveDynamicPrefixFromNodeData({} as any)).toBeNull();
   });
 
   it('resolveInputType derives from link endpoints and slots', () => {
@@ -116,7 +116,7 @@ describe('lifecycle utilities', () => {
       rootGraph: g,
     };
 
-    const t = resolveInputType(node, 0);
+    const t = ResolveInputType(node, 0);
     expect(t).toBe('IMAGE');
   });
 
@@ -143,7 +143,7 @@ describe('lifecycle utilities', () => {
       rootGraph: g,
     };
 
-    applySwitchDynamicTypes(node, 'input');
+    ApplySwitchDynamicTypes(node, 'input');
 
     // Resolved type is TEXT
     expect(node.inputs[0].type).toBe('TEXT');
@@ -205,7 +205,7 @@ describe('lifecycle utilities', () => {
       computeSize: () => [10, 10],
       setSize: () => {},
     };
-    normalizeInputs(node);
+    NormalizeInputs(node);
     // Should keep indices 0..(lastConnected+1) => 0..2, so remove last one only
     expect(removed).toEqual([3]);
     expect(node.inputs.length).toBe(3);

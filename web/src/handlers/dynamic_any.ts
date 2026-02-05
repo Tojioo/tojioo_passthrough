@@ -1,8 +1,6 @@
-﻿import {ANY_TYPE} from '@/types/tojioo';
-import {DeferMicrotask, IsGraphLoading} from '@/utils/lifecycle';
-import {GetGraph, GetInputLink, GetLink} from '@/utils/graph';
-import {ResolveConnectedType} from '@/utils/types';
+﻿import {GetGraph, GetInputLink, GetLink, DeferMicrotask, IsGraphLoading, ResolveConnectedType} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {ANY_TYPE} from '@/types/tojioo';
 
 export function configureDynamicAny(): ComfyExtension
 {

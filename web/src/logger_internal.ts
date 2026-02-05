@@ -6,7 +6,7 @@
  * @param {ConsoleMethod} method - The console method to wrap (e.g., "log", "warn", "error").
  * @returns {Function} A function that logs messages using the specified console method, with a styled prefix added to the output.
  */
-const createLoggerMethod = (method: ConsoleMethod) =>
+const createLoggerMethod = (method: ConsoleMethod): Function =>
 {
 	return (...args: any[]) =>
 	{

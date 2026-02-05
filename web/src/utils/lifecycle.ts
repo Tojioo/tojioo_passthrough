@@ -1,6 +1,5 @@
-﻿import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
-import {GetLgInput} from './compat';
+﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
+import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 const ANY_TYPE: string = "*";
 
@@ -53,7 +52,7 @@ export function DeferMicrotask(fn: () => void): void
 	Promise.resolve().then(fn);
 }
 
-export function deriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string | null
+export function DeriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string | null
 {
 	const opt = nodeData?.input?.optional;
 	if (!opt)
@@ -77,7 +76,7 @@ export function deriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string 
 	return baseName.replace(/_\d+$/, "").replace(/\d+$/, "");
 }
 
-export function resolveInputType(node: any, inputIndex: number): string
+export function ResolveInputType(node: any, inputIndex: number): string
 {
 	const inp = node.inputs?.[inputIndex];
 	if (!inp)
@@ -176,7 +175,7 @@ export function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
 	}
 }
 
-export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): void
+export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): void
 {
 	if (!node.inputs || node.inputs.length === 0)
 	{
@@ -188,7 +187,7 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 
 	for (let i = 0; i < node.inputs.length; i++)
 	{
-		const t = resolveInputType(node, i);
+		const t = ResolveInputType(node, i);
 		inputTypes.push(t);
 		if (t && t !== ANY_TYPE && resolvedType === ANY_TYPE)
 		{
@@ -264,7 +263,7 @@ export function UpdatePreviewNodeSize(node: any): void
 	ScheduleSizeUpdate(node);
 }
 
-export function normalizeInputs(node: any): void
+export function NormalizeInputs(node: any): void
 {
 	if (!node.inputs)
 	{

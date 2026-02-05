@@ -1,6 +1,6 @@
-﻿import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
-import {DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {logger_internal} from '@/logger_internal.ts';
 
 // Todo: Fix nodes with only output slots disconnecting on reload / load
