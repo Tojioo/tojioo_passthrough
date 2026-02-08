@@ -814,7 +814,7 @@ function configureDynamicBus() {
           node.properties._busTypes = {};
         }
       }
-      function synchronize(node) {
+      function synchronize(node, serializedInfo) {
         if (!node.inputs) {
           node.inputs = [];
         }
@@ -837,25 +837,36 @@ function configureDynamicBus() {
           node.outputs[0].type = BUS_TYPE;
         }
         let maxNeededSlot = 0;
-        const maxLen = Math.max(node.inputs.length, node.outputs.length);
+        const maxLen = Math.max(
+          node.inputs.length,
+          node.outputs.length,
+          serializedInfo?.inputs?.length ?? 0,
+          serializedInfo?.outputs?.length ?? 0
+        );
         for (let slotIdx = 1; slotIdx < maxLen; slotIdx++) {
           const hasInput = node.inputs[slotIdx]?.link != null;
           const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
-          if (hasInput || hasOutput) {
+          const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
+          const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+          if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput) {
             maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
           }
         }
         const targetCount = maxNeededSlot + 2;
         while (node.inputs.length > targetCount) {
           const lastIdx = node.inputs.length - 1;
-          if (node.inputs[lastIdx]?.link != null) {
+          const hasLiveLink = node.inputs[lastIdx]?.link != null;
+          const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
+          if (hasLiveLink || hasSerializedLink) {
             break;
           }
           node.removeInput?.(lastIdx);
         }
         while (node.outputs.length > targetCount) {
           const lastIdx = node.outputs.length - 1;
-          if ((node.outputs[lastIdx]?.links?.length ?? 0) > 0) {
+          const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+          const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
+          if (hasLiveLinks || hasSerializedLinks) {
             break;
           }
           node.removeOutput?.(lastIdx);
@@ -869,6 +880,19 @@ function configureDynamicBus() {
           const slotIdx = node.outputs.length;
           node.addOutput?.("output", ANY_TYPE);
           node.outputs[slotIdx].name = `output_${slotIdx}`;
+        }
+        if (serializedInfo?.outputs) {
+          for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
+            const serializedOut = serializedInfo.outputs[slotIdx];
+            if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1) {
+              if (node.outputs[slotIdx]) {
+                node.outputs[slotIdx].type = serializedOut.type;
+              }
+              if (node.inputs[slotIdx]) {
+                node.inputs[slotIdx].type = serializedOut.type;
+              }
+            }
+          }
         }
         const slotTypes = {};
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
@@ -991,13 +1015,19 @@ function configureDynamicBus() {
             const hasOrphanedLinks = info.inputs?.some(
               (inp) => inp.link != null && (!graph?.links || !graph.links[inp.link])
             );
-            const hasTypedUnconnectedSlots = info.inputs?.slice(1).some(
-              (inp) => inp.type && inp.type !== ANY_TYPE && inp.type !== -1 && inp.link == null
-            );
+            const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp, idx) => {
+              const slotIdx = idx + 1;
+              const hasType = inp.type && inp.type !== ANY_TYPE && inp.type !== -1;
+              const hasInputLink = inp.link != null;
+              const hasOutputLink = (info.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+              return hasType && !hasInputLink && !hasOutputLink;
+            });
             if (hasOrphanedLinks || hasTypedUnconnectedSlots) {
               resetNodeToCleanState(node);
+              synchronize(node);
+            } else {
+              synchronize(node, info);
             }
-            synchronize(node);
           } catch (e) {
             logger_internal.error("DynamicBus configure error", e);
           }

@@ -2,7 +2,7 @@
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
 
-// Todo: Fix broken node ._.
+// Todo: Still fix broken node
 export function configureDynamicPreview(): ComfyExtension
 {
 	return {

@@ -3,7 +3,6 @@ import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {logger_internal} from '@/logger_internal.ts';
 
-// Todo: Fix nodes with only output slots disconnecting on reload / load
 export function configureDynamicBus(): ComfyExtension
 {
 	return {
@@ -216,7 +215,7 @@ export function configureDynamicBus(): ComfyExtension
 				}
 			}
 
-			function synchronize(node: any): void
+			function synchronize(node: any, serializedInfo?: any): void
 			{
 				if (!node.inputs)
 				{
@@ -253,12 +252,21 @@ export function configureDynamicBus(): ComfyExtension
 
 				let maxNeededSlot = 0;
 
-				const maxLen = Math.max(node.inputs.length, node.outputs.length);
+				const maxLen = Math.max(
+					node.inputs.length,
+					node.outputs.length,
+					serializedInfo?.inputs?.length ?? 0,
+					serializedInfo?.outputs?.length ?? 0
+				);
+
 				for (let slotIdx = 1; slotIdx < maxLen; slotIdx++)
 				{
 					const hasInput = node.inputs[slotIdx]?.link != null;
 					const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
-					if (hasInput || hasOutput)
+					const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
+					const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+
+					if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput)
 					{
 						maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
 					}
@@ -269,7 +277,9 @@ export function configureDynamicBus(): ComfyExtension
 				while (node.inputs.length > targetCount)
 				{
 					const lastIdx = node.inputs.length - 1;
-					if (node.inputs[lastIdx]?.link != null)
+					const hasLiveLink = node.inputs[lastIdx]?.link != null;
+					const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
+					if (hasLiveLink || hasSerializedLink)
 					{
 						break;
 					}
@@ -279,7 +289,9 @@ export function configureDynamicBus(): ComfyExtension
 				while (node.outputs.length > targetCount)
 				{
 					const lastIdx = node.outputs.length - 1;
-					if ((node.outputs[lastIdx]?.links?.length ?? 0) > 0)
+					const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+					const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
+					if (hasLiveLinks || hasSerializedLinks)
 					{
 						break;
 					}
@@ -298,6 +310,26 @@ export function configureDynamicBus(): ComfyExtension
 					const slotIdx = node.outputs.length;
 					node.addOutput?.("output", ANY_TYPE as ISlotType);
 					node.outputs[slotIdx].name = `output_${slotIdx}`;
+				}
+
+				// Restore types from serialized info for output-only slots
+				if (serializedInfo?.outputs)
+				{
+					for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
+					{
+						const serializedOut = serializedInfo.outputs[slotIdx];
+						if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
+						{
+							if (node.outputs[slotIdx])
+							{
+								node.outputs[slotIdx].type = serializedOut.type as ISlotType;
+							}
+							if (node.inputs[slotIdx])
+							{
+								node.inputs[slotIdx].type = serializedOut.type as ISlotType;
+							}
+						}
+					}
 				}
 
 				const slotTypes: Record<number, string> = {};
@@ -483,16 +515,24 @@ export function configureDynamicBus(): ComfyExtension
 							inp.link != null && (!graph?.links || !graph.links[inp.link])
 						);
 
-						const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp: any) =>
-							inp.type && inp.type !== ANY_TYPE && inp.type !== -1 && inp.link == null
-						);
+						const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp: any, idx: number) =>
+						{
+							const slotIdx = idx + 1;
+							const hasType = inp.type && inp.type !== ANY_TYPE && inp.type !== -1;
+							const hasInputLink = inp.link != null;
+							const hasOutputLink = (info.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+							return hasType && !hasInputLink && !hasOutputLink;
+						});
 
 						if (hasOrphanedLinks || hasTypedUnconnectedSlots)
 						{
 							resetNodeToCleanState(node);
+							synchronize(node);
 						}
-
-						synchronize(node);
+						else
+						{
+							synchronize(node, info);
+						}
 					}
 					catch (e)
 					{
