@@ -460,7 +460,6 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 				];
 			},
 		},
-		/* Flaky
 		{
 			name: "preserves slot type when output disconnects but input remains",
 			steps: (ctx) =>
@@ -519,7 +518,7 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 					},
 				];
 			},
-		},*/
+		},
 		{
 			name: "resets slot when stale link ID remains in output links array",
 			steps: (ctx) =>
