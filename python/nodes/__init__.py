@@ -11,6 +11,7 @@ from .dynamic_bus import PT_DynamicBus
 from .dynamic_passthrough import PT_DynamicPassthrough
 from .dynamic_preview import PT_DynamicPreview
 from .multi_pass import PT_MultiPass
+from .dual_clip_encode import PT_DualCLIPEncode
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "PT_DynamicAny",
 	"PT_DynamicPreview",
 	"PT_MultiPass",
+	"PT_DualCLIPEncode",
 ]

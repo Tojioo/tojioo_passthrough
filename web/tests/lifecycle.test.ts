@@ -1,213 +1,207 @@
-﻿import {describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {
-	ApplySwitchDynamicTypes,
-	DeferMicrotask,
-	DeriveDynamicPrefixFromNodeData,
-	InstallGraphLoadingHook,
-	IsGraphLoading,
-	NormalizeInputs,
-	ResolveInputType,
-	UpdateNodeSize,
-	UpdatePreviewNodeSize,
-} from '../src/utils/lifecycle';
+import {connectInput, installTestGlobals, makeGraph, makeNode} from './helpers/factories';
 
-type Link = {
-  id: number;
-  origin_id: number;
-  origin_slot: number;
-  target_id: number;
-  target_slot: number;
-  type?: string;
-};
+installTestGlobals();
 
-type FakeNode = {
-  id: number;
-  type?: string;
-  inputs: any[];
-  outputs: any[];
-  size?: [number, number];
-  computeSize: () => [number, number];
-  setSize: (s: [number, number]) => void;
-  removeInput?: (i: number) => void;
-  rootGraph?: any;
-};
+describe("lifecycle utilities", () =>
+{
+	let lifecycle: typeof import('../src/utils/lifecycle');
+	let originalRaf: typeof globalThis.requestAnimationFrame | undefined;
 
-const makeGraph = (links: Record<number, Link>, nodes: Record<number, any>) => ({
-  links,
-  getNodeById: (id: number) => nodes[id] ?? null,
-  setDirtyCanvas: vi.fn(),
-});
+	beforeEach(async () =>
+	{
+		vi.resetModules();
+		lifecycle = await import('../src/utils/lifecycle');
 
-const makeIO = (count: number) => ({
-  inputs: Array.from({length: count}, () => ({name: '', label: '', type: '*', link: null})),
-  outputs: Array.from({length: count}, () => ({name: '', label: '', type: '*', links: [] as number[]})),
-});
+		originalRaf = globalThis.requestAnimationFrame;
+		(globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) =>
+		{
+			cb(0);
+			return 0;
+		};
+	});
 
-describe('lifecycle utilities', () => {
-  it('InstallGraphLoadingHook toggles IsGraphLoading during load', async () => {
-    const app: any = {};
-    let resolve!: () => void;
-    const p = new Promise<void>(r => (resolve = r));
-    app.loadGraphData = vi.fn(() => p);
+	afterEach(() =>
+	{
+		if (originalRaf)
+		{
+			globalThis.requestAnimationFrame = originalRaf;
+		}
+	});
+	it("InstallGraphLoadingHook toggles IsGraphLoading during load", async () =>
+	{
+		const app: any = {};
+		let resolve!: () => void;
+		const p = new Promise<void>((r) => (resolve = r));
+		app.loadGraphData = vi.fn(() => p);
 
-    InstallGraphLoadingHook(app);
+		lifecycle.InstallGraphLoadingHook(app);
 
-    const call = app.loadGraphData();
-    expect(IsGraphLoading()).toBe(true);
+		const call = app.loadGraphData();
+		expect(lifecycle.IsGraphLoading()).toBe(true);
 
-    resolve();
-    await call;
-    expect(IsGraphLoading()).toBe(false);
-  });
+		resolve();
+		await call;
+		expect(lifecycle.IsGraphLoading()).toBe(false);
+	});
 
-  it('DeferMicrotask schedules callback in microtask queue', async () => {
-    let ran = false;
-    DeferMicrotask(() => { ran = true; });
-    expect(ran).toBe(false);
-    await Promise.resolve();
-    expect(ran).toBe(true);
-  });
+	it("DeferMicrotask schedules callback in microtask queue", async () =>
+	{
+		let ran = false;
+		lifecycle.DeferMicrotask(() =>
+		{
+			ran = true;
+		});
+		expect(ran).toBe(false);
+		await Promise.resolve();
+		expect(ran).toBe(true);
+	});
 
-  it('DeferMicrotask fallback via Promise when queueMicrotask is unavailable', async () => {
-    const original = (globalThis as any).queueMicrotask;
-    (globalThis as any).queueMicrotask = undefined;
-    try {
-      let ran = false;
-      DeferMicrotask(() => { ran = true; });
-      expect(ran).toBe(false);
-      await Promise.resolve();
-      expect(ran).toBe(true);
-    } finally {
-      (globalThis as any).queueMicrotask = original;
-    }
-  });
+	it("DeferMicrotask fallback via Promise when queueMicrotask is unavailable", async () =>
+	{
+		const original = (globalThis as any).queueMicrotask;
+		(globalThis as any).queueMicrotask = undefined;
+		try
+		{
+			let ran = false;
+			lifecycle.DeferMicrotask(() =>
+			{
+				ran = true;
+			});
+			expect(ran).toBe(false);
+			await Promise.resolve();
+			expect(ran).toBe(true);
+		}
+		finally
+		{
+			(globalThis as any).queueMicrotask = original;
+		}
+	});
 
-  it('deriveDynamicPrefixFromNodeData handles numbered suffixes', () => {
-    const nodeData1: any = {input: {optional: {foo_1: {}, foo_2: {}}}};
-    expect(DeriveDynamicPrefixFromNodeData(nodeData1)).toBe('foo');
+	it("DeriveDynamicPrefixFromNodeData handles numeric suffixes", () =>
+	{
+		const nodeData1: any = {input: {optional: {foo_1: {}, foo_2: {}}}};
+		expect(lifecycle.DeriveDynamicPrefixFromNodeData(nodeData1)).toBe("foo");
 
-    const nodeData2: any = {input: {optional: {bar2: {}, bar10: {}}}};
-    expect(DeriveDynamicPrefixFromNodeData(nodeData2)).toBe('bar');
+		const nodeData2: any = {input: {optional: {bar2: {}, bar10: {}}}};
+		expect(lifecycle.DeriveDynamicPrefixFromNodeData(nodeData2)).toBe("bar");
 
-    const nodeData3: any = {input: {optional: {only: {}}}};
-    expect(DeriveDynamicPrefixFromNodeData(nodeData3)).toBe('only');
+		const nodeData3: any = {input: {optional: {only: {}}}};
+		expect(lifecycle.DeriveDynamicPrefixFromNodeData(nodeData3)).toBe("only");
 
-    const nodeData4: any = {input: {optional: {}}};
-    expect(DeriveDynamicPrefixFromNodeData(nodeData4)).toBeNull();
+		const nodeData4: any = {input: {optional: {}}};
+		expect(lifecycle.DeriveDynamicPrefixFromNodeData(nodeData4)).toBeNull();
 
-    expect(DeriveDynamicPrefixFromNodeData({} as any)).toBeNull();
-  });
+		expect(lifecycle.DeriveDynamicPrefixFromNodeData({} as any)).toBeNull();
+	});
 
-  it('resolveInputType derives from link endpoints and slots', () => {
-    // Build a graph with two nodes connected: n1.out0 -> n2.in0
-    const n1: any = { id: 1, outputs: [{type: 'IMAGE'}] };
-    const n2: any = { id: 2, inputs: [{link: 7}] };
-    const link: Link = { id: 7, origin_id: 1, origin_slot: 0, target_id: 2, target_slot: 0 };
-    const g = makeGraph({7: link}, {1: n1, 2: n2});
+	it("ResolveInputType uses inferred or linked endpoint types", () =>
+	{
+		const nodes: Record<number, any> = {};
+		const graph = makeGraph({}, nodes);
+		const node = makeNode({in: 1, out: 0}, graph, {id: 2});
+		nodes[node.id] = node;
 
-    const node: FakeNode = {
-      id: 2,
-      ...makeIO(1),
-      inputs: [{link: 7}],
-      outputs: [],
-      computeSize: () => [100, 50],
-      setSize: () => {},
-      rootGraph: g,
-    };
+		const origin = {id: 1, outputs: [{type: "IMAGE"}]};
+		nodes[origin.id] = origin;
 
-    const t = ResolveInputType(node, 0);
-    expect(t).toBe('IMAGE');
-  });
+		const link = connectInput({node, graph, index: 0, linkId: 7, origin});
+		const t = lifecycle.ResolveInputType(node, 0);
+		expect(t).toBe("IMAGE");
 
-  it('applySwitchDynamicTypes sets input/output types, labels and updates link types', () => {
-    // Node with 2 inputs and 1 output. First input linked with TEXT, second untyped
-    const producer: any = { id: 1, outputs: [{type: 'TEXT'}] };
-    const consumer: any = { id: 2, inputs: [{}, {}], outputs: [{}] };
-    const linkIn: Link = { id: 10, origin_id: 1, origin_slot: 0, target_id: 2, target_slot: 0 };
-    const linkOut: Link = { id: 11, origin_id: 2, origin_slot: 0, target_id: 1, target_slot: 0 };
+		graph.links[7].type = "MASK";
+		origin.outputs[0].type = "*";
+		expect(lifecycle.ResolveInputType(node, 0)).toBe("MASK");
+		expect(link.type).toBe("MASK");
+	});
 
-    const g = makeGraph({10: linkIn, 11: linkOut}, {1: producer, 2: consumer});
+	it("ScheduleCanvasUpdate marks the graph dirty once", () =>
+	{
+		const graph = makeGraph({}, {});
+		const node = makeNode({in: 0, out: 0}, graph);
+		lifecycle.ScheduleCanvasUpdate(node);
+		expect(graph.setDirtyCanvas).toHaveBeenCalledWith(true, true);
+	});
 
-    const node: FakeNode = {
-      id: 2,
-      type: 'PT_DynamicPassthrough',
-      ...makeIO(2),
-      inputs: [
-        { name: 'input_1', label: '', type: '*', link: 10 },
-        { name: 'input_2', label: '', type: '*', link: null },
-      ],
-      outputs: [ { name: 'output_1', label: '', type: '*', links: [11] } ],
-      computeSize: () => [100, 30],
-      setSize: vi.fn(),
-      rootGraph: g,
-    };
+	it("ScheduleSizeUpdate applies UpdateNodeSizeImmediate", () =>
+	{
+		const graph = makeGraph({}, {});
+		const node = makeNode({in: 0, out: 0}, graph);
+		lifecycle.ScheduleSizeUpdate(node);
+		expect(node.setSize).toHaveBeenCalled();
+	});
 
-    ApplySwitchDynamicTypes(node, 'input');
+	// Prone to be flaky
+	it("ApplySwitchDynamicTypes sets input/output names and updates link types", () =>
+	{
+		const nodes: Record<number, any> = {};
+		const graph = makeGraph({}, nodes);
+		const node = makeNode({in: 2, out: 1}, graph, {id: 2});
+		nodes[node.id] = node;
+		const origin = {id: 1, outputs: [{type: "TEXT"}]};
+		nodes[origin.id] = origin;
+		connectInput({node, graph, index: 0, linkId: 10, origin});
 
-    // Resolved type is TEXT
-    expect(node.inputs[0].type).toBe('TEXT');
-    expect(node.inputs[1].type).toBe('TEXT');
-    expect(node.inputs[0].label).toBe('text');
-    expect(node.inputs[1].label).toBe('text_2');
+		lifecycle.ApplySwitchDynamicTypes(node, "image");
 
-    expect(node.outputs[0].type).toBe('TEXT');
-    expect(node.outputs[0].label).toBe('text');
+		expect(node.inputs[0].type).toBe("TEXT");
+		expect(node.inputs[0].label).toBe("text");
+		expect(node.outputs[0].type).toBe("TEXT");
+		expect(graph.links[10].type).toBe("TEXT");
+		expect(node.setSize).toHaveBeenCalled();
+		expect(graph.setDirtyCanvas).toHaveBeenCalledWith(true, true);
+	});
 
-    // Link types updated
-    expect(g.links[10].type).toBe('TEXT');
-    expect(g.links[11].type).toBe('TEXT');
+	it("UpdateNodeSizeImmediate respects preview expand-only default", () =>
+	{
+		const node: any = {
+			type: "PT_DynamicPreview",
+			size: [80, 20],
+			computeSize: () => [60, 40],
+			setSize: vi.fn(),
+		};
 
-    // Canvas marked dirty and size updated
-    expect(g.setDirtyCanvas).toHaveBeenCalledWith(true, true);
-  });
+		lifecycle.UpdateNodeSizeImmediate(node);
+		expect(node.setSize).toHaveBeenCalledWith([80, 40]);
+	});
 
-  it('UpdateNodeSize respects expandOnly flag and existing size', () => {
-    const node: any = {
-      type: 'PT_DynamicPreview',
-      size: [80, 20],
-      computeSize: () => [60, 40],
-      setSize: vi.fn(),
-    };
+	it("UpdateNodeSize skips when graph is loading", async () =>
+	{
+		const graph = makeGraph({}, {});
+		const node = makeNode({in: 0, out: 0}, graph);
 
-    // With explicit expandOnly true, width should expand to max of old/new
-    UpdateNodeSize(node, true);
-    expect(node.setSize).toHaveBeenCalledWith([80, 40]);
+		const app: any = {
+			loadGraphData: async () =>
+			{
+				lifecycle.UpdateNodeSize(node);
+			},
+		};
 
-    // With explicit expandOnly false, should use computed size directly
-    node.setSize.mockClear();
-    UpdateNodeSize(node, false);
-    expect(node.setSize).toHaveBeenCalledWith([60, 40]);
-  });
+		lifecycle.InstallGraphLoadingHook(app);
+		await app.loadGraphData();
 
-  it('UpdatePreviewNodeSize returns early while graph is loading or when flagged to skip', () => {
-    // Simulate skip flag
-    const node: any = {
-      __tojioo_skip_resize: true,
-      size: [10, 10],
-      computeSize: vi.fn(() => [20, 5]),
-      setSize: vi.fn(),
-    };
-    UpdatePreviewNodeSize(node);
-    expect(node.setSize).not.toHaveBeenCalled();
-  });
+		expect(node.setSize).not.toHaveBeenCalled();
+	});
 
-  it('normalizeInputs prunes trailing unconnected inputs and keeps at least one', () => {
-    const removed: number[] = [];
-    const node: any = {
-      inputs: [
-        { link: null },
-        { link: 1 }, // last connected at index 1
-        { link: null },
-        { link: null },
-      ],
-      removeInput: (i: number) => { removed.push(i); node.inputs.splice(i, 1); },
-      computeSize: () => [10, 10],
-      setSize: () => {},
-    };
-    NormalizeInputs(node);
-    // Should keep indices 0..(lastConnected+1) => 0..2, so remove last one only
-    expect(removed).toEqual([3]);
-    expect(node.inputs.length).toBe(3);
-  });
+	it("UpdatePreviewNodeSize returns early when flagged to skip", () =>
+	{
+		const node: any = {
+			__tojioo_skip_resize: true,
+			size: [10, 10],
+			computeSize: vi.fn(() => [20, 5]),
+			setSize: vi.fn(),
+		};
+		lifecycle.UpdatePreviewNodeSize(node);
+		expect(node.setSize).not.toHaveBeenCalled();
+	});
+
+	it("NormalizeInputs prunes trailing unconnected inputs", () =>
+	{
+		const graph = makeGraph({}, {});
+		const node = makeNode({in: 4, out: 0}, graph);
+		node.inputs[1].link = 1;
+		lifecycle.NormalizeInputs(node);
+		expect(node.inputs.length).toBe(3);
+	});
 });

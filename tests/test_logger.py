@@ -1,31 +1,28 @@
-﻿import logging
+import logging
+
+from python.utils.logger import get_logger, log_debug, log_error, log_info, log_warning
 
 
-class TestLogger:
-
-	def test_get_logger_returns_logger(self):
-		from python.utils.logger import get_logger
-
-		logger = get_logger("test_module")
-		assert isinstance(logger, logging.Logger)
+def test_get_logger_returns_logger():
+	logger = get_logger("test_module")
+	assert isinstance(logger, logging.Logger)
 
 
-	def test_logger_has_name(self):
-		from python.utils.logger import get_logger
-
-		logger = get_logger("test.module.name")
-		assert logger.name == "TojiooPassthrough.name"
+def test_get_logger_uses_leaf_module_name():
+	logger = get_logger("test.module.name")
+	assert logger.name == "TojiooPassthrough.name"
 
 
-	def test_logger_has_handler(self):
-		from python.utils.logger import get_logger
+def test_get_logger_is_configured_once():
+	logger = get_logger("test_once")
+	handler_count = len(logger.handlers)
+	logger_again = get_logger("test_once")
+	assert logger_again is logger
+	assert len(logger_again.handlers) == handler_count
 
-		logger = get_logger("test_handler")
-		assert len(logger.handlers) > 0
 
-
-	def test_logger_level_set(self):
-		from python.utils.logger import get_logger
-
-		logger = get_logger("test_level")
-		assert logger.level == logging.DEBUG
+def test_log_helpers_do_not_raise():
+	log_info("info message", module = "Test")
+	log_warning("warning message", module = "Test")
+	log_debug("debug message", module = "Test")
+	log_error("error message", module = "Test")

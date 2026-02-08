@@ -54,12 +54,14 @@ class SwitchController:
 
 		class DynamicOptional(dict):
 
+			# Intercepts keys with prefix; returns true
 			def __contains__(self, key):
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return True
 				return dict.__contains__(self, key)
 
 
+			# Returns input type if key starts with prefix
 			def __getitem__(self, key):
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return input_spec
@@ -88,14 +90,14 @@ class SwitchController:
 			class_name,
 			(),
 			{
-				"DESCRIPTION": f"Return the first connected {type_name} input.",
+				"DESCRIPTION": f"Returns the first connected {type_name} input by index. Bypassed or muted inputs are ignored.",
 				"NODE_NAME": display_name,
 				"INPUT_TYPES": classmethod(
 					lambda cls: {
 						"required": {},
 						"optional": DynamicOptional({base_input: input_spec})
 					}
-					),
+				),
 				"VALIDATE_INPUTS": classmethod(lambda cls, **kwargs: True),
 				"RETURN_TYPES": (type_name,),
 				"RETURN_NAMES": (output_name,),
@@ -110,6 +112,7 @@ class SwitchController:
 	def _make_batch_switch(
 		class_name: str, type_key: str, input_prefix: str,
 		output_name: str, display_name: str):
+		"""Creates batch switch node type with dynamic inputs"""
 		type_name = COMFY_TYPES[type_key]
 
 		if not BatchHandler.can_batch(type_name):
@@ -125,12 +128,14 @@ class SwitchController:
 
 		class DynamicOptional(dict):
 
+			# Intercepts keys with prefix; returns true
 			def __contains__(self, key):
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return True
 				return dict.__contains__(self, key)
 
 
+			# Returns input type if key starts with prefix
 			def __getitem__(self, key):
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return (type_name,)
@@ -151,14 +156,14 @@ class SwitchController:
 			class_name,
 			(),
 			{
-				"DESCRIPTION": f"{type_name} fallback with automatic batching.",
+				"DESCRIPTION": f"Returns the first connected {type_name} input, or merges multiple inputs into a batch.",
 				"NODE_NAME": display_name,
 				"INPUT_TYPES": classmethod(
 					lambda cls: {
 						"required": {},
 						"optional": DynamicOptional({base_input: (type_name,)})
 					}
-					),
+				),
 				"VALIDATE_INPUTS": classmethod(lambda cls, **kwargs: True),
 				"RETURN_TYPES": (type_name,),
 				"RETURN_NAMES": (output_name,),

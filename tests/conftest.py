@@ -1,6 +1,9 @@
-﻿import sys
+import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 
 # Add the python directory to path so tojioo_passthrough is importable
@@ -9,39 +12,32 @@ if str(python_dir) not in sys.path:
 	sys.path.insert(0, str(python_dir))
 
 
-# --- Mocking Infrastructure ---
-
 def mock_if_missing(mod_names):
 	for mod_name in mod_names:
 		if mod_name not in sys.modules:
 			try:
-				# Try real import first
 				__import__(mod_name)
 			except ImportError:
-				# Mock if not found
 				sys.modules[mod_name] = MagicMock()
 
 
-# 1. Mock ComfyUI internals (never available on PyPI)
 mock_if_missing(["folder_paths", "comfy", "comfy.utils"])
+mock_if_missing(
+	["torch", "numpy", "PIL", "PIL.Image", "PIL.PngImagePlugin", "safetensors", "safetensors.torch"]
+)
 
-# 2. Mock optional/heavy dependencies (fallbacks)
-mock_if_missing(["torch", "numpy", "PIL", "PIL.Image", "PIL.PngImagePlugin", "safetensors", "safetensors.torch"])
-
-# --- Configure Specific Mock Behaviors ---
-
-# Setup folder_paths mock defaults
 import folder_paths
 
 
 if isinstance(folder_paths, MagicMock):
-	folder_paths.get_temp_directory.return_value = "/tmp"
-	folder_paths.get_save_image_path.return_value = ("/tmp", "preview", 0, "", "")
+	temp_dir = tempfile.gettempdir()
+	folder_paths.get_temp_directory.return_value = temp_dir
+	folder_paths.get_save_image_path.return_value = (temp_dir, "preview", 0, "", "")
 
-# Setup torch stub if it's a mock
 import torch
 
 
+# Stubs torch functions for shape inference and concatenation
 if isinstance(torch, MagicMock):
 	class TensorStub:
 
@@ -59,7 +55,18 @@ if isinstance(torch, MagicMock):
 			return TensorStub(tuple(new_shape))
 
 
-		def cpu(self): return self
+		def cpu(self):
+			return self
+
+
+		def detach(self):
+			return self
+
+
+		def permute(self, *dims):
+			if not dims:
+				return self
+			return TensorStub(tuple(self.shape[d] for d in dims))
 
 
 		def numpy(self):
@@ -72,11 +79,9 @@ if isinstance(torch, MagicMock):
 
 	torch.Tensor = TensorStub
 	torch.randn = lambda *args: TensorStub(args)
-	torch.cat = lambda tensors, dim = 0: TensorStub((sum(t.shape[0] for t in tensors), *tensors[0].shape[1:]))
-
-# --- Pytest Hooks ---
-
-import pytest
+	torch.cat = lambda tensors, dim = 0: TensorStub(
+		(sum(t.shape[0] for t in tensors), *tensors[0].shape[1:])
+	)
 
 
 @pytest.fixture
@@ -88,11 +93,8 @@ def torch_stub():
 
 def pytest_ignore_collect(collection_path, config):
 	try:
-		p = Path(str(collection_path))
+		candidate = Path(str(collection_path))
 	except Exception:
 		return False
-	# Ignore root __init__.py if it exists
 	root_init = Path(str(config.rootpath)) / "__init__.py"
-	if p.resolve() == root_init.resolve():
-		return True
-	return False
+	return candidate.resolve() == root_init.resolve()

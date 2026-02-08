@@ -881,6 +881,19 @@ function configureDynamicBus() {
           node.addOutput?.("output", ANY_TYPE);
           node.outputs[slotIdx].name = `output_${slotIdx}`;
         }
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          const hasInput = node.inputs[slotIdx]?.link != null;
+          const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
+          const hasOutput = outputLinkIds.some((linkId) => GetLink(node, linkId) != null);
+          if (!hasInput && !hasOutput) {
+            if (node.inputs[slotIdx]) {
+              node.inputs[slotIdx].type = ANY_TYPE;
+            }
+            if (node.outputs[slotIdx]) {
+              node.outputs[slotIdx].type = ANY_TYPE;
+            }
+          }
+        }
         if (serializedInfo?.outputs) {
           for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
             const serializedOut = serializedInfo.outputs[slotIdx];
@@ -1003,6 +1016,14 @@ function configureDynamicBus() {
           } catch {
           }
         }
+        if (!isConnected && index > 0) {
+          if (node.inputs[index]) {
+            node.inputs[index].type = ANY_TYPE;
+          }
+          if (node.outputs[index]) {
+            node.outputs[index].type = ANY_TYPE;
+          }
+        }
         DeferMicrotask(() => synchronize(node));
       };
       const prevConfigure = nodeType.prototype.configure;
@@ -1011,10 +1032,6 @@ function configureDynamicBus() {
         const node = this;
         DeferMicrotask(() => {
           try {
-            const graph = GetGraph(node);
-            const hasOrphanedLinks = info.inputs?.some(
-              (inp) => inp.link != null && (!graph?.links || !graph.links[inp.link])
-            );
             const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp, idx) => {
               const slotIdx = idx + 1;
               const hasType = inp.type && inp.type !== ANY_TYPE && inp.type !== -1;
@@ -1022,7 +1039,7 @@ function configureDynamicBus() {
               const hasOutputLink = (info.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
               return hasType && !hasInputLink && !hasOutputLink;
             });
-            if (hasOrphanedLinks || hasTypedUnconnectedSlots) {
+            if (hasTypedUnconnectedSlots) {
               resetNodeToCleanState(node);
               synchronize(node);
             } else {
@@ -1034,7 +1051,7 @@ function configureDynamicBus() {
         });
         setTimeout(() => {
           try {
-            synchronize(this);
+            synchronize(this, info);
             UpdateNodeSizeImmediate(this);
           } catch {
           }

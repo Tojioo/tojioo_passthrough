@@ -6,22 +6,7 @@ any_type = AnyType("*")
 
 
 class PT_DynamicBus(BaseNode):
-	"""
-	A ComfyUI node for dynamic bus operations in a workflow.
-
-	Dynamically packs, unpacks, or passes through values in a data bus with flexible
-	input/output types and configurable slots up to a predefined maximum.
-
-	Attributes:
-		NODE_NAME (str): Display name shown in the ComfyUI interface.
-		DESCRIPTION (str): A brief description of the node's purpose and functionality.
-		RETURN_TYPES (tuple): Types of values returned by the node (ComfyUI requirement).
-		RETURN_NAMES (tuple): Names of the output sockets displayed in ComfyUI.
-		OUTPUT_IS_LIST (tuple): Indicates whether each output socket returns a list.
-		CATEGORY (str): The category path where the node appears in ComfyUI's node menu.
-	"""
-
-	NODE_NAME = "Dynamic Bus (Beta)"
+	NODE_NAME = "Dynamic Bus"
 	DESCRIPTION = "Pack values into a bus, unpack values from a received bus, or passthrough."
 	_MAX_SLOTS = 32
 
@@ -117,7 +102,9 @@ class PT_DynamicBus(BaseNode):
 		return tuple(outputs)
 
 
-	def _find_matching_value(self, bus_dict, expected_type, used_indices):
+	@staticmethod
+	def _find_matching_value(bus_dict, expected_type, used_indices):
+		"""Returns first matching value from bus dictionary"""
 		for idx in sorted(bus_dict.keys()):
 			if idx in used_indices:
 				continue

@@ -6,8 +6,8 @@ any_type = AnyType("*")
 
 
 class PT_DynamicAny(BaseNode):
-	DESCRIPTION = "Pass any type through unchanged. Type changes based on connection."
 	NODE_NAME = "Dynamic Any"
+	DESCRIPTION = "Pass any type through unchanged. Type changes dynamically based on connections."
 
 
 	@classmethod

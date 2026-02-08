@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "tojioo-passthrough"
 dynamic = ["version"]
 description = "Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements."

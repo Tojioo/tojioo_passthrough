@@ -312,6 +312,26 @@ export function configureDynamicBus(): ComfyExtension
 					node.outputs[slotIdx].name = `output_${slotIdx}`;
 				}
 
+				// Clear stale types from slots with no live connections
+				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
+				{
+					const hasInput = node.inputs[slotIdx]?.link != null;
+					const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
+					const hasOutput = outputLinkIds.some((linkId: number) => GetLink(node, linkId) != null);
+
+					if (!hasInput && !hasOutput)
+					{
+						if (node.inputs[slotIdx])
+						{
+							node.inputs[slotIdx].type = ANY_TYPE as ISlotType;
+						}
+						if (node.outputs[slotIdx])
+						{
+							node.outputs[slotIdx].type = ANY_TYPE as ISlotType;
+						}
+					}
+				}
+
 				// Restore types from serialized info for output-only slots
 				if (serializedInfo?.outputs)
 				{
@@ -495,6 +515,18 @@ export function configureDynamicBus(): ComfyExtension
 					}
 				}
 
+				if (!isConnected && index > 0)
+				{
+					if (node.inputs[index])
+					{
+						node.inputs[index].type = ANY_TYPE as ISlotType;
+					}
+					if (node.outputs[index])
+					{
+						node.outputs[index].type = ANY_TYPE as ISlotType;
+					}
+				}
+
 				DeferMicrotask(() => synchronize(node));
 			};
 
@@ -509,12 +541,6 @@ export function configureDynamicBus(): ComfyExtension
 				{
 					try
 					{
-						const graph = GetGraph(node);
-
-						const hasOrphanedLinks = info.inputs?.some((inp: any) =>
-							inp.link != null && (!graph?.links || !graph.links[inp.link])
-						);
-
 						const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp: any, idx: number) =>
 						{
 							const slotIdx = idx + 1;
@@ -524,7 +550,7 @@ export function configureDynamicBus(): ComfyExtension
 							return hasType && !hasInputLink && !hasOutputLink;
 						});
 
-						if (hasOrphanedLinks || hasTypedUnconnectedSlots)
+						if (hasTypedUnconnectedSlots)
 						{
 							resetNodeToCleanState(node);
 							synchronize(node);
@@ -544,7 +570,7 @@ export function configureDynamicBus(): ComfyExtension
 				{
 					try
 					{
-						synchronize(this);
+						synchronize(this, info);
 						UpdateNodeSizeImmediate(this);
 					}
 					catch
