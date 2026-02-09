@@ -332,6 +332,53 @@ export function configureDynamicBus(): ComfyExtension
 					}
 				}
 
+				// Compact gaps: remove empty slots that have connections after them
+				if (!serializedInfo)
+				{
+					for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--)
+					{
+						const hasInput = node.inputs[slotIdx]?.link != null;
+						const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
+						const hasOutput = outputLinkIds.some((linkId: number) =>
+						{
+							const link = GetLink(node, linkId);
+							if (!link) return false;
+							const targetNode = GetNodeById(node, link.target_id);
+							if (!targetNode) return false;
+							return targetNode.inputs?.[link.target_slot]?.link === linkId;
+						});
+
+						if (hasInput || hasOutput) continue;
+
+						let hasConnectionsAfter = false;
+						for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
+						{
+							const laterInput = node.inputs[i]?.link != null;
+							const laterOutputIds = node.outputs[i]?.links ?? [];
+							const laterOutput = laterOutputIds.some((id: number) =>
+							{
+								const link = GetLink(node, id);
+								if (!link) return false;
+								const target = GetNodeById(node, link.target_id);
+								if (!target) return false;
+								return target.inputs?.[link.target_slot]?.link === id;
+							});
+
+							if (laterInput || laterOutput)
+							{
+								hasConnectionsAfter = true;
+								break;
+							}
+						}
+
+						if (hasConnectionsAfter)
+						{
+							node.removeInput?.(slotIdx);
+							node.removeOutput?.(slotIdx);
+						}
+					}
+				}
+
 				// Restore types from serialized info for output-only slots
 				if (serializedInfo?.outputs)
 				{
@@ -517,51 +564,7 @@ export function configureDynamicBus(): ComfyExtension
 
 				if (!isConnected && index > 0)
 				{
-					DeferMicrotask(() =>
-					{
-						const hasInput = node.inputs[index]?.link != null;
-						const outputLinkIds = node.outputs[index]?.links ?? [];
-						const hasOutput = outputLinkIds.some((linkId: number) =>
-						{
-							const link = GetLink(node, linkId);
-							if (!link) return false;
-							const targetNode = GetNodeById(node, link.target_id);
-							if (!targetNode) return false;
-							return targetNode.inputs?.[link.target_slot]?.link === linkId;
-						});
-
-						if (!hasInput && !hasOutput)
-						{
-							let hasConnectionsAfter = false;
-							for (let i = index + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
-							{
-								const laterInput = node.inputs[i]?.link != null;
-								const laterOutputIds = node.outputs[i]?.links ?? [];
-								const laterOutput = laterOutputIds.some((id: number) =>
-								{
-									const link = GetLink(node, id);
-									if (!link) return false;
-									const target = GetNodeById(node, link.target_id);
-									if (!target) return false;
-									return target.inputs?.[link.target_slot]?.link === id;
-								});
-
-								if (laterInput || laterOutput)
-								{
-									hasConnectionsAfter = true;
-									break;
-								}
-							}
-
-							if (hasConnectionsAfter)
-							{
-								node.removeInput?.(index);
-								node.removeOutput?.(index);
-							}
-						}
-
-						synchronize(node);
-					});
+					DeferMicrotask(() => synchronize(node));
 					return;
 				}
 
