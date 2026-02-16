@@ -2,8 +2,8 @@
 
 
 class PT_MultiPass(BaseNode):
-	DESCRIPTION = "Multi-type passthrough. Wire only the sockets you need."
 	NODE_NAME = "Multi-Passthrough"
+	DESCRIPTION = "Multi-type passthrough. Wire only the sockets you need."
 
 
 	@classmethod

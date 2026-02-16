@@ -1,7 +1,13 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.X.Y] - yyyy-MM-dd
+## [1.7.0] - yyyy-MM-dd
+### New Features
+- Added Dual CLIP Text Encode
+  - Encodes a positive and negative text prompt into conditioning using a shared CLIP model.
+- Added Tiled VAE Settings
+  - Provides tiled VAE encoding/decoding settings as connectable outputs for use in subgraphs.
+
 ### Internal
 - **Frontend**:
   - Added Vitest-based TypeScript unit tests for core utilities (lifecycle, types).

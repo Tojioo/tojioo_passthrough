@@ -12,6 +12,7 @@ from .dynamic_passthrough import PT_DynamicPassthrough
 from .dynamic_preview import PT_DynamicPreview
 from .multi_pass import PT_MultiPass
 from .dual_clip_encode import PT_DualCLIPEncode
+from .tiled_vae_settings import PT_TiledVAESettings
 
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
 	"PT_DynamicPreview",
 	"PT_MultiPass",
 	"PT_DualCLIPEncode",
+	"PT_TiledVAESettings",
 ]

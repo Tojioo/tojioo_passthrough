@@ -3,6 +3,8 @@ from ..config.categories import CATEGORIES
 
 
 class PT_Conditioning(BaseNode):
+	NODE_NAME = "Conditioning Passthrough"
+	DESCRIPTION = "Passthrough for positive and negative conditioning."
 
 	@classmethod
 	def INPUT_TYPES(cls):
@@ -16,9 +18,7 @@ class PT_Conditioning(BaseNode):
 
 
 	OUTPUT_NODE = True
-	NODE_NAME = "Conditioning Passthrough"
 	CATEGORY = CATEGORIES["simple"]
-	DESCRIPTION = "Passthrough for positive and negative conditioning."
 
 	RETURN_TYPES = ("CONDITIONING", "CONDITIONING")
 	RETURN_NAMES = ("positive", "negative")

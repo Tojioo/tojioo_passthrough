@@ -17,6 +17,7 @@ from .nodes.dynamic_passthrough import PT_DynamicPassthrough
 from .nodes.dynamic_preview import PT_DynamicPreview
 from .nodes.multi_pass import PT_MultiPass
 from .nodes.dual_clip_encode import PT_DualCLIPEncode
+from .nodes.tiled_vae_settings import PT_TiledVAESettings
 
 
 apply_wsl_safetensors_patch()
@@ -31,6 +32,7 @@ NODE_CLASS_MAPPINGS: Dict[str, Any] = {
 	"PT_DynamicPreview": PT_DynamicPreview,
 	"PT_MultiPass": PT_MultiPass,
 	"PT_DualCLIPEncode": PT_DualCLIPEncode,
+	"PT_TiledVAESettings": PT_TiledVAESettings,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {

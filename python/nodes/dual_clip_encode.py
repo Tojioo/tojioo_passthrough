@@ -25,7 +25,8 @@ class PT_DualCLIPEncode(BaseNode):
 	CATEGORY = CATEGORIES["other"]
 
 
-	def run(self, clip, positive, negative):
+	@staticmethod
+	def run(clip, positive, negative):
 		"""Encodes positive and negative prompts into conditioning"""
 		if clip is None:
 			import os
