@@ -1,21 +1,32 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.7.0] - yyyy-MM-dd
+## [1.7.0] - 2026-02-20
 ### New Features
 - Added Dual CLIP Text Encode
-  - Encodes a positive and negative text prompt into conditioning using a shared CLIP model.
+	- Encodes a positive and negative text prompt into conditioning using a shared CLIP model.
 - Added Tiled VAE Settings
-  - Provides tiled VAE encoding/decoding settings as connectable outputs for use in subgraphs.
+	- Provides tiled VAE encoding/decoding settings as connectable outputs for use in subgraphs.
+
+### Improved
+- **Frontend**:
+	- Compacted `Dynamic Bus` gaps and refined slot pruning logic to keep slots tidy.
+	- Simplified deferred synchronization in `Dynamic Bus` nodes.
+	- Fixed `Dynamic Bus` nodes with only output slots disconnecting on reload.
+	- Fixed slot reset logic and connection pruning in `Dynamic Bus`.
 
 ### Internal
 - **Frontend**:
-  - Added Vitest-based TypeScript unit tests for core utilities (lifecycle, types).
-  - Added lightweight handler simulation tests to mimic user connections in ComfyUI (dynamic_any, dynamic_passthrough, dynamic_bus, dynamic_preview, switch, batch_switch).
+	- Added Vitest-based TypeScript unit tests for core utilities (lifecycle, types).
+	- Added lightweight handler simulation tests to mimic user connections in ComfyUI (dynamic_any, dynamic_passthrough, dynamic_bus, dynamic_preview, switch, batch_switch).
+	- Standardized function naming conventions and centralized imports.
 - **General**:
-  - Added GitHub Actions job `web-tests` to install web deps and run Vitest on Node 20.
+	- Added GitHub Actions job `web-tests` to install web deps and run Vitest on Node 20.
+	- Centralized versioning and improved task organization via refactored workflows.
 - **Backend**:
-  - Moved python package into separate "python" folder to mirror frontend structure approach.
+	- Moved python package into separate "python" folder to mirror frontend structure approach.
+	- Added formatted internal logger.
+	- Improved Python handler and controller test coverage; deleted outdated tests.
 
 ## [1.6.1] - 2026-01-03
 ### Improved
