@@ -1,16 +1,43 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.7.0] - 2026-02-20
+### New Features
+- Added Dual CLIP Text Encode
+	- Encodes a positive and negative text prompt into conditioning using a shared CLIP model.
+- Added Tiled VAE Settings
+	- Provides tiled VAE encoding/decoding settings as connectable outputs for use in subgraphs.
+
+### Improved
+- **Frontend**:
+	- Compacted `Dynamic Bus` gaps and refined slot pruning logic to keep slots tidy.
+	- Simplified deferred synchronization in `Dynamic Bus` nodes.
+	- Fixed `Dynamic Bus` nodes with only output slots disconnecting on reload.
+	- Fixed slot reset logic and connection pruning in `Dynamic Bus`.
+
+### Internal
+- **Frontend**:
+	- Added Vitest-based TypeScript unit tests for core utilities (lifecycle, types).
+	- Added lightweight handler simulation tests to mimic user connections in ComfyUI (dynamic_any, dynamic_passthrough, dynamic_bus, dynamic_preview, switch, batch_switch).
+	- Standardized function naming conventions and centralized imports.
+- **General**:
+	- Added GitHub Actions job `web-tests` to install web deps and run Vitest on Node 20.
+	- Centralized versioning and improved task organization via refactored workflows.
+- **Backend**:
+	- Moved python package into separate "python" folder to mirror frontend structure approach.
+	- Added formatted internal logger.
+	- Improved Python handler and controller test coverage; deleted outdated tests.
+
 ## [1.6.1] - 2026-01-03
 ### Improved
 - **Python Backend**:
-	- Enhanced `Dynamic Any` node to support both legacy (`input`) and stable (`input_1`) parameter names for improved backwards compatibility.
+  - Enhanced `Dynamic Any` node to support both legacy (`input`) and stable (`input_1`) parameter names for improved backwards compatibility.
 - **Frontend**:
-	- Refined `Dynamic Bus` input/output slot naming and management to correctly track bus indices across slots.
-	- Improved slot pruning logic to preserve slots with active connections while removing truly disconnected ones.
-	- Enhanced bus type propagation to properly handle chained `Dynamic Bus` nodes by introducing `onBusChanged` callbacks for downstream updates.
-	- Strengthened graph access safety in dynamic node handlers by introducing utility functions (`GetGraph`, `GetNodeById`, `GetInputLink`, `GetLink`) to prevent crashes during edge cases.
-	- Improved `Dynamic Bus` type labeling to ensure consistent naming across multi-type connections (e.g., `image`, `image_2`).
+  - Refined `Dynamic Bus` input/output slot naming and management to correctly track bus indices across slots.
+  - Improved slot pruning logic to preserve slots with active connections while removing truly disconnected ones.
+  - Enhanced bus type propagation to properly handle chained `Dynamic Bus` nodes by introducing `onBusChanged` callbacks for downstream updates.
+  - Strengthened graph access safety in dynamic node handlers by introducing utility functions (`GetGraph`, `GetNodeById`, `GetInputLink`, `GetLink`) to prevent crashes during edge cases.
+  - Improved `Dynamic Bus` type labeling to ensure consistent naming across multi-type connections (e.g., `image`, `image_2`).
 
 ### Fixed
 - Fixed slot naming collisions and re-indexing inconsistencies in `Dynamic Bus` nodes.
@@ -57,13 +84,13 @@ All notable changes are listed here.
 - Added dynamic single node
   - Same as dynamic passthrough, but only allows a single input / output.
 - Added dynamic bus (Beta, currently in development)
-    - First slot is a static bus type that packs all subsequent inputs into a single bus output
-    - Can be used to combine multiple inputs into a single output
-    - Can be used to split a single bus input into multiple outputs
-    - Input slots are dynamically added/removed
-    - Outputs are typed based on connected inputs
+  - First slot is a static bus type that packs all subsequent inputs into a single bus output
+  - Can be used to combine multiple inputs into a single output
+  - Can be used to split a single bus input into multiple outputs
+  - Input slots are dynamically added/removed
+  - Outputs are typed based on connected inputs
 - Added dynamic preview node (Beta, currently in development)
-    - Allows multiple dynamic inputs with tabs to choose which input to preview.
+  - Allows multiple dynamic inputs with tabs to choose which input to preview.
 
 ### Internal
 - Refined dynamic node logic for better stability and edge-case handling.
@@ -71,24 +98,24 @@ All notable changes are listed here.
   - Python modules now organized under `src_python/` (config, controllers, handlers, nodes, utils)
   - JavaScript handlers consolidated under `src_js/` with configuration and utilities.
 - Complete handler system for dynamic nodes
-    - Dynamic Passthrough handler
-    - Dynamic Bus handler
-    - Dynamic Single handler
-    - Batch Switch handler
-    - Switch handler
-    - Type resolution and graph utilities
+  - Dynamic Passthrough handler
+  - Dynamic Bus handler
+  - Dynamic Single handler
+  - Batch Switch handler
+  - Switch handler
+  - Type resolution and graph utilities
 - Configuration system:
-    - Centralized type definitions (`types.py`)
-    - Category hierarchy management (`categories.py`)
+  - Centralized type definitions (`types.py`)
+  - Category hierarchy management (`categories.py`)
 - Infrastructure improvements:
-    - Added `BaseNode` class for consistent node implementation
-    - Refactored logger and WSL patch utilities
-    - Improved test structure and imports
+  - Added `BaseNode` class for consistent node implementation
+  - Refactored logger and WSL patch utilities
+  - Improved test structure and imports
 
 ## [1.4.0] - 2025-12-19
 - Added dynamic passthrough node
-    - Input slots are dynamically added/removed
-    - Outputs are typed based on connected inputs
+  - Input slots are dynamically added/removed
+  - Outputs are typed based on connected inputs
 - Added widget versions of the primitive type passthrough nodes (Int, Float, Bool, String)
 
 ## [1.3.2] - 2025-12-12
@@ -101,18 +128,18 @@ All notable changes are listed here.
 
 ## [1.3.0] - 2025-12-06
 - Added new Any*Switch nodes (first-valid input passthrough, no batching):
-	- Any Image Switch
-    - Any Mask Switch
-    - Any Latent Switch
-	- Any CLIP Switch
-    - Any Model Switch
-    - Any VAE Switch
-	- Any ControlNet Switch
-    - Any SAM Model Switch
-	- Any String Switch
-    - Any Int Switch
-    - Any Float Switch
-    - Any Bool Switch
+  - Any Image Switch
+  - Any Mask Switch
+  - Any Latent Switch
+  - Any CLIP Switch
+  - Any Model Switch
+  - Any VAE Switch
+  - Any ControlNet Switch
+  - Any SAM Model Switch
+  - Any String Switch
+  - Any Int Switch
+  - Any Float Switch
+  - Any Bool Switch
 - These nodes return the first connected input (by slot number) and ignore disconnected/muted inputs
 
 ## [1.2.2] - 2025-12-06

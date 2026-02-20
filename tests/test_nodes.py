@@ -1,204 +1,185 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
+from unittest.mock import MagicMock
+
+import pytest
+
+from python.nodes.base import AnyType, BaseNode, FlexibleOptionalInputType
+from python.nodes.conditioning import PT_Conditioning
+from python.nodes.dual_clip_encode import PT_DualCLIPEncode
+from python.nodes.dynamic_any import PT_DynamicAny
+from python.nodes.dynamic_bus import PT_DynamicBus
+from python.nodes.dynamic_passthrough import PT_DynamicPassthrough
+from python.nodes.dynamic_preview import PT_DynamicPreview
+from python.nodes.multi_pass import PT_MultiPass
 
 
-class TestBaseNode:
-	def test_base_node_exists(self):
-		from src_py.nodes.base import BaseNode
-		assert BaseNode is not None
-
-	def test_base_node_defaults(self):
-		from src_py.nodes.base import BaseNode
-		assert BaseNode.FUNCTION == "run"
-		assert BaseNode.CATEGORY == "Tojioo Passthrough"
+def test_base_node_defaults():
+	assert BaseNode.FUNCTION == "run"
+	assert BaseNode.CATEGORY == "Tojioo Passthrough"
 
 
-class TestAnyType:
-	def test_any_type_equals_any_string(self):
-		from src_py.nodes.base import AnyType
-		any_type = AnyType("*")
-		assert any_type == "IMAGE"
-		assert any_type == "MODEL"
-		assert any_type == "ANYTHING"
-
-	def test_any_type_not_equals_non_string(self):
-		from src_py.nodes.base import AnyType
-		any_type = AnyType("*")
-		assert (any_type == 123) is False
-		assert (any_type == None) is False
-
-	def test_any_type_hash(self):
-		from src_py.nodes.base import AnyType
-		any_type = AnyType("*")
-		assert hash(any_type) == hash("*")
+	class NamedNode(BaseNode):
+		NODE_NAME = "Named"
 
 
-class TestFlexibleOptionalInputType:
-	def test_contains_any_key(self):
-		from src_py.nodes.base import FlexibleOptionalInputType
-		flex = FlexibleOptionalInputType("TEST")
-		assert "anything" in flex
-		assert "image_5" in flex
-		assert "random_key" in flex
-
-	def test_getitem_returns_tuple(self):
-		from src_py.nodes.base import FlexibleOptionalInputType
-		flex = FlexibleOptionalInputType("TEST")
-		assert flex["anything"] == ("TEST",)
-		assert flex["image"] == ("TEST",)
+	class DefaultNode(BaseNode):
+		pass
 
 
-class TestMultiPass:
-	def test_node_exists(self):
-		from src_py.nodes.multi_pass import PT_MultiPass
-		assert PT_MultiPass is not None
-
-	def test_has_required_attributes(self):
-		from src_py.nodes.multi_pass import PT_MultiPass
-		assert hasattr(PT_MultiPass, "INPUT_TYPES")
-		assert hasattr(PT_MultiPass, "RETURN_TYPES")
-		assert hasattr(PT_MultiPass, "CATEGORY")
-
-	def test_returns_all_inputs(self):
-		from src_py.nodes.multi_pass import PT_MultiPass
-		node = PT_MultiPass()
-		result = node.run(image="img", mask="msk", clip="clp")
-		assert result[0] == "img"
-		assert result[1] == "msk"
-
-	def test_returns_none_for_missing(self):
-		from src_py.nodes.multi_pass import PT_MultiPass
-		node = PT_MultiPass()
-		result = node.run(image="img")
-		assert result[0] == "img"
-		assert result[1] is None
+	assert NamedNode.get_display_name() == "Named"
+	assert DefaultNode.get_display_name() == ""
 
 
-class TestConditioning:
-	def test_node_exists(self):
-		from src_py.nodes.conditioning import PT_Conditioning
-		assert PT_Conditioning is not None
-
-	def test_returns_both_conditionings(self):
-		from src_py.nodes.conditioning import PT_Conditioning
-		node = PT_Conditioning()
-		result = node.run(positive="pos", negative="neg")
-		assert result == ("pos", "neg")
-
-	def test_returns_none_when_no_input(self):
-		from src_py.nodes.conditioning import PT_Conditioning
-		node = PT_Conditioning()
-		result = node.run()
-		assert result == (None, None)
+def test_any_type_matches_strings():
+	any_type = AnyType("*")
+	assert any_type == "IMAGE"
+	assert any_type == "MODEL"
+	assert (any_type == 123) is False
+	assert (any_type is None) is False
+	assert hash(any_type) == hash("*")
 
 
-class TestDynamicPassthrough:
-	def test_node_exists(self):
-		from src_py.nodes.dynamic_passthrough import PT_DynamicPassthrough
-		assert PT_DynamicPassthrough is not None
-
-	def test_outputs_match_inputs(self):
-		from src_py.nodes.dynamic_passthrough import PT_DynamicPassthrough
-		node = PT_DynamicPassthrough()
-		result = node.run(input="a", input_2="b", input_3="c")
-		assert result[0] == "a"
-		assert result[1] == "b"
-		assert result[2] == "c"
-
-	def test_pads_to_max_sockets(self):
-		from src_py.nodes.dynamic_passthrough import PT_DynamicPassthrough
-		node = PT_DynamicPassthrough()
-		result = node.run(input="a")
-		assert len(result) == PT_DynamicPassthrough._MAX_SOCKETS
-		assert result[0] == "a"
-		assert result[1] is None
+def test_flexible_optional_input_type():
+	flex = FlexibleOptionalInputType("TEST")
+	assert "anything" in flex
+	assert flex["image_5"] == ("TEST",)
 
 
-class TestDynamicBus:
-	def test_node_exists(self):
-		from src_py.nodes.dynamic_bus import PT_DynamicBus
-		assert PT_DynamicBus is not None
-
-	def test_creates_bus_dict(self):
-		from src_py.nodes.dynamic_bus import PT_DynamicBus
-		node = PT_DynamicBus()
-		result = node.run(input="a", input_2="b")
-		bus = result[0]
-		assert isinstance(bus, dict)
-		assert 0 in bus
-		assert 1 in bus
-
-	def test_unpacks_existing_bus(self):
-		from src_py.nodes.dynamic_bus import PT_DynamicBus
-		node = PT_DynamicBus()
-		existing_bus = {0: "first", 1: "second"}
-		result = node.run(bus=existing_bus)
-		assert result[0] == existing_bus
-		assert result[1] == "first"
-		assert result[2] == "second"
-
-	def test_overrides_bus_with_direct_input(self):
-		from src_py.nodes.dynamic_bus import PT_DynamicBus
-		node = PT_DynamicBus()
-		existing_bus = {0: "old"}
-		result = node.run(bus=existing_bus, input="new")
-		assert result[0][0] == "new"
-		assert result[1] == "new"
+@pytest.mark.parametrize(
+	"inputs",
+	[
+		{},
+		{"image": "img"},
+		{"text": "hello", "float": 1.25},
+		{"image": "img", "mask": "msk", "latent": "lat", "positive": "pos", "negative": "neg"},
+	],
+)
+def test_multi_pass_connection_combinations(inputs):
+	node = PT_MultiPass()
+	result = node.run(**inputs)
+	expected = tuple(inputs.get(k) for k in PT_MultiPass.RETURN_NAMES)
+	assert result == expected
 
 
-class TestParseSlotOccurrence:
-	def test_simple_key(self):
-		from src_py.nodes.dynamic_bus import parse_slot_occurrence
-		assert parse_slot_occurrence("image") == 1
-
-	def test_numbered_key(self):
-		from src_py.nodes.dynamic_bus import parse_slot_occurrence
-		assert parse_slot_occurrence("image_2") == 2
-		assert parse_slot_occurrence("model_3") == 3
-
-	def test_non_numeric_suffix(self):
-		from src_py.nodes.dynamic_bus import parse_slot_occurrence
-		assert parse_slot_occurrence("some_name") == 1
-
-
-class TestDynamicAny:
-	def test_node_exists(self):
-		from src_py.nodes.dynamic_any import PT_DynamicAny
-		assert PT_DynamicAny is not None
-
-	def test_returns_input(self):
-		from src_py.nodes.dynamic_any import PT_DynamicAny
-		node = PT_DynamicAny()
-		result = node.run(input="test")
-		assert result == ("test",)
-
-	def test_returns_none_when_no_input(self):
-		from src_py.nodes.dynamic_any import PT_DynamicAny
-		node = PT_DynamicAny()
-		result = node.run()
-		assert result == (None,)
+@pytest.mark.parametrize(
+	"inputs,expected",
+	[
+		({}, (None, None)),
+		({"positive": "pos"}, ("pos", None)),
+		({"negative": "neg"}, (None, "neg")),
+		({"positive": "pos", "negative": "neg"}, ("pos", "neg")),
+	],
+)
+def test_conditioning_connection_combinations(inputs, expected):
+	node = PT_Conditioning()
+	assert node.run(**inputs) == expected
 
 
-class TestDynamicPreview:
-	def test_node_exists(self):
-		from src_py.nodes.dynamic_preview import PT_DynamicPreview
-		assert PT_DynamicPreview is not None
+@pytest.mark.parametrize(
+	"inputs,expected",
+	[
+		({}, (None,)),
+		({"input": "value"}, ("value",)),
+		({"input_1": "primary"}, ("primary",)),
+		({"input": "fallback", "input_1": "primary"}, ("primary",)),
+	],
+)
+def test_dynamic_any_connection_combinations(inputs, expected):
+	node = PT_DynamicAny()
+	assert node.run(**inputs) == expected
 
-	def test_has_required_attributes(self):
-		from src_py.nodes.dynamic_preview import PT_DynamicPreview
-		assert hasattr(PT_DynamicPreview, "INPUT_TYPES")
-		assert hasattr(PT_DynamicPreview, "RETURN_TYPES")
-		assert hasattr(PT_DynamicPreview, "CATEGORY")
-		assert hasattr(PT_DynamicPreview, "FUNCTION")
-		assert PT_DynamicPreview.OUTPUT_NODE is True
 
-	def test_empty_input_returns_empty(self):
-		from src_py.nodes.dynamic_preview import PT_DynamicPreview
-		node = PT_DynamicPreview()
-		result = node.preview_images()
-		assert result == {"ui": {"preview_data": []}}
+def test_dynamic_passthrough_connection_combinations():
+	node = PT_DynamicPassthrough()
+	result = node.run()
+	assert len(result) == PT_DynamicPassthrough._MAX_SOCKETS
+	assert all(value is None for value in result)
 
-	def test_parse_slot_order(self):
-		from src_py.nodes.dynamic_preview import PT_DynamicPreview
-		assert PT_DynamicPreview._parse_slot_order("image") == 1
-		assert PT_DynamicPreview._parse_slot_order("image_2") == 2
-		assert PT_DynamicPreview._parse_slot_order("image_10") == 10
+	result = node.run(input = "first", input_2 = "second")
+	assert result[0] == "first"
+	assert result[1] == "second"
+	assert result[2] is None
+
+
+def test_dynamic_bus_direct_inputs():
+	node = PT_DynamicBus()
+	result = node.run(input_1 = "a", input_2 = "b")
+	bus = result[0]
+	assert bus[0]["data"] == "a"
+	assert bus[1]["data"] == "b"
+	assert result[1] == "a"
+	assert result[2] == "b"
+
+
+def test_dynamic_bus_hints_match_bus_entries():
+	node = PT_DynamicBus()
+	bus = {
+		0: "raw",
+		1: {"data": "image", "type": "IMAGE"},
+		2: {"data": "mask", "type": "MASK"},
+	}
+	result = node.run(bus = bus, _output_hints = "1:*,2:IMAGE,3:MASK")
+	assert result[1] == "raw"
+	assert result[2] == "image"
+	assert result[3] == "mask"
+
+
+def test_dynamic_bus_direct_input_overrides_bus():
+	node = PT_DynamicBus()
+	bus = {0: {"data": "old", "type": "IMAGE"}}
+	result = node.run(bus = bus, input_1 = "new", _output_hints = "1:IMAGE:1")
+	assert result[1] == "new"
+	assert result[0][1]["data"] == "new"
+
+
+def test_dynamic_preview_empty_result():
+	node = PT_DynamicPreview()
+	assert node.preview_images() == {"ui": {"preview_data": []}}
+
+
+def test_dynamic_preview_connected_inputs(monkeypatch, torch_stub):
+	from PIL import Image
+	import tempfile
+	import folder_paths
+
+	if not isinstance(Image, MagicMock):
+		monkeypatch.setattr(Image.Image, "save", lambda *args, **kwargs: None, raising = False)
+
+	temp_dir = tempfile.gettempdir()
+	monkeypatch.setattr(folder_paths, "get_temp_directory", lambda: temp_dir, raising = False)
+	monkeypatch.setattr(
+		folder_paths,
+		"get_save_image_path",
+		lambda *args, **kwargs: (temp_dir, "preview", 0, "", ""),
+		raising = False,
+	)
+
+	node = PT_DynamicPreview()
+	image_a = torch_stub.randn(64, 64, 3)
+	image_b = torch_stub.randn(64, 64, 3)
+	result = node.preview_images(input_1 = image_a, input_2 = image_b)
+	assert "ui" in result
+	assert len(result["ui"]["preview_data"]) == 2
+
+
+def test_dual_clip_encode_round_trip():
+	class ClipStub:
+
+		@staticmethod
+		def tokenize(text):
+			return f"tokens:{text}"
+
+
+		@staticmethod
+		def encode_from_tokens_scheduled(tokens):
+			return f"cond:{tokens}"
+
+
+	node = PT_DualCLIPEncode()
+	result = node.run(ClipStub(), "pos", "neg")
+	assert result == ("cond:tokens:pos", "cond:tokens:neg")
+
+
+def test_dual_clip_encode_requires_clip():
+	node = PT_DualCLIPEncode()
+	with pytest.raises(RuntimeError):
+		node.run(None, "pos", "neg")

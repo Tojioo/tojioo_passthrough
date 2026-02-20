@@ -9,9 +9,11 @@ import sys
 
 
 # Add the package directory to path
-sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+current_directory = os.path.dirname(os.path.realpath(__file__))
+if current_directory not in sys.path:
+	sys.path.insert(0, current_directory)
 
-from src_py import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+from python import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 
 WEB_DIRECTORY = "./web/js"
 

@@ -1,67 +1,71 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
+import pytest
+
+from python.config.types import BATCHABLE_TYPES
+from python.handlers.batch_handler import BatchHandler
+from python.handlers.type_handler import TypeHandler
 
 
-class TestTypeHandler:
-	def test_create_input_spec_force_input(self):
-		from src_py.handlers.type_handler import TypeHandler
-		spec = TypeHandler.create_input_spec("INT", force_input=True)
-		assert spec == ("INT", {"forceInput": True})
-
-	def test_create_input_spec_no_force_input(self):
-		from src_py.handlers.type_handler import TypeHandler
-		spec = TypeHandler.create_input_spec("IMAGE", force_input=True)
-		assert spec == ("IMAGE",)
-
-	def test_create_input_spec_force_disabled(self):
-		from src_py.handlers.type_handler import TypeHandler
-		spec = TypeHandler.create_input_spec("INT", force_input=False)
-		assert spec == ("INT",)
+@pytest.mark.parametrize(
+	"type_name,force_input,expected",
+	[
+		("INT", True, ("INT", {"forceInput": True})),
+		("FLOAT", True, ("FLOAT", {"forceInput": True})),
+		("BOOLEAN", True, ("BOOLEAN", {"forceInput": True})),
+		("STRING", True, ("STRING", {"forceInput": True})),
+		("IMAGE", True, ("IMAGE",)),
+		("MASK", False, ("MASK",)),
+	],
+)
+def test_type_handler_create_input_spec(type_name, force_input, expected):
+	assert TypeHandler.create_input_spec(type_name, force_input = force_input) == expected
 
 
-class TestBatchHandler:
-	def test_can_batch_image(self):
-		from src_py.handlers.batch_handler import BatchHandler
-		assert BatchHandler.can_batch("IMAGE") is True
+@pytest.mark.parametrize("type_name", sorted(BATCHABLE_TYPES))
+def test_batch_handler_can_batch(type_name):
+	assert BatchHandler.can_batch(type_name) is True
 
-	def test_can_batch_non_batchable(self):
-		from src_py.handlers.batch_handler import BatchHandler
-		assert BatchHandler.can_batch("MODEL") is False
 
-	def test_get_handler_returns_tuple(self):
-		from src_py.handlers.batch_handler import BatchHandler
-		handler = BatchHandler.get_handler("IMAGE")
-		assert handler is not None
-		assert len(handler) == 2
+@pytest.mark.parametrize("type_name", ["MODEL", "CLIP", "INVALID"])
+def test_batch_handler_rejects_non_batchable(type_name):
+	assert BatchHandler.can_batch(type_name) is False
 
-	def test_get_handler_none_for_invalid(self):
-		from src_py.handlers.batch_handler import BatchHandler
-		handler = BatchHandler.get_handler("INVALID_TYPE")
-		assert handler is None
 
-	def test_image_batch_merge(self, torch_stub):
-		from src_py.handlers.batch_handler import BatchHandler
-		handler = BatchHandler.get_handler("IMAGE")
-		prep_fn, merge_fn = handler
+@pytest.mark.parametrize("type_name", sorted(BATCHABLE_TYPES))
+def test_batch_handler_get_handler_returns_tuple(type_name):
+	handler = BatchHandler.get_handler(type_name)
+	assert handler is not None
+	assert len(handler) == 2
 
-		img1 = torch_stub.randn(1, 512, 512, 3)
-		img2 = torch_stub.randn(1, 512, 512, 3)
 
-		values = [img1, img2]
-		prepped = [prep_fn(v) for v in values]
-		result = merge_fn(values, prepped)
+def test_batch_handler_get_handler_none_for_invalid():
+	assert BatchHandler.get_handler("INVALID_TYPE") is None
 
-		assert result.shape == (2, 512, 512, 3)
 
-	def test_conditioning_batch_merge(self):
-		from src_py.handlers.batch_handler import BatchHandler
-		handler = BatchHandler.get_handler("CONDITIONING")
-		prep_fn, merge_fn = handler
+@pytest.mark.parametrize("type_name", sorted(BATCHABLE_TYPES))
+def test_batch_handler_merge_behavior(type_name, torch_stub):
+	handler = BatchHandler.get_handler(type_name)
+	prep_fn, merge_fn = handler
 
-		cond1 = [{"type": "test1"}]
-		cond2 = [{"type": "test2"}]
+	if type_name == "IMAGE":
+		values = [torch_stub.randn(64, 64, 3), torch_stub.randn(64, 64, 3)]
+	elif type_name == "MASK":
+		values = [torch_stub.randn(64, 64), torch_stub.randn(64, 64)]
+	elif type_name == "LATENT":
+		values = [
+			{"samples": torch_stub.randn(4, 64, 64), "noise_mask": None},
+			{"samples": torch_stub.randn(4, 64, 64), "noise_mask": None},
+		]
+	elif type_name == "CONDITIONING":
+		values = [[{"type": "a"}], [{"type": "b"}]]
+	else:
+		raise AssertionError(f"Unhandled type: {type_name}")
 
-		values = [cond1, cond2]
-		prepped = [prep_fn(v) for v in values]
-		result = merge_fn(values, prepped)
+	prepped = [prep_fn(v) for v in values]
+	merged = merge_fn(values, prepped)
 
-		assert len(result) == 2
+	if type_name in {"IMAGE", "MASK"}:
+		assert merged.shape[0] == 2
+	elif type_name == "LATENT":
+		assert merged["samples"].shape[0] == 2
+	elif type_name == "CONDITIONING":
+		assert len(merged) == 2

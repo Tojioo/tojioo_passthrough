@@ -1,9 +1,12 @@
-﻿import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph.ts';
+﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
+import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 const ANY_TYPE: string = "*";
 
 let _graphLoading = false;
+let _pendingCanvasUpdate: number | null = null;
+let _pendingSizeUpdates = new Set<any>();
+let _sizeUpdateTimer: number | null = null;
 
 export function InstallGraphLoadingHook(app: any): void
 {
@@ -49,7 +52,7 @@ export function DeferMicrotask(fn: () => void): void
 	Promise.resolve().then(fn);
 }
 
-export function deriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string | null
+export function DeriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string | null
 {
 	const opt = nodeData?.input?.optional;
 	if (!opt)
@@ -73,7 +76,7 @@ export function deriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string 
 	return baseName.replace(/_\d+$/, "").replace(/\d+$/, "");
 }
 
-export function resolveInputType(node: any, inputIndex: number): string
+export function ResolveInputType(node: any, inputIndex: number): string
 {
 	const inp = node.inputs?.[inputIndex];
 	if (!inp)
@@ -110,7 +113,69 @@ export function resolveInputType(node: any, inputIndex: number): string
 	return ANY_TYPE;
 }
 
-export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): void
+export function ScheduleCanvasUpdate(node: any): void
+{
+	if (_pendingCanvasUpdate !== null)
+	{
+		return;
+	}
+
+	_pendingCanvasUpdate = requestAnimationFrame(() =>
+	{
+		_pendingCanvasUpdate = null;
+		const g = GetGraph(node);
+		g?.setDirtyCanvas?.(true, true);
+	});
+}
+
+export function ScheduleSizeUpdate(node: any): void
+{
+	_pendingSizeUpdates.add(node);
+
+	if (_sizeUpdateTimer !== null)
+	{
+		return;
+	}
+
+	_sizeUpdateTimer = requestAnimationFrame(() =>
+	{
+		_sizeUpdateTimer = null;
+		const nodes = Array.from(_pendingSizeUpdates);
+		_pendingSizeUpdates.clear();
+
+		for (const n of nodes)
+		{
+			UpdateNodeSizeImmediate(n);
+		}
+	});
+}
+
+export function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
+{
+	try
+	{
+		if (typeof node.computeSize !== "function" || typeof node.setSize !== "function")
+		{
+			return;
+		}
+
+		const isPreview = node.type === "PT_DynamicPreview";
+		const useExpandOnly = expandOnly !== undefined ? expandOnly : isPreview;
+
+		const size = node.computeSize();
+		if (useExpandOnly && node.size)
+		{
+			size[0] = Math.max(size[0], node.size[0]);
+			size[1] = Math.max(size[1], node.size[1]);
+		}
+		node.setSize(size);
+	}
+	catch
+	{
+	}
+}
+
+export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): void
 {
 	if (!node.inputs || node.inputs.length === 0)
 	{
@@ -122,15 +187,13 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 
 	for (let i = 0; i < node.inputs.length; i++)
 	{
-		const t = resolveInputType(node, i);
+		const t = ResolveInputType(node, i);
 		inputTypes.push(t);
 		if (t && t !== ANY_TYPE && resolvedType === ANY_TYPE)
 		{
 			resolvedType = t;
 		}
 	}
-
-	const g = GetGraph(node);
 
 	for (let i = 0; i < node.inputs.length; i++)
 	{
@@ -178,29 +241,17 @@ export function applySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 		}
 	}
 
-	g?.setDirtyCanvas?.(true, true);
-	UpdateNodeSize(node);
+	ScheduleCanvasUpdate(node);
+	ScheduleSizeUpdate(node);
 }
 
-export function UpdateNodeSize(node: any, expandOnly?: boolean): void
+export function UpdateNodeSize(node: any, expandOnly?: boolean, force?: boolean): void
 {
-	try
+	if (!force && IsGraphLoading())
 	{
-		const isPreview = node.type === "PT_DynamicPreview";
-		const useExpandOnly = expandOnly !== undefined ? expandOnly : isPreview;
-
-		const size = node.computeSize();
-		if (useExpandOnly && node.size)
-		{
-			size[0] = Math.max(size[0], node.size[0]);
-			size[1] = Math.max(size[1], node.size[1]);
-		}
-		node.setSize(size);
+		return;
 	}
-	catch (e)
-	{
-		// computeSize might fail during certain phases of node lifecycle
-	}
+	ScheduleSizeUpdate(node);
 }
 
 export function UpdatePreviewNodeSize(node: any): void
@@ -209,24 +260,10 @@ export function UpdatePreviewNodeSize(node: any): void
 	{
 		return;
 	}
-
-	try
-	{
-		const size = node.computeSize();
-		if (node.size)
-		{
-			size[0] = Math.max(size[0], node.size[0]);
-			size[1] = Math.max(size[1], node.size[1]);
-		}
-		node.setSize(size);
-	}
-	catch (e)
-	{
-		// computeSize might fail during certain phases of node lifecycle
-	}
+	ScheduleSizeUpdate(node);
 }
 
-export function normalizeInputs(node: any): void
+export function NormalizeInputs(node: any): void
 {
 	if (!node.inputs)
 	{
@@ -246,8 +283,15 @@ export function normalizeInputs(node: any): void
 	const keepCount = Math.max(1, lastConnectedIndex + 2);
 	while (node.inputs.length > keepCount)
 	{
-		node.removeInput(node.inputs.length - 1);
+		if (typeof node.removeInput === "function")
+		{
+			node.removeInput(node.inputs.length - 1);
+		}
+		else
+		{
+			break;
+		}
 	}
 
-	UpdateNodeSize(node);
+	ScheduleSizeUpdate(node);
 }

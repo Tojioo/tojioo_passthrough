@@ -1,6 +1,6 @@
-﻿import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {applySwitchDynamicTypes, DeferMicrotask, deriveDynamicPrefixFromNodeData, IsGraphLoading, normalizeInputs, resolveInputType} from '@/utils/lifecycle.ts';
-import {ANY_TYPE} from "@/types/tojioo.ts";
+﻿import {ApplySwitchDynamicTypes, DeferMicrotask, DeriveDynamicPrefixFromNodeData, IsGraphLoading, NormalizeInputs, ResolveInputType, GetLgInput} from '@/utils';
+import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {ANY_TYPE} from '@/types/tojioo';
 
 function isSwitch(nodeData: ComfyNodeDef): boolean
 {
@@ -19,7 +19,7 @@ export function configureSwitchNodes(): ComfyExtension
 				return;
 			}
 
-			const inputPrefix = deriveDynamicPrefixFromNodeData(nodeData);
+			const inputPrefix = DeriveDynamicPrefixFromNodeData(nodeData);
 			if (!inputPrefix)
 			{
 				return;
@@ -35,7 +35,7 @@ export function configureSwitchNodes(): ComfyExtension
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (!link_info || type !== LiteGraph.INPUT)
+				if (!link_info || type !== GetLgInput())
 				{
 					return;
 				}
@@ -48,43 +48,43 @@ export function configureSwitchNodes(): ComfyExtension
 					{
 						if (!node.inputs?.length || index < 0 || index >= node.inputs.length)
 						{
-							normalizeInputs(node);
-							applySwitchDynamicTypes(node, inputPrefix);
+							NormalizeInputs(node);
+							ApplySwitchDynamicTypes(node, inputPrefix);
 							return;
 						}
 
 						if (node.inputs[index]?.link != null)
 						{
-							normalizeInputs(node);
-							applySwitchDynamicTypes(node, inputPrefix);
+							NormalizeInputs(node);
+							ApplySwitchDynamicTypes(node, inputPrefix);
 							return;
 						}
 
 						const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
-						if (hasConnectionsAfter)
+						if (hasConnectionsAfter && typeof node.removeInput === "function")
 						{
 							node.removeInput(index);
 						}
 
-						normalizeInputs(node);
-						applySwitchDynamicTypes(node, inputPrefix);
+						NormalizeInputs(node);
+						ApplySwitchDynamicTypes(node, inputPrefix);
 					});
 					return;
 				}
 
-				normalizeInputs(node);
-				applySwitchDynamicTypes(node, inputPrefix);
+				NormalizeInputs(node);
+				ApplySwitchDynamicTypes(node, inputPrefix);
 
 				const lastIndex = node.inputs.length - 1;
-				if (index === lastIndex && node.inputs[lastIndex]?.link != null)
+				if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function")
 				{
-					const resolvedType = resolveInputType(node, lastIndex);
+					const resolvedType = ResolveInputType(node, lastIndex);
 					const socketType = resolvedType !== ANY_TYPE
 						? resolvedType
 						: (node.inputs[0]?.type ?? ANY_TYPE);
 					node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType as ISlotType);
-					normalizeInputs(node);
-					applySwitchDynamicTypes(node, inputPrefix);
+					NormalizeInputs(node);
+					ApplySwitchDynamicTypes(node, inputPrefix);
 				}
 			};
 
@@ -96,16 +96,16 @@ export function configureSwitchNodes(): ComfyExtension
 				{
 					return;
 				}
-				normalizeInputs(this);
-				applySwitchDynamicTypes(this, inputPrefix);
+				NormalizeInputs(this);
+				ApplySwitchDynamicTypes(this, inputPrefix);
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;
 			nodeType.prototype.onAdded = function(this)
 			{
 				prevOnAdded?.apply(this, arguments as any);
-				normalizeInputs(this);
-				applySwitchDynamicTypes(this, inputPrefix);
+				NormalizeInputs(this);
+				ApplySwitchDynamicTypes(this, inputPrefix);
 			};
 		}
 	};

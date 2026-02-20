@@ -3,7 +3,9 @@
 
 root = true
 
+# ==============================================================
 # Default settings
+# ==============================================================
 [*]
 charset = utf-8
 end_of_line = lf
@@ -16,7 +18,17 @@ max_line_length = 215
 ij_continuation_indent_size = 4
 ij_smart_tabs = false
 
+# ==============================================================
+# YAML
+# ==============================================================
+[*.{yml,yaml}]
+tab_width = 2
+indent_size = 2
+ij_yaml_spaces_within_brackets = false
+
+# ==============================================================
 # JavaScript
+# ==============================================================
 [{*.cjs,*.es6,*.js,*.mjs}]
 ij_javascript_align_multiline_parameters = true
 ij_javascript_align_multiline_for = true
@@ -107,7 +119,9 @@ ij_javascript_keep_simple_blocks_in_one_line = false
 ij_javascript_keep_simple_methods_in_one_line = false
 ij_javascript_indent_case_from_switch = true
 
+# ==============================================================
 # TypeScript
+# ==============================================================
 [{*.ats,*.cts,*.mts,*.ts}]
 ij_typescript_align_multiline_parameters = true
 ij_typescript_align_multiline_for = true
@@ -207,7 +221,9 @@ ij_typescript_keep_simple_blocks_in_one_line = false
 ij_typescript_keep_simple_methods_in_one_line = false
 ij_typescript_indent_case_from_switch = true
 
+# ==============================================================
 # Python
+# ==============================================================
 [{*.py,*.pyw}]
 ij_python_align_multiline_parameters = true
 ij_python_align_multiline_parameters_in_calls = true

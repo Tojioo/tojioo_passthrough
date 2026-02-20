@@ -1,44 +1,48 @@
-﻿# SPDX-License-Identifier: GPL-3.0-only
+from python.config import categories as categories_config, types as types_config
 
 
-class TestTypes:
-	def test_comfy_types_defined(self):
-		from src_py.config.types import COMFY_TYPES
-		assert isinstance(COMFY_TYPES, dict)
-		assert "image" in COMFY_TYPES
-		assert COMFY_TYPES["image"] == "IMAGE"
-
-	def test_type_specs_defined(self):
-		from src_py.config.types import TYPE_SPECS
-		assert isinstance(TYPE_SPECS, tuple)
-		assert len(TYPE_SPECS) > 0
-		assert TYPE_SPECS[0] == ("PT_Image", "IMAGE", "image")
-
-	def test_force_input_types(self):
-		from src_py.config.types import FORCE_INPUT_TYPES
-		assert "INT" in FORCE_INPUT_TYPES
-		assert "FLOAT" in FORCE_INPUT_TYPES
-		assert "BOOLEAN" in FORCE_INPUT_TYPES
-		assert "STRING" in FORCE_INPUT_TYPES
-
-	def test_batchable_types(self):
-		from src_py.config.types import BATCHABLE_TYPES
-		assert "IMAGE" in BATCHABLE_TYPES
-		assert "MASK" in BATCHABLE_TYPES
-		assert "LATENT" in BATCHABLE_TYPES
-		assert "CONDITIONING" in BATCHABLE_TYPES
+def test_comfy_types_contains_expected_entries():
+	expected = {
+		"image": "IMAGE",
+		"mask": "MASK",
+		"latent": "LATENT",
+		"clip": "CLIP",
+		"model": "MODEL",
+		"vae": "VAE",
+		"control_net": "CONTROL_NET",
+		"sam_model": "SAM_MODEL",
+		"text": "STRING",
+		"int": "INT",
+		"float": "FLOAT",
+		"boolean": "BOOLEAN",
+		"conditioning": "CONDITIONING",
+		"bus": "BUS",
+		"any": "*",
+	}
+	for key, value in expected.items():
+		assert types_config.COMFY_TYPES[key] == value
 
 
-class TestCategories:
-	def test_main_category_defined(self):
-		from src_py.config.categories import MAIN_CATEGORY
-		assert MAIN_CATEGORY == "Tojioo Passthrough"
+def test_type_specs_are_well_formed():
+	assert isinstance(types_config.TYPE_SPECS, tuple)
+	assert types_config.TYPE_SPECS
+	for class_name, type_name, socket_name in types_config.TYPE_SPECS:
+		assert class_name.startswith("PT_")
+		assert isinstance(socket_name, str)
+		assert type_name in types_config.COMFY_TYPES.values()
 
-	def test_categories_defined(self):
-		from src_py.config.categories import CATEGORIES
-		assert isinstance(CATEGORIES, dict)
-		assert "simple" in CATEGORIES
-		assert "widgets" in CATEGORIES
-		assert "dynamic" in CATEGORIES
-		assert "batch" in CATEGORIES
-		assert "switch" in CATEGORIES
+
+def test_force_input_types_are_known():
+	for type_name in types_config.FORCE_INPUT_TYPES:
+		assert type_name in types_config.COMFY_TYPES.values()
+
+
+def test_batchable_types_are_known():
+	for type_name in types_config.BATCHABLE_TYPES:
+		assert type_name in types_config.COMFY_TYPES.values()
+
+
+def test_categories_reference_main_category():
+	assert categories_config.MAIN_CATEGORY == "Tojioo Passthrough"
+	for category in categories_config.CATEGORIES.values():
+		assert categories_config.MAIN_CATEGORY in category

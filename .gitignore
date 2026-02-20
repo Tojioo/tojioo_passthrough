@@ -16,9 +16,7 @@ __pycache__/
 .idea/
 
 # Virtual environments
-/.venv/
-/.venv/*
-.venv
+.venv/
 
 # Node.js Dependencies
 node_modules/

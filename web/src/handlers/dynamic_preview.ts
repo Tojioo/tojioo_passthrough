@@ -1,8 +1,8 @@
-﻿import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from "@/types/tojioo.ts";
-import {DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from "@/utils/lifecycle";
-import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints} from "@/utils/graph";
+﻿import {GetGraph, GetInputLink, GetLink, GetLinkTypeFromEndpoints, GetLgInput, GetLgSlotHeight, IsNodes2Mode, DeferMicrotask, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
 
+// Todo: Still fix broken node
 export function configureDynamicPreview(): ComfyExtension
 {
 	return {
@@ -26,10 +26,8 @@ export function configureDynamicPreview(): ComfyExtension
 				if (!(node as any).__tojioo_dynamic_io_rebuilt)
 				{
 					(node as any).__tojioo_dynamic_io_rebuilt = true;
-
 					const hasAnyLinks = node.inputs?.some((i: any) => i?.link != null);
-
-					if (!hasAnyLinks)
+					if (!hasAnyLinks && typeof node.removeInput === "function")
 					{
 						while (node.inputs.length)
 						{
@@ -50,11 +48,11 @@ export function configureDynamicPreview(): ComfyExtension
 
 				const desiredCount = Math.min(MAX_SOCKETS, Math.max(1, lastConnectedIndex + 2));
 
-				while (node.inputs.length > desiredCount)
+				while (node.inputs.length > desiredCount && typeof node.removeInput === "function")
 				{
 					node.removeInput(node.inputs.length - 1);
 				}
-				while (node.inputs.length < desiredCount)
+				while (node.inputs.length < desiredCount && typeof node.addInput === "function")
 				{
 					node.addInput("image", ANY_TYPE);
 					node.inputs[node.inputs.length - 1].label = "image";
@@ -65,10 +63,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 			function applyDynamicTypes(node: any): void
 			{
-				if (!node.inputs?.length)
-				{
-					return;
-				}
+				if (!node.inputs?.length) return;
 
 				const types: string[] = [];
 				const typeCounters: Record<string, number> = {};
@@ -77,14 +72,10 @@ export function configureDynamicPreview(): ComfyExtension
 				{
 					const link = GetInputLink(node, i);
 					let resolvedType = ANY_TYPE;
-
 					if (link)
 					{
 						const t = GetLinkTypeFromEndpoints(node, link);
-						if (t !== ANY_TYPE)
-						{
-							resolvedType = t;
-						}
+						if (t !== ANY_TYPE) resolvedType = t;
 					}
 					types.push(resolvedType);
 				}
@@ -130,10 +121,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 			(nodeType.prototype as any).selectImage = function(this: any, index: number): void
 			{
-				if (index < 0 || index >= this._totalImages)
-				{
-					return;
-				}
+				if (index < 0 || index >= this._totalImages) return;
 				this._currentImageIndex = index;
 				this.graph?.setDirtyCanvas?.(true, true);
 			};
@@ -143,32 +131,26 @@ export function configureDynamicPreview(): ComfyExtension
 			{
 				prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
 
+				if (!ctx || IsNodes2Mode()) return;
+
 				const node = this as any;
-				if (!node._imageElements?.length || node._totalImages === 0)
-				{
-					return;
-				}
+				if (!node._imageElements?.length || node._totalImages === 0) return;
 
 				const imgs = node._imageElements;
 				const idx = Math.min(node._currentImageIndex, imgs.length - 1);
 				const img = imgs[idx];
 
-				if (!img?.complete || img.naturalWidth === 0)
-				{
-					return;
-				}
+				if (!img?.complete || img.naturalWidth === 0) return;
 
-				const inputsHeight = (node.inputs?.length || 1) * LiteGraph.NODE_SLOT_HEIGHT + 10;
+				const slotHeight = GetLgSlotHeight();
+				const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
 				const showTabs = node._totalImages >= 2;
 				const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
 				const previewY = inputsHeight + tabBarHeight;
 				const previewHeight = node.size[1] - previewY;
 				const previewWidth = node.size[0];
 
-				if (previewHeight < 50)
-				{
-					return;
-				}
+				if (previewHeight < 50) return;
 
 				const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
 				const drawWidth = img.width * scale;
@@ -210,14 +192,7 @@ export function configureDynamicPreview(): ComfyExtension
 						ctx.textBaseline = "middle";
 						ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2);
 
-						node._tabHitAreas.push({
-							x: tabX,
-							y: tabY,
-							width: tabWidth,
-							height: TAB_BAR_HEIGHT,
-							index: i,
-						});
-
+						node._tabHitAreas.push({x: tabX, y: tabY, width: tabWidth, height: TAB_BAR_HEIGHT, index: i});
 						tabX += tabWidth + TAB_GAP;
 					}
 				}
@@ -248,7 +223,6 @@ export function configureDynamicPreview(): ComfyExtension
 
 				const node = this as any;
 				node.imgs = null;
-
 				const images = message?.preview_data;
 
 				if (!images?.length)
@@ -277,17 +251,11 @@ export function configureDynamicPreview(): ComfyExtension
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
-				if (IsGraphLoading())
-				{
-					return;
-				}
+				if (IsGraphLoading()) return;
 
 				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
-				if (type !== LiteGraph.INPUT)
-				{
-					return;
-				}
+				if (type !== GetLgInput()) return;
 
 				const node = this;
 
@@ -326,10 +294,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 				DeferMicrotask(() =>
 				{
-					if (!node.inputs?.length || index < 0 || index >= node.inputs.length)
-					{
-						return;
-					}
+					if (!node.inputs?.length || index < 0 || index >= node.inputs.length) return;
 
 					if (node.inputs[index]?.link != null)
 					{
@@ -339,7 +304,7 @@ export function configureDynamicPreview(): ComfyExtension
 					}
 
 					const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
-					if (hasConnectionsAfter)
+					if (hasConnectionsAfter && typeof node.removeInput === "function")
 					{
 						node.removeInput(index);
 					}
@@ -366,29 +331,11 @@ export function configureDynamicPreview(): ComfyExtension
 				DeferMicrotask(() =>
 				{
 					if (loading) (this as any).__tojioo_skip_resize = true;
-					try
-					{
-						normalizeInputs(this);
-						applyDynamicTypes(this);
-					}
-					catch (e)
-					{
-						console.error("Tojioo.DynamicPreview: error in configure", e);
-					}
-					finally
-					{
-						(this as any).__tojioo_skip_resize = false;
-					}
+					try { normalizeInputs(this); applyDynamicTypes(this); }
+					catch (e) { console.error("Tojioo.DynamicPreview: error in configure", e); }
+					finally { (this as any).__tojioo_skip_resize = false; }
 				});
-				setTimeout(() =>
-				{
-					try
-					{
-						normalizeInputs(this);
-						applyDynamicTypes(this);
-					}
-					catch {}
-				}, 100);
+				setTimeout(() => { try { normalizeInputs(this); applyDynamicTypes(this); } catch {} }, 100);
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;
@@ -399,10 +346,7 @@ export function configureDynamicPreview(): ComfyExtension
 				if (this.widgets)
 				{
 					const imgWidgetIndex = this.widgets.findIndex((w: any) => w.name === "image" || w.type === "preview");
-					if (imgWidgetIndex !== -1)
-					{
-						this.widgets.splice(imgWidgetIndex, 1);
-					}
+					if (imgWidgetIndex !== -1) this.widgets.splice(imgWidgetIndex, 1);
 				}
 				(this as any).imgs = null;
 
@@ -410,19 +354,9 @@ export function configureDynamicPreview(): ComfyExtension
 				DeferMicrotask(() =>
 				{
 					if (loading) (this as any).__tojioo_skip_resize = true;
-					try
-					{
-						normalizeInputs(this);
-						applyDynamicTypes(this);
-					}
-					catch (e)
-					{
-						console.error("Tojioo.DynamicPreview: error in onAdded", e);
-					}
-					finally
-					{
-						(this as any).__tojioo_skip_resize = false;
-					}
+					try { normalizeInputs(this); applyDynamicTypes(this); }
+					catch (e) { console.error("Tojioo.DynamicPreview: error in onAdded", e); }
+					finally { (this as any).__tojioo_skip_resize = false; }
 				});
 			};
 		}
