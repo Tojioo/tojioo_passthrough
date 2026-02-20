@@ -63,7 +63,7 @@ Restart ComfyUI.
 
 #### Example:
 
-<img width="900" alt="v1 7 0_Nodes" src="https://github.com/user-attachments/assets/6c7f84a6-14dd-4578-bb8d-503e928fe6c7" />
+<img alt="v1 7 0_Nodes" src="https://github.com/user-attachments/assets/6c7f84a6-14dd-4578-bb8d-503e928fe6c7" />
 
 
 ---
@@ -79,7 +79,7 @@ Restart ComfyUI.
 
 #### Example:
 
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
+<img alt="image" src="https://github.com/user-attachments/assets/97cf66cd-307e-40e6-a8be-9a014b70a3c5" />
 
 ---
 
@@ -93,7 +93,7 @@ Restart ComfyUI.
 
 #### Example:
 
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/4eabfea0-4ec4-4a38-83e8-fb391b60afeb" />
+<img alt="image" src="https://github.com/user-attachments/assets/4eabfea0-4ec4-4a38-83e8-fb391b60afeb" />
 
 ---
 
@@ -107,7 +107,7 @@ Restart ComfyUI.
 
 #### Example:
 
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
+<img alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
 
 ---
 
@@ -123,7 +123,7 @@ Restart ComfyUI.
 
 #### Example (together with Dynamic Bus Node):
 
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/14202fa5-741a-417c-908c-2589086b2d4a" />
+<img alt="image" src="https://github.com/user-attachments/assets/14202fa5-741a-417c-908c-2589086b2d4a" />
 
 ---
 
