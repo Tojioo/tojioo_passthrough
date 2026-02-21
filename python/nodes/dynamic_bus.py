@@ -15,7 +15,7 @@ class PT_DynamicBus(BaseNode):
 	def INPUT_TYPES(cls):
 		return {
 			"required": {},
-			"optional": FlexibleOptionalInputType(any_type),
+			"optional": FlexibleOptionalInputType(any_type, {"bus": (any_type,)}),
 			"hidden": {
 				"_slot_types": ("STRING", {"default": ""}),
 				"_output_hints": ("STRING", {"default": ""}),

@@ -44,16 +44,16 @@ class AnyType(str):
 
 class FlexibleOptionalInputType(dict):
 	"""Dict-like that accepts any key, returning the same type spec."""
-
-
-	def __init__(self, type_spec: Any) -> None:
+	def __init__(self, type_spec: Any, static_keys: dict | None = None) -> None:
 		super().__init__()
 		self._type_spec = type_spec
-
+		if static_keys:
+			self.update(static_keys)
 
 	def __contains__(self, key: object) -> bool:
 		return True
 
-
 	def __getitem__(self, key: str) -> tuple:
+		if key in dict.keys(self):
+			return dict.__getitem__(self, key)
 		return (self._type_spec,)

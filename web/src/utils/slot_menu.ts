@@ -1,12 +1,35 @@
 ﻿import {getLiteGraph} from './compat';
 
-interface SlotMenuConfig
+const _displayNameReverseMap = new Map<string, string>();
+let _createNodePatched = false;
+
+type SlotMenuEntry = [nodeType: string, displayName: string];
+
+export function configureSlotMenu(types: string | string[], entries: SlotMenuEntry | SlotMenuEntry[]): void;
+export function configureSlotMenu(types: string | string[], nodeType: string, displayName: string): void;
+export function configureSlotMenu(types: string | string[], entriesOrNodeType: SlotMenuEntry | SlotMenuEntry[] | string, displayName?: string): void
 {
-	type: string;
-	nodeTypes: string[];
+	const typeList = Array.isArray(types) ? types : [types];
+
+	if (typeof entriesOrNodeType === "string")
+	{
+		registerSlotEntries(typeList, entriesOrNodeType);
+		registerDisplayName(entriesOrNodeType, displayName!);
+		return;
+	}
+
+	const entryList: SlotMenuEntry[] = Array.isArray(entriesOrNodeType[0])
+		? entriesOrNodeType as SlotMenuEntry[]
+		: [entriesOrNodeType as SlotMenuEntry];
+
+	for (const [nodeType, name] of entryList)
+	{
+		registerSlotEntries(typeList, nodeType);
+		registerDisplayName(nodeType, name);
+	}
 }
 
-export function RegisterSlotMenuEntries(type: string, nodeTypes: string[]): void
+function registerSlotEntries(types: string[], nodeType: string): void
 {
 	const lg = getLiteGraph();
 	if (!lg)
@@ -14,41 +37,65 @@ export function RegisterSlotMenuEntries(type: string, nodeTypes: string[]): void
 		return;
 	}
 
-	if (!lg.slot_types_default_out)
-	{
-		lg.slot_types_default_out = {};
-	}
-	if (!lg.slot_types_default_in)
-	{
-		lg.slot_types_default_in = {};
-	}
+	lg.slot_types_default_out ??= {};
+	lg.slot_types_default_in ??= {};
 
-	if (!lg.slot_types_default_out[type])
+	for (const type of types)
 	{
-		lg.slot_types_default_out[type] = [];
-	}
-	if (!lg.slot_types_default_in[type])
-	{
-		lg.slot_types_default_in[type] = [];
-	}
-
-	for (const nodeType of nodeTypes)
-	{
-		if (!lg.slot_types_default_out[type].includes(nodeType))
+		for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in])
 		{
-			lg.slot_types_default_out[type].push(nodeType);
-		}
-		if (!lg.slot_types_default_in[type].includes(nodeType))
-		{
-			lg.slot_types_default_in[type].push(nodeType);
+			registry[type] ??= [];
+			if (!registry[type].includes(nodeType))
+			{
+				registry[type].push(nodeType);
+			}
 		}
 	}
 }
 
-export function RegisterSlotMenuEntriesBulk(configs: SlotMenuConfig[]): void
+function registerDisplayName(nodeType: string, displayName: string): void
 {
-	for (const config of configs)
+	const lg = getLiteGraph();
+	if (!lg)
 	{
-		RegisterSlotMenuEntries(config.type, config.nodeTypes);
+		return;
 	}
+
+	_displayNameReverseMap.set(displayName, nodeType);
+
+	for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in])
+	{
+		if (!registry)
+		{
+			continue;
+		}
+		for (const entries of Object.values(registry) as string[][])
+		{
+			for (let i = 0; i < entries.length; i++)
+			{
+				if (entries[i] === nodeType)
+				{
+					entries[i] = displayName;
+				}
+			}
+		}
+	}
+
+	if (_createNodePatched)
+	{
+		return;
+	}
+	_createNodePatched = true;
+
+	const originalCreateNode = lg.createNode;
+	if (!originalCreateNode)
+	{
+		return;
+	}
+
+	lg.createNode = function(this: any, type: string, ...args: any[])
+	{
+		const resolved = _displayNameReverseMap.get(type) ?? type;
+		return originalCreateNode.call(this, resolved, ...args);
+	};
 }

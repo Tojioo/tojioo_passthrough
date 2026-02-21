@@ -40,23 +40,8 @@ export function IsNodes2Mode(): boolean
 		const app = (window as any).app;
 		if (app?.extensionManager?.setting?.get)
 		{
-			const setting = app.extensionManager.setting.get("Comfy.UseNewMenu");
-			if (setting === "Top" || setting === "Bottom")
-			{
-				return true;
-			}
-		}
-
-		const lg = getLiteGraph();
-		if (!lg)
-		{
-			return true;
-		}
-
-		if (typeof document !== "undefined")
-		{
-			const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
-			if (vueCanvas)
+			const nodes2 = app.extensionManager.setting.get("Comfy.NodeDesign.Modern");
+			if (nodes2 === true)
 			{
 				return true;
 			}
@@ -64,7 +49,6 @@ export function IsNodes2Mode(): boolean
 	}
 	catch
 	{
-		// Assume legacy mode on error
 	}
 	return false;
 }

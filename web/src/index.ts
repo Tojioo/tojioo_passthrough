@@ -1,14 +1,19 @@
 ﻿import {configureBatchSwitchNodes, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureDynamicAny, configureSwitchNodes} from '@/handlers';
-import {InstallGraphLoadingHook, RegisterSlotMenuEntries} from '@/utils';
+import {InstallGraphLoadingHook, configureSlotMenu} from '@/utils';
 import {app} from 'scripts/app.js';
+import {logger_internal} from '@/logger_internal.ts';
 
 app.registerExtension({
 	name: "Tojioo.Passthrough.Core",
 	async setup()
 	{
 		InstallGraphLoadingHook(app);
-		RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
-		console.log(`%c[Tojioo Passthrough]%c Loaded Version ${__VERSION__}`, 'color: #00d4ff; font-weight: bold', 'color: #888');
+		configureSlotMenu("BUS", "PT_DynamicBus", "Dynamic Bus");
+		configureSlotMenu(
+			["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"],
+			["PT_DynamicPreview", "Dynamic Preview"]
+		);
+		logger_internal.log(`Loaded Version ${__VERSION__}`);
 	}
 });
 

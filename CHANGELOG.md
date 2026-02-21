@@ -1,6 +1,24 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.7.1] - 2026-02-21
+### Improved
+- **Frontend**:
+	- Simplified new-menu detection in `compat.ts` to use the `Comfy.NodeDesign.Modern` setting.
+	- Replaced `RegisterSlotMenuEntries` / `RegisterSlotMenuEntriesBulk` with a unified `configureSlotMenu` API supporting single and bulk entry registration with optional display names.
+	- Slot menu entries now support display names, shown in the UI but resolved to the correct node type on creation.
+	- `Dynamic Preview` node is now registered in the slot menu for common types.
+- **Backend**:
+	- `Dynamic Bus` now includes a static `bus` slot in its optional inputs.
+	- `FlexibleOptionalInputType` supports pre-defined static keys with correct type-spec fallback for unknown keys.
+
+### Internal
+- **Backend**:
+	- Renamed `logger.py` to `logger_internal.py` and updated all imports accordingly.
+- **Frontend**:
+	- Switched extension logging to use `logger_internal`.
+	- Updated tests to reflect new import paths and API changes.
+
 ## [1.7.0] - 2026-02-20
 ### New Features
 - Added Dual CLIP Text Encode

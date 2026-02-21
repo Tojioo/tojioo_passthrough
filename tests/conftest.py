@@ -63,6 +63,16 @@ if isinstance(torch, MagicMock):
 			return self
 
 
+		def expand(self, *sizes):
+			new_shape = []
+			for i, s in enumerate(sizes):
+				if s == -1:
+					new_shape.append(self.shape[i])
+				else:
+					new_shape.append(s)
+			return TensorStub(tuple(new_shape))
+
+
 		def permute(self, *dims):
 			if not dims:
 				return self

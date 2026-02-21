@@ -27,18 +27,8 @@ function IsNodes2Mode() {
   try {
     const app2 = window.app;
     if (app2?.extensionManager?.setting?.get) {
-      const setting = app2.extensionManager.setting.get("Comfy.UseNewMenu");
-      if (setting === "Top" || setting === "Bottom") {
-        return true;
-      }
-    }
-    const lg = getLiteGraph();
-    if (!lg) {
-      return true;
-    }
-    if (typeof document !== "undefined") {
-      const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
-      if (vueCanvas) {
+      const nodes2 = app2.extensionManager.setting.get("Comfy.NodeDesign.Modern");
+      if (nodes2 === true) {
         return true;
       }
     }
@@ -292,31 +282,67 @@ function NormalizeInputs(node) {
   }
   ScheduleSizeUpdate(node);
 }
-function RegisterSlotMenuEntries(type, nodeTypes) {
+const _displayNameReverseMap = /* @__PURE__ */ new Map();
+let _createNodePatched = false;
+function configureSlotMenu(types, entriesOrNodeType, displayName) {
+  const typeList = Array.isArray(types) ? types : [types];
+  if (typeof entriesOrNodeType === "string") {
+    registerSlotEntries(typeList, entriesOrNodeType);
+    registerDisplayName(entriesOrNodeType, displayName);
+    return;
+  }
+  const entryList = Array.isArray(entriesOrNodeType[0]) ? entriesOrNodeType : [entriesOrNodeType];
+  for (const [nodeType, name] of entryList) {
+    registerSlotEntries(typeList, nodeType);
+    registerDisplayName(nodeType, name);
+  }
+}
+function registerSlotEntries(types, nodeType) {
   const lg = getLiteGraph();
   if (!lg) {
     return;
   }
-  if (!lg.slot_types_default_out) {
-    lg.slot_types_default_out = {};
-  }
-  if (!lg.slot_types_default_in) {
-    lg.slot_types_default_in = {};
-  }
-  if (!lg.slot_types_default_out[type]) {
-    lg.slot_types_default_out[type] = [];
-  }
-  if (!lg.slot_types_default_in[type]) {
-    lg.slot_types_default_in[type] = [];
-  }
-  for (const nodeType of nodeTypes) {
-    if (!lg.slot_types_default_out[type].includes(nodeType)) {
-      lg.slot_types_default_out[type].push(nodeType);
-    }
-    if (!lg.slot_types_default_in[type].includes(nodeType)) {
-      lg.slot_types_default_in[type].push(nodeType);
+  lg.slot_types_default_out ??= {};
+  lg.slot_types_default_in ??= {};
+  for (const type of types) {
+    for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in]) {
+      registry[type] ??= [];
+      if (!registry[type].includes(nodeType)) {
+        registry[type].push(nodeType);
+      }
     }
   }
+}
+function registerDisplayName(nodeType, displayName) {
+  const lg = getLiteGraph();
+  if (!lg) {
+    return;
+  }
+  _displayNameReverseMap.set(displayName, nodeType);
+  for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in]) {
+    if (!registry) {
+      continue;
+    }
+    for (const entries of Object.values(registry)) {
+      for (let i = 0; i < entries.length; i++) {
+        if (entries[i] === nodeType) {
+          entries[i] = displayName;
+        }
+      }
+    }
+  }
+  if (_createNodePatched) {
+    return;
+  }
+  _createNodePatched = true;
+  const originalCreateNode = lg.createNode;
+  if (!originalCreateNode) {
+    return;
+  }
+  lg.createNode = function(type, ...args) {
+    const resolved = _displayNameReverseMap.get(type) ?? type;
+    return originalCreateNode.call(this, resolved, ...args);
+  };
 }
 const ANY_TYPE$1 = "*";
 function ResolvePairType(node, zeroBasedIndex) {
@@ -657,11 +683,19 @@ function configureDynamicAny() {
     }
   };
 }
+const METHOD_STYLES = {
+  log: { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
+  info: { color: "#4a7fff", prefix: "ℹ [Tojioo Passthrough]" },
+  warn: { color: "#e6a117", prefix: "⚠ [Tojioo Passthrough]" },
+  error: { color: "#e05252", prefix: "✖ [Tojioo Passthrough]" },
+  debug: { color: "#b07aff", prefix: "[Tojioo Passthrough]" }
+};
 const createLoggerMethod = (method) => {
+  const { color, prefix } = METHOD_STYLES[method];
   return (...args) => {
     console[method](
-      "%c[Tojioo Passthrough]%c",
-      "color: #00d4ff; font-weight: bold",
+      `%c${prefix}%c`,
+      `color: ${color}; font-weight: bold`,
       "color: #888",
       ...args
     );
@@ -1254,6 +1288,7 @@ function configureDynamicPassthrough() {
     }
   };
 }
+const defaultLabel = "input";
 function configureDynamicPreview() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicPreview",
@@ -1262,11 +1297,13 @@ function configureDynamicPreview() {
         return;
       }
       nodeType.prototype._currentImageIndex = 0;
-      nodeType.prototype._imageElements = [];
+      nodeType.prototype._previewItems = [];
       nodeType.prototype._totalImages = 0;
       nodeType.prototype._tabHitAreas = [];
       function normalizeInputs(node) {
-        if (!node.inputs) node.inputs = [];
+        if (!node.inputs) {
+          node.inputs = [];
+        }
         if (!node.__tojioo_dynamic_io_rebuilt) {
           node.__tojioo_dynamic_io_rebuilt = true;
           const hasAnyLinks = node.inputs?.some((i) => i?.link != null);
@@ -1288,13 +1325,15 @@ function configureDynamicPreview() {
           node.removeInput(node.inputs.length - 1);
         }
         while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
-          node.addInput("image", ANY_TYPE);
-          node.inputs[node.inputs.length - 1].label = "image";
+          node.addInput(defaultLabel, ANY_TYPE);
+          node.inputs[node.inputs.length - 1].label = defaultLabel;
         }
         UpdatePreviewNodeSize(node);
       }
       function applyDynamicTypes(node) {
-        if (!node.inputs?.length) return;
+        if (!node.inputs?.length) {
+          return;
+        }
         const types = [];
         const typeCounters = {};
         for (let i = 0; i < node.inputs.length; i++) {
@@ -1302,7 +1341,9 @@ function configureDynamicPreview() {
           let resolvedType = ANY_TYPE;
           if (link) {
             const t = GetLinkTypeFromEndpoints(node, link);
-            if (t !== ANY_TYPE) resolvedType = t;
+            if (t !== ANY_TYPE) {
+              resolvedType = t;
+            }
           }
           types.push(resolvedType);
         }
@@ -1319,9 +1360,9 @@ function configureDynamicPreview() {
           } else {
             typeCounters["__untyped__"] = (typeCounters["__untyped__"] ?? 0) + 1;
             const n = typeCounters["__untyped__"];
-            label = n === 1 ? "image" : `image_${n}`;
+            label = n === 1 ? defaultLabel : `${defaultLabel}_${n}`;
           }
-          inp.name = `input_${i + 1}`;
+          inp.name = `${defaultLabel}_${i + 1}`;
           inp.label = label;
         }
         GetGraph(node)?.setDirtyCanvas?.(true, true);
@@ -1334,21 +1375,67 @@ function configureDynamicPreview() {
         }
         return widths;
       }
+      function resetPreviewState(node) {
+        node._currentImageIndex = 0;
+        node._previewItems = [];
+        node._totalImages = 0;
+        node._tabHitAreas = [];
+      }
+      function wrapText(ctx, text, maxWidth) {
+        const words = text.split(" ");
+        const lines = [];
+        let currentLine = "";
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+        return lines.length ? lines : [""];
+      }
       nodeType.prototype.selectImage = function(index) {
-        if (index < 0 || index >= this._totalImages) return;
+        if (index < 0 || index >= this._totalImages) {
+          return;
+        }
         this._currentImageIndex = index;
         this.graph?.setDirtyCanvas?.(true, true);
+      };
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs) {
+          for (let i = 0; i < this.inputs.length; i++) {
+            if (this.inputs[i]?.link == null) {
+              return returnObj ? this.inputs[i] : i;
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
       };
       const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
       nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement) {
         prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-        if (!ctx || IsNodes2Mode()) return;
+        if (!ctx || IsNodes2Mode()) {
+          return;
+        }
         const node = this;
-        if (!node._imageElements?.length || node._totalImages === 0) return;
-        const imgs = node._imageElements;
-        const idx = Math.min(node._currentImageIndex, imgs.length - 1);
-        const img = imgs[idx];
-        if (!img?.complete || img.naturalWidth === 0) return;
+        const items = node._previewItems ?? [];
+        if (!items.length || node._totalImages === 0) {
+          return;
+        }
+        const idx = Math.min(node._currentImageIndex, items.length - 1);
+        const item = items[idx];
+        if (!item) {
+          return;
+        }
         const slotHeight = GetLgSlotHeight();
         const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
         const showTabs = node._totalImages >= 2;
@@ -1356,13 +1443,62 @@ function configureDynamicPreview() {
         const previewY = inputsHeight + tabBarHeight;
         const previewHeight = node.size[1] - previewY;
         const previewWidth = node.size[0];
-        if (previewHeight < 50) return;
-        const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
-        const drawWidth = img.width * scale;
-        const drawHeight = img.height * scale;
-        const drawX = (previewWidth - drawWidth) / 2;
-        const drawY = previewY + (previewHeight - drawHeight) / 2;
-        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        if (previewHeight < 50) {
+          return;
+        }
+        if (item.type === "image") {
+          const img = item.element;
+          if (!img?.complete || img.naturalWidth === 0) {
+            return;
+          }
+          const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
+          const drawWidth = img.width * scale;
+          const drawHeight = img.height * scale;
+          const drawX = (previewWidth - drawWidth) / 2;
+          const drawY = previewY + (previewHeight - drawHeight) / 2;
+          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        } else if (item.type === "text") {
+          ctx.save();
+          const padding = 14;
+          const margin = 6;
+          const lineHeight = 22;
+          const fontSize = 15;
+          const panelX = margin;
+          const panelY = previewY + margin;
+          const panelWidth = previewWidth - margin * 2;
+          const panelHeight = previewHeight - margin * 2;
+          ctx.fillStyle = "rgba(24, 24, 28, 0.95)";
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 6);
+          } else {
+            ctx.rect(panelX, panelY, panelWidth, panelHeight);
+          }
+          ctx.fill();
+          ctx.fillStyle = "#c8c8cc";
+          ctx.font = `${fontSize}px monospace`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+          const textMaxWidth = panelWidth - padding * 2;
+          const lines = item.text.split("\n");
+          let y = panelY + padding;
+          const yLimit = panelY + panelHeight - padding;
+          for (const line of lines) {
+            const wrappedLines = wrapText(ctx, line, textMaxWidth);
+            for (const wrappedLine of wrappedLines) {
+              if (y + lineHeight > yLimit) {
+                ctx.fillStyle = "#888";
+                ctx.font = `${fontSize - 2}px monospace`;
+                ctx.fillText("…", panelX + padding, y);
+                ctx.restore();
+                return;
+              }
+              ctx.fillText(wrappedLine, panelX + padding, y);
+              y += lineHeight;
+            }
+          }
+          ctx.restore();
+        }
         if (showTabs) {
           const tabY = inputsHeight;
           const tabWidths = measureTabWidths(ctx, node._totalImages);
@@ -1404,33 +1540,51 @@ function configureDynamicPreview() {
       };
       const prevOnExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function(message) {
+        logger_internal.debug("onExecuted", message);
         prevOnExecuted?.call(this, message);
         const node = this;
         node.imgs = null;
-        const images = message?.preview_data;
-        if (!images?.length) {
-          node._imageElements = [];
-          node._totalImages = 0;
-          node._currentImageIndex = 0;
-          node._tabHitAreas = [];
-          return;
-        }
-        node._totalImages = images.length;
-        node._currentImageIndex = Math.min(node._currentImageIndex, node._totalImages - 1);
-        node._imageElements = images.map((imgInfo) => {
+        const images = message?.preview_data ?? [];
+        const textEntries = message?.text_data ?? [];
+        const previewItems = [];
+        const slotContent = /* @__PURE__ */ new Map();
+        for (const imgInfo of images) {
+          const slot = imgInfo.slot ?? 0;
+          if (!slotContent.has(slot)) {
+            slotContent.set(slot, []);
+          }
           const img = new Image();
           img.src = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
             imgInfo.subfolder || ""
           )}&type=${encodeURIComponent(imgInfo.type || "output")}`;
-          return img;
-        });
+          slotContent.get(slot).push({ type: "image", element: img });
+        }
+        for (const entry of textEntries) {
+          const slot = entry.slot ?? 0;
+          if (!slotContent.has(slot)) {
+            slotContent.set(slot, []);
+          }
+          slotContent.get(slot).push({ type: "text", text: entry.text });
+        }
+        const sortedSlots = [...slotContent.keys()].sort((a, b) => a - b);
+        for (const slot of sortedSlots) {
+          previewItems.push(...slotContent.get(slot));
+        }
+        node._previewItems = previewItems;
+        node._totalImages = previewItems.length;
+        node._currentImageIndex = Math.min(node._currentImageIndex ?? 0, Math.max(0, node._totalImages - 1));
+        node._tabHitAreas = [];
         this.graph?.setDirtyCanvas?.(true, true);
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) return;
+        if (IsGraphLoading()) {
+          return;
+        }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (type !== GetLgInput()) return;
+        if (type !== GetLgInput()) {
+          return;
+        }
         const node = this;
         if (isConnected) {
           try {
@@ -1443,9 +1597,8 @@ function configureDynamicPreview() {
                 linkObj.type = inferredType;
                 if (node.inputs[index]) {
                   node.inputs[index].type = inferredType;
-                  const n = inferredType.toLowerCase();
-                  node.inputs[index].name = n;
-                  node.inputs[index].label = n;
+                  node.inputs[index].name = `${defaultLabel}_${index + 1}`;
+                  node.inputs[index].label = inferredType.toLowerCase();
                 }
               }
             }
@@ -1458,7 +1611,9 @@ function configureDynamicPreview() {
           return;
         }
         DeferMicrotask(() => {
-          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) return;
+          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
+            return;
+          }
           if (node.inputs[index]?.link != null) {
             normalizeInputs(node);
             applyDynamicTypes(node);
@@ -1470,10 +1625,7 @@ function configureDynamicPreview() {
           }
           const hasAny = node.inputs?.some((inp) => inp?.link != null);
           if (!hasAny) {
-            node._currentImageIndex = 0;
-            node._imageElements = [];
-            node._totalImages = 0;
-            node._tabHitAreas = [];
+            resetPreviewState(node);
           }
           normalizeInputs(node);
           applyDynamicTypes(node);
@@ -1484,7 +1636,9 @@ function configureDynamicPreview() {
         prevConfigure?.call(this, info);
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             normalizeInputs(this);
             applyDynamicTypes(this);
@@ -1507,12 +1661,19 @@ function configureDynamicPreview() {
         prevOnAdded?.apply(this, arguments);
         if (this.widgets) {
           const imgWidgetIndex = this.widgets.findIndex((w) => w.name === "image" || w.type === "preview");
-          if (imgWidgetIndex !== -1) this.widgets.splice(imgWidgetIndex, 1);
+          if (imgWidgetIndex !== -1) {
+            this.widgets.splice(imgWidgetIndex, 1);
+          }
         }
         this.imgs = null;
+        const canvas = window.app?.canvas;
+        const pendingLinks = canvas?.connecting_links ?? canvas?._connecting_links;
+        logger_internal.debug("connecting_links contents", JSON.stringify(pendingLinks, null, 2));
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             normalizeInputs(this);
             applyDynamicTypes(this);
@@ -1605,8 +1766,12 @@ app.registerExtension({
   name: "Tojioo.Passthrough.Core",
   async setup() {
     InstallGraphLoadingHook(app);
-    RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
-    console.log(`%c[Tojioo Passthrough]%c Loaded Version ${"1.7.0"}`, "color: #00d4ff; font-weight: bold", "color: #888");
+    configureSlotMenu("BUS", "PT_DynamicBus", "Dynamic Bus");
+    configureSlotMenu(
+      ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"],
+      ["PT_DynamicPreview", "Dynamic Preview"]
+    );
+    logger_internal.log(`Loaded Version ${"1.7.1"}`);
   }
 });
 app.registerExtension(configureBatchSwitchNodes());

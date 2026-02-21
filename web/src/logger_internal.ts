@@ -1,18 +1,25 @@
 ﻿type ConsoleMethod = 'log' | 'warn' | 'error' | 'info' | 'debug';
 
+const METHOD_STYLES: Record<ConsoleMethod, { color: string; prefix: string }> = {
+	log:   { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
+	info:  { color: "#4a7fff", prefix: "ℹ [Tojioo Passthrough]" },
+	warn:  { color: "#e6a117", prefix: "⚠ [Tojioo Passthrough]" },
+	error: { color: "#e05252", prefix: "✖ [Tojioo Passthrough]" },
+	debug: { color: "#b07aff", prefix: "[Tojioo Passthrough]" },
+};
+
 /**
  * Factory function to create a logger method that prepends a styled prefix
  * to console output for a specific console method.
- * @param {ConsoleMethod} method - The console method to wrap (e.g., "log", "warn", "error").
- * @returns {Function} A function that logs messages using the specified console method, with a styled prefix added to the output.
  */
 const createLoggerMethod = (method: ConsoleMethod): Function =>
 {
+	const { color, prefix } = METHOD_STYLES[method];
 	return (...args: any[]) =>
 	{
 		console[method](
-			'%c[Tojioo Passthrough]%c',
-			'color: #00d4ff; font-weight: bold',
+			`%c${prefix}%c`,
+			`color: ${color}; font-weight: bold`,
 			'color: #888',
 			...args
 		);
@@ -21,15 +28,6 @@ const createLoggerMethod = (method: ConsoleMethod): Function =>
 
 /**
  * Internal logging utility providing various logging levels.
- * This object encapsulates logging methods used for internal operations, allowing consistent and centralized log handling.
- *
- * Properties:
- * - log: Logs general messages.
- * - warn: Logs warning messages.
- * - error: Logs error messages.
- * - info: Logs informational messages.
- * - debug: Logs debugging details.
- * Each method is created by invoking the `createLoggerMethod` function with the corresponding log level.
  */
 export const logger_internal = {
 	log: createLoggerMethod('log'),

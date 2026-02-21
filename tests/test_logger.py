@@ -1,6 +1,6 @@
 import logging
 
-from python.utils.logger import get_logger, log_debug, log_error, log_info, log_warning
+from python.utils.logger_internal import get_logger, log_debug, log_error, log_info, log_warning
 
 
 def test_get_logger_returns_logger():
