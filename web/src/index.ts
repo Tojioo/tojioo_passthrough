@@ -1,7 +1,7 @@
-﻿import {configureBatchSwitchNodes, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureDynamicAny, configureSwitchNodes} from '@/handlers';
-import {InstallGraphLoadingHook, configureSlotMenu} from '@/utils';
+﻿import {configureBatchSwitchNodes, configureDynamicAny, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureSwitchNodes} from '@/handlers';
+import {configureSlotMenu, InstallGraphLoadingHook} from '@/utils';
 import {app} from 'scripts/app.js';
-import {logger_internal} from '@/logger_internal.ts';
+import logger_internal from '@/logger_internal';
 
 app.registerExtension({
 	name: "Tojioo.Passthrough.Core",

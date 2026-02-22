@@ -1,13 +1,13 @@
-﻿import {DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgSlotHeight, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
+﻿import {consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgSlotHeight, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
-import {logger_internal} from '@/logger_internal.ts';
+import logger_internal, {loggerInstance} from '@/logger_internal';
 
-type PreviewItem =
-	| { type: "image"; element: HTMLImageElement }
-	| { type: "text"; text: string };
-
+type PreviewItem = | { type: "image"; element: HTMLImageElement } | { type: "text"; text: string };
 const defaultLabel = "input";
+
+// Scoped log
+const log = loggerInstance("DynamicPreview");
 
 export function configureDynamicPreview(): ComfyExtension
 {
@@ -189,6 +189,7 @@ export function configureDynamicPreview(): ComfyExtension
 				_sourceSlot: number
 			): boolean
 			{
+				logger_internal.debug(`onConnectInput called ${_type}\n\tNode: ${_sourceNode.properties["Node name for S&R"] ?? _sourceNode}`);
 				return true;
 			};
 
@@ -201,6 +202,7 @@ export function configureDynamicPreview(): ComfyExtension
 				doNotUseOccupied?: boolean
 			): any
 			{
+				logger_internal.debug("findInputSlotByType called", type);
 				if (this.inputs)
 				{
 					for (let i = 0; i < this.inputs.length; i++)
@@ -532,7 +534,7 @@ export function configureDynamicPreview(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPreview: error in configure", e);
+						log.error("error in configure", e);
 					}
 					finally
 					{
@@ -567,9 +569,7 @@ export function configureDynamicPreview(): ComfyExtension
 				}
 				(this as any).imgs = null;
 
-				const canvas = (window as any).app?.canvas;
-				const pendingLinks = canvas?.connecting_links ?? canvas?._connecting_links;
-				logger_internal.debug("connecting_links contents", JSON.stringify(pendingLinks, null, 2));
+				const pending = consumePendingConnection();
 
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
@@ -585,11 +585,20 @@ export function configureDynamicPreview(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPreview: error in onAdded", e);
+						log.error("error in onAdded", e);
 					}
 					finally
 					{
 						(this as any).__tojioo_skip_resize = false;
+					}
+
+					if (pending?.sourceNode && this.inputs?.length)
+					{
+						const firstFree = this.inputs.findIndex((inp: any) => inp?.link == null);
+						if (firstFree >= 0)
+						{
+							pending.sourceNode.connect(pending.sourceSlot, this, firstFree);
+						}
 					}
 				});
 			};

@@ -2,8 +2,53 @@
 
 const _displayNameReverseMap = new Map<string, string>();
 let _createNodePatched = false;
+let _pollingStarted = false;
 
 type SlotMenuEntry = [nodeType: string, displayName: string];
+
+export interface PendingConnection
+{
+	sourceNode: any;
+	sourceSlot: number;
+	type: string;
+}
+
+let _pendingConnection: PendingConnection | null = null;
+
+export function consumePendingConnection(): PendingConnection | null
+{
+	const pending = _pendingConnection;
+	_pendingConnection = null;
+	return pending;
+}
+
+function startConnectionPolling(): void
+{
+	if (_pollingStarted)
+	{
+		return;
+	}
+	_pollingStarted = true;
+
+	// Captures connecting_links during drag, before the frontend clears it on mouse up
+	function poll(): void
+	{
+		const canvas = (window as any).app?.canvas;
+		const links = canvas?.connecting_links;
+		if (links?.length)
+		{
+			const link = links[0];
+			_pendingConnection = {
+				sourceNode: link.node,
+				sourceSlot: link.slot ?? link.output?.slot_index ?? 0,
+				type: link.output?.type ?? link.type ?? "*"
+			};
+		}
+		requestAnimationFrame(poll);
+	}
+
+	requestAnimationFrame(poll);
+}
 
 export function configureSlotMenu(types: string | string[], entries: SlotMenuEntry | SlotMenuEntry[]): void;
 export function configureSlotMenu(types: string | string[], nodeType: string, displayName: string): void;
@@ -86,6 +131,8 @@ function registerDisplayName(nodeType: string, displayName: string): void
 		return;
 	}
 	_createNodePatched = true;
+
+	startConnectionPolling();
 
 	const originalCreateNode = lg.createNode;
 	if (!originalCreateNode)

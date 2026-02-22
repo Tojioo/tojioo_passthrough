@@ -1,6 +1,10 @@
-﻿import {GetGraph, GetInputLink, GetLink, DeferMicrotask, IsGraphLoading, ResolveConnectedType} from '@/utils';
+﻿import {DeferMicrotask, GetGraph, GetInputLink, GetLink, IsGraphLoading, ResolveConnectedType} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
+import {loggerInstance} from '@/logger_internal';
+
+// Scoped log
+const log = loggerInstance("DynamicAny");
 
 export function configureDynamicAny(): ComfyExtension
 {
@@ -72,14 +76,17 @@ export function configureDynamicAny(): ComfyExtension
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading) (this as any).__tojioo_skip_resize = true;
+					if (loading)
+					{
+						(this as any).__tojioo_skip_resize = true;
+					}
 					try
 					{
 						applyType(this);
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicAny: error in configure", e);
+						log.error("error in configure", e);
 					}
 					finally
 					{
@@ -92,7 +99,9 @@ export function configureDynamicAny(): ComfyExtension
 					{
 						applyType(this);
 					}
-					catch {}
+					catch
+					{
+					}
 				}, 100);
 			};
 
@@ -103,14 +112,17 @@ export function configureDynamicAny(): ComfyExtension
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading) (this as any).__tojioo_skip_resize = true;
+					if (loading)
+					{
+						(this as any).__tojioo_skip_resize = true;
+					}
 					try
 					{
 						applyType(this);
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicAny: error in onAdded", e);
+						log.error("error in onAdded", e);
 					}
 					finally
 					{

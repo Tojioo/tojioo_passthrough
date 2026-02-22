@@ -1,6 +1,10 @@
-﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetLgInput, ApplyDynamicTypes, DeferMicrotask, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {ApplyDynamicTypes, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
+import {loggerInstance} from '@/logger_internal';
+
+// Scoped log
+const log = loggerInstance("DynamicPassthrough");
 
 export function configureDynamicPassthrough(): ComfyExtension
 {
@@ -15,8 +19,14 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 			function normalizeIO(node: any)
 			{
-				if (!node.inputs) node.inputs = [];
-				if (!node.outputs) node.outputs = [];
+				if (!node.inputs)
+				{
+					node.inputs = [];
+				}
+				if (!node.outputs)
+				{
+					node.outputs = [];
+				}
 
 				let lastConnectedInput = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
@@ -109,7 +119,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error(e);
+						log.error(e);
 					}
 
 					DeferMicrotask(() =>
@@ -153,8 +163,14 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 						if (hasConnectionsAfter)
 						{
-							if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
-							if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
+							if (typeof node.removeInput === "function")
+							{
+								node.removeInput(disconnectedIndex);
+							}
+							if (typeof node.removeOutput === "function")
+							{
+								node.removeOutput(disconnectedIndex);
+							}
 						}
 
 						normalizeIO(this);
@@ -185,7 +201,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPassthrough: error in configure", e);
+						log.error("error in configure", e);
 					}
 				});
 
@@ -198,7 +214,9 @@ export function configureDynamicPassthrough(): ComfyExtension
 						ApplyDynamicTypes(this);
 						UpdateNodeSizeImmediate(this);
 					}
-					catch {}
+					catch
+					{
+					}
 				}, 100);
 			};
 
@@ -216,7 +234,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPassthrough: error in onAdded", e);
+						log.error("error in onAdded", e);
 					}
 				});
 			};

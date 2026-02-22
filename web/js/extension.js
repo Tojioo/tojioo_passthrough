@@ -284,6 +284,33 @@ function NormalizeInputs(node) {
 }
 const _displayNameReverseMap = /* @__PURE__ */ new Map();
 let _createNodePatched = false;
+let _pollingStarted = false;
+let _pendingConnection = null;
+function consumePendingConnection() {
+  const pending = _pendingConnection;
+  _pendingConnection = null;
+  return pending;
+}
+function startConnectionPolling() {
+  if (_pollingStarted) {
+    return;
+  }
+  _pollingStarted = true;
+  function poll() {
+    const canvas = window.app?.canvas;
+    const links = canvas?.connecting_links;
+    if (links?.length) {
+      const link = links[0];
+      _pendingConnection = {
+        sourceNode: link.node,
+        sourceSlot: link.slot ?? link.output?.slot_index ?? 0,
+        type: link.output?.type ?? link.type ?? "*"
+      };
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+}
 function configureSlotMenu(types, entriesOrNodeType, displayName) {
   const typeList = Array.isArray(types) ? types : [types];
   if (typeof entriesOrNodeType === "string") {
@@ -335,6 +362,7 @@ function registerDisplayName(nodeType, displayName) {
     return;
   }
   _createNodePatched = true;
+  startConnectionPolling();
   const originalCreateNode = lg.createNode;
   if (!originalCreateNode) {
     return;
@@ -601,6 +629,34 @@ function configureBatchSwitchNodes() {
     }
   };
 }
+const METHOD_STYLES = {
+  log: { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
+  info: { color: "#4a7fff", prefix: "ℹ [Tojioo Passthrough]" },
+  warn: { color: "#e6a117", prefix: "⚠ [Tojioo Passthrough]" },
+  error: { color: "#e05252", prefix: "✖ [Tojioo Passthrough]" },
+  debug: { color: "#b07aff", prefix: "[Tojioo Passthrough]" }
+};
+const createLoggerMethod = (method, scope) => {
+  const { color, prefix } = METHOD_STYLES[method];
+  const displayPrefix = scope ? `${prefix} ${scope}:` : prefix;
+  return (...args) => {
+    console[method](
+      `%c${displayPrefix}%c`,
+      `color: ${color}; font-weight: bold`,
+      "color: inherit",
+      ...args
+    );
+  };
+};
+const loggerInstance = (scope) => ({
+  log: createLoggerMethod("log"),
+  warn: createLoggerMethod("warn"),
+  error: createLoggerMethod("error", scope),
+  info: createLoggerMethod("info"),
+  debug: createLoggerMethod("debug")
+});
+const logger_internal = loggerInstance();
+const log$3 = loggerInstance("DynamicAny");
 function configureDynamicAny() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicAny",
@@ -649,11 +705,13 @@ function configureDynamicAny() {
         prevConfigure?.call(this, info);
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             applyType(this);
           } catch (e) {
-            console.error("Tojioo.DynamicAny: error in configure", e);
+            log$3.error("error in configure", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -670,11 +728,13 @@ function configureDynamicAny() {
         prevOnAdded?.apply(this, arguments);
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             applyType(this);
           } catch (e) {
-            console.error("Tojioo.DynamicAny: error in onAdded", e);
+            log$3.error("error in onAdded", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -683,31 +743,7 @@ function configureDynamicAny() {
     }
   };
 }
-const METHOD_STYLES = {
-  log: { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
-  info: { color: "#4a7fff", prefix: "ℹ [Tojioo Passthrough]" },
-  warn: { color: "#e6a117", prefix: "⚠ [Tojioo Passthrough]" },
-  error: { color: "#e05252", prefix: "✖ [Tojioo Passthrough]" },
-  debug: { color: "#b07aff", prefix: "[Tojioo Passthrough]" }
-};
-const createLoggerMethod = (method) => {
-  const { color, prefix } = METHOD_STYLES[method];
-  return (...args) => {
-    console[method](
-      `%c${prefix}%c`,
-      `color: ${color}; font-weight: bold`,
-      "color: #888",
-      ...args
-    );
-  };
-};
-const logger_internal = {
-  log: createLoggerMethod("log"),
-  warn: createLoggerMethod("warn"),
-  error: createLoggerMethod("error"),
-  info: createLoggerMethod("info"),
-  debug: createLoggerMethod("debug")
-};
+const log$2 = loggerInstance("DynamicBus");
 function configureDynamicBus() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicBus",
@@ -934,21 +970,31 @@ function configureDynamicBus() {
             const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
             const hasOutput = outputLinkIds.some((linkId) => {
               const link = GetLink(node, linkId);
-              if (!link) return false;
+              if (!link) {
+                return false;
+              }
               const targetNode = GetNodeById(node, link.target_id);
-              if (!targetNode) return false;
+              if (!targetNode) {
+                return false;
+              }
               return targetNode.inputs?.[link.target_slot]?.link === linkId;
             });
-            if (hasInput || hasOutput) continue;
+            if (hasInput || hasOutput) {
+              continue;
+            }
             let hasConnectionsAfter = false;
             for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
               const laterInput = node.inputs[i]?.link != null;
               const laterOutputIds = node.outputs[i]?.links ?? [];
               const laterOutput = laterOutputIds.some((id) => {
                 const link = GetLink(node, id);
-                if (!link) return false;
+                if (!link) {
+                  return false;
+                }
                 const target = GetNodeById(node, link.target_id);
-                if (!target) return false;
+                if (!target) {
+                  return false;
+                }
                 return target.inputs?.[link.target_slot]?.link === id;
               });
               if (laterInput || laterOutput) {
@@ -1110,7 +1156,7 @@ function configureDynamicBus() {
               synchronize(node, info);
             }
           } catch (e) {
-            logger_internal.error("DynamicBus configure error", e);
+            log$2.error("error in configure", e);
           }
         });
         setTimeout(() => {
@@ -1128,13 +1174,14 @@ function configureDynamicBus() {
           try {
             synchronize(this);
           } catch (e) {
-            logger_internal.error("DynamicBus onAdded error", e);
+            log$2.error("error in onAdded", e);
           }
         });
       };
     }
   };
 }
+const log$1 = loggerInstance("DynamicPassthrough");
 function configureDynamicPassthrough() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicPassthrough",
@@ -1143,8 +1190,12 @@ function configureDynamicPassthrough() {
         return;
       }
       function normalizeIO(node) {
-        if (!node.inputs) node.inputs = [];
-        if (!node.outputs) node.outputs = [];
+        if (!node.inputs) {
+          node.inputs = [];
+        }
+        if (!node.outputs) {
+          node.outputs = [];
+        }
         let lastConnectedInput = -1;
         for (let i = node.inputs.length - 1; i >= 0; i--) {
           if (node.inputs[i]?.link != null) {
@@ -1207,7 +1258,7 @@ function configureDynamicPassthrough() {
               }
             }
           } catch (e) {
-            console.error(e);
+            log$1.error(e);
           }
           DeferMicrotask(() => {
             normalizeIO(this);
@@ -1237,8 +1288,12 @@ function configureDynamicPassthrough() {
               }
             }
             if (hasConnectionsAfter) {
-              if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
-              if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
+              if (typeof node.removeInput === "function") {
+                node.removeInput(disconnectedIndex);
+              }
+              if (typeof node.removeOutput === "function") {
+                node.removeOutput(disconnectedIndex);
+              }
             }
             normalizeIO(this);
             ApplyDynamicTypes(this);
@@ -1259,7 +1314,7 @@ function configureDynamicPassthrough() {
             normalizeIO(this);
             ApplyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPassthrough: error in configure", e);
+            log$1.error("error in configure", e);
           }
         });
         setTimeout(() => {
@@ -1281,7 +1336,7 @@ function configureDynamicPassthrough() {
             normalizeIO(this);
             ApplyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPassthrough: error in onAdded", e);
+            log$1.error("error in onAdded", e);
           }
         });
       };
@@ -1289,6 +1344,7 @@ function configureDynamicPassthrough() {
   };
 }
 const defaultLabel = "input";
+const log = loggerInstance("DynamicPreview");
 function configureDynamicPreview() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicPreview",
@@ -1407,10 +1463,13 @@ function configureDynamicPreview() {
         this.graph?.setDirtyCanvas?.(true, true);
       };
       nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        logger_internal.debug(`onConnectInput called ${_type}
+	Node: ${_sourceNode.properties["Node name for S&R"] ?? _sourceNode}`);
         return true;
       };
       const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
       nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        logger_internal.debug("findInputSlotByType called", type);
         if (this.inputs) {
           for (let i = 0; i < this.inputs.length; i++) {
             if (this.inputs[i]?.link == null) {
@@ -1643,7 +1702,7 @@ function configureDynamicPreview() {
             normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPreview: error in configure", e);
+            log.error("error in configure", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -1666,9 +1725,7 @@ function configureDynamicPreview() {
           }
         }
         this.imgs = null;
-        const canvas = window.app?.canvas;
-        const pendingLinks = canvas?.connecting_links ?? canvas?._connecting_links;
-        logger_internal.debug("connecting_links contents", JSON.stringify(pendingLinks, null, 2));
+        const pending = consumePendingConnection();
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
           if (loading) {
@@ -1678,9 +1735,15 @@ function configureDynamicPreview() {
             normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPreview: error in onAdded", e);
+            log.error("error in onAdded", e);
           } finally {
             this.__tojioo_skip_resize = false;
+          }
+          if (pending?.sourceNode && this.inputs?.length) {
+            const firstFree = this.inputs.findIndex((inp) => inp?.link == null);
+            if (firstFree >= 0) {
+              pending.sourceNode.connect(pending.sourceSlot, this, firstFree);
+            }
           }
         });
       };
