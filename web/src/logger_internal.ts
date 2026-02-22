@@ -11,17 +11,32 @@ const METHOD_STYLES: Record<ConsoleMethod, { color: string; prefix: string }> = 
 const createLoggerMethod = (method: ConsoleMethod, scope?: string): Function =>
 {
 	const {color, prefix} = METHOD_STYLES[method];
-	const displayPrefix = scope ? `${prefix} ${scope}:` : prefix;
 
-	return (...args: any[]) =>
+	if (scope)
 	{
-		console[method](
-			`%c${displayPrefix}%c`,
-			`color: ${color}; font-weight: bold`,
-			'color: inherit',
-			...args
-		);
-	};
+		return (...args: any[]) =>
+		{
+			console[method](
+				`%c${prefix}%c ${scope}:%c`,
+				`color: ${color}; font-weight: bold`,
+				'color: yellow;',
+				'color: inherit',
+				...args
+			);
+		};
+	}
+	else
+	{
+		return (...args: any[]) =>
+		{
+			console[method](
+				`%c${prefix}%c`,
+				`color: ${color}; font-weight: bold`,
+				'color: inherit',
+				...args
+			);
+		};
+	}
 };
 
 const loggerInstance = (scope?: string) => ({
@@ -29,7 +44,7 @@ const loggerInstance = (scope?: string) => ({
 	warn: createLoggerMethod('warn'),
 	error: createLoggerMethod('error', scope),
 	info: createLoggerMethod('info'),
-	debug: createLoggerMethod('debug'),
+	debug: createLoggerMethod('debug', scope),
 });
 
 const logger_internal = loggerInstance();

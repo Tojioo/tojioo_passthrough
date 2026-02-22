@@ -13,8 +13,8 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 * **Dynamic Nodes**:
   + Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
   + Dynamic Any: Single input passthrough with type mirroring
-  + Dynamic Bus (Beta): Context/bus for carrying multiple typed values
-  + Dynamic Preview (Beta): Tabbed multi-input preview with interactive controls
+  + Dynamic Bus: Context/bus for carrying multiple typed values
+  + Dynamic Preview: Tabbed multi-input preview with interactive controls
 * **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
 * **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
 
@@ -111,7 +111,7 @@ Restart ComfyUI.
 
 ---
 
-#### Dynamic Preview (Beta)
+#### Dynamic Preview
 
 * Purpose: In-graph image viewer for quick A/B checks across multiple IMAGE inputs.
 * Behaviour:

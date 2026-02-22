@@ -13,7 +13,7 @@ _MAX_TEXT_LEN = 2000
 
 
 class PT_DynamicPreview:
-	NODE_NAME = "Dynamic Preview (Beta)"
+	NODE_NAME = "Dynamic Preview"
 	DESCRIPTION = "Previews any value. Images and masks display visually; other types display as text."
 	CATEGORY = CATEGORIES["dynamic"]
 	_MAX_SOCKETS = 32

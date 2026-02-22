@@ -1,5 +1,4 @@
 import { app } from "../../scripts/app.js";
-const LG_NODE_SLOT_HEIGHT = 20;
 const LG_OUTPUT = 2;
 const LG_INPUT = 1;
 function getLiteGraph() {
@@ -18,10 +17,6 @@ function GetLgInput() {
 function GetLgOutput() {
   const lg = getLiteGraph();
   return lg?.OUTPUT ?? LG_OUTPUT;
-}
-function GetLgSlotHeight() {
-  const lg = getLiteGraph();
-  return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
 }
 function IsNodes2Mode() {
   try {
@@ -551,9 +546,6 @@ function ApplyDynamicTypes(node) {
 const ANY_TYPE = "*";
 const BUS_TYPE = "BUS";
 const MAX_SOCKETS = 32;
-const TAB_BAR_HEIGHT = 28;
-const TAB_PADDING = 10;
-const TAB_GAP = 4;
 function isBatchSwitch(nodeData) {
   const n = nodeData?.name ?? "";
   return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
@@ -638,22 +630,33 @@ const METHOD_STYLES = {
 };
 const createLoggerMethod = (method, scope) => {
   const { color, prefix } = METHOD_STYLES[method];
-  const displayPrefix = scope ? `${prefix} ${scope}:` : prefix;
-  return (...args) => {
-    console[method](
-      `%c${displayPrefix}%c`,
-      `color: ${color}; font-weight: bold`,
-      "color: inherit",
-      ...args
-    );
-  };
+  if (scope) {
+    return (...args) => {
+      console[method](
+        `%c${prefix}%c ${scope}:%c`,
+        `color: ${color}; font-weight: bold`,
+        "color: yellow;",
+        "color: inherit",
+        ...args
+      );
+    };
+  } else {
+    return (...args) => {
+      console[method](
+        `%c${prefix}%c`,
+        `color: ${color}; font-weight: bold`,
+        "color: inherit",
+        ...args
+      );
+    };
+  }
 };
 const loggerInstance = (scope) => ({
   log: createLoggerMethod("log"),
   warn: createLoggerMethod("warn"),
   error: createLoggerMethod("error", scope),
   info: createLoggerMethod("info"),
-  debug: createLoggerMethod("debug")
+  debug: createLoggerMethod("debug", scope)
 });
 const logger_internal = loggerInstance();
 const log$3 = loggerInstance("DynamicAny");
@@ -1355,7 +1358,6 @@ function configureDynamicPreview() {
       nodeType.prototype._currentImageIndex = 0;
       nodeType.prototype._previewItems = [];
       nodeType.prototype._totalImages = 0;
-      nodeType.prototype._tabHitAreas = [];
       function normalizeInputs(node) {
         if (!node.inputs) {
           node.inputs = [];
@@ -1423,48 +1425,183 @@ function configureDynamicPreview() {
         }
         GetGraph(node)?.setDirtyCanvas?.(true, true);
       }
-      function measureTabWidths(ctx, count) {
-        ctx.font = "12px Arial";
-        const widths = [];
-        for (let i = 1; i <= count; i++) {
-          widths.push(ctx.measureText(String(i)).width + TAB_PADDING * 2);
+      function createPreviewWidget(node) {
+        if (node._previewContainer) {
+          return;
         }
-        return widths;
+        const container = document.createElement("div");
+        Object.assign(container.style, {
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+          background: "transparent"
+        });
+        const tabBar = document.createElement("div");
+        Object.assign(tabBar.style, {
+          display: "none",
+          flexDirection: "row",
+          justifyContent: "center",
+          gap: "4px",
+          padding: "4px 8px 0 8px",
+          marginBottom: "6px",
+          flexShrink: "0",
+          overflowX: "hidden",
+          overflowY: "hidden",
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(255,255,255,0.3) transparent"
+        });
+        const content = document.createElement("div");
+        Object.assign(content.style, {
+          flex: "1",
+          overflow: "hidden",
+          position: "relative",
+          minHeight: "60px"
+        });
+        container.appendChild(tabBar);
+        container.appendChild(content);
+        node._previewContainer = container;
+        node._previewTabBar = tabBar;
+        node._previewContent = content;
+        if (typeof node.addDOMWidget === "function") {
+          node._previewWidget = node.addDOMWidget("preview_display", "customtext", container, {
+            serialize: false
+          });
+        }
+        new ResizeObserver(() => updateTabBarOverflow(node)).observe(tabBar);
+      }
+      function updateTabBarOverflow(node) {
+        const tabBar = node._previewTabBar;
+        if (!tabBar || tabBar.style.display === "none" || !tabBar.children.length) {
+          return;
+        }
+        const gap = 4;
+        let totalWidth = 0;
+        for (let c = 0; c < tabBar.children.length; c++) {
+          totalWidth += tabBar.children[c].offsetWidth;
+        }
+        totalWidth += gap * Math.max(0, tabBar.children.length - 1);
+        const availableWidth = tabBar.clientWidth - 16;
+        if (totalWidth > availableWidth) {
+          tabBar.style.justifyContent = "flex-start";
+          tabBar.style.overflowX = "scroll";
+        } else {
+          tabBar.style.justifyContent = "center";
+          tabBar.style.overflowX = "hidden";
+        }
+      }
+      function updatePreviewDisplay(node) {
+        const content = node._previewContent;
+        const tabBar = node._previewTabBar;
+        if (!content || !tabBar) {
+          return;
+        }
+        const items = node._previewItems ?? [];
+        const total = node._totalImages ?? 0;
+        if (!items.length || total === 0) {
+          content.innerHTML = "";
+          tabBar.style.display = "none";
+          return;
+        }
+        if (total >= 2) {
+          tabBar.style.display = "flex";
+          tabBar.innerHTML = "";
+          for (let i = 0; i < total; i++) {
+            const tab = document.createElement("button");
+            tab.textContent = String(i + 1);
+            const selected = i === node._currentImageIndex;
+            Object.assign(tab.style, {
+              padding: "2px 10px",
+              border: selected ? "1px solid rgba(80, 120, 200, 0.9)" : "1px solid transparent",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontFamily: "Arial, sans-serif",
+              background: selected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)",
+              color: selected ? "#fff" : "#aaa",
+              outline: "none",
+              lineHeight: "1.4",
+              flexShrink: "0"
+            });
+            const idx = i;
+            tab.addEventListener("click", () => {
+              node._currentImageIndex = idx;
+              updatePreviewDisplay(node);
+            });
+            tabBar.appendChild(tab);
+          }
+          if (!tabBar._hasWheelHandler) {
+            tabBar.addEventListener("wheel", (e) => {
+              if (tabBar.scrollWidth > tabBar.clientWidth) {
+                e.preventDefault();
+                e.stopPropagation();
+                tabBar.scrollLeft += e.deltaY;
+              }
+            }, { passive: false });
+            tabBar._hasWheelHandler = true;
+          }
+          requestAnimationFrame(() => updateTabBarOverflow(node));
+        } else {
+          tabBar.style.display = "none";
+        }
+        const itemIdx = Math.min(node._currentImageIndex, items.length - 1);
+        const item = items[itemIdx];
+        content.innerHTML = "";
+        if (!item) {
+          return;
+        }
+        if (item.type === "image") {
+          Object.assign(content.style, {
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0"
+          });
+          const img = item.element.cloneNode(true);
+          Object.assign(img.style, {
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain"
+          });
+          content.appendChild(img);
+        } else if (item.type === "text") {
+          Object.assign(content.style, {
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "stretch",
+            justifyContent: "stretch",
+            padding: "0"
+          });
+          const textarea = document.createElement("textarea");
+          textarea.readOnly = true;
+          textarea.value = item.text;
+          Object.assign(textarea.style, {
+            width: "100%",
+            height: "100%",
+            resize: "none",
+            boxSizing: "border-box"
+          });
+          textarea.classList.add("comfy-multiline-input");
+          content.appendChild(textarea);
+        }
       }
       function resetPreviewState(node) {
         node._currentImageIndex = 0;
         node._previewItems = [];
         node._totalImages = 0;
-        node._tabHitAreas = [];
-      }
-      function wrapText(ctx, text, maxWidth) {
-        const words = text.split(" ");
-        const lines = [];
-        let currentLine = "";
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          if (ctx.measureText(testLine).width > maxWidth && currentLine) {
-            lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        if (currentLine) {
-          lines.push(currentLine);
-        }
-        return lines.length ? lines : [""];
+        updatePreviewDisplay(node);
       }
       nodeType.prototype.selectImage = function(index) {
         if (index < 0 || index >= this._totalImages) {
           return;
         }
         this._currentImageIndex = index;
-        this.graph?.setDirtyCanvas?.(true, true);
+        updatePreviewDisplay(this);
       };
       nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
-        logger_internal.debug(`onConnectInput called ${_type}
-	Node: ${_sourceNode.properties["Node name for S&R"] ?? _sourceNode}`);
+        log.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
         return true;
       };
       const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
@@ -1485,117 +1622,6 @@ function configureDynamicPreview() {
         if (!ctx || IsNodes2Mode()) {
           return;
         }
-        const node = this;
-        const items = node._previewItems ?? [];
-        if (!items.length || node._totalImages === 0) {
-          return;
-        }
-        const idx = Math.min(node._currentImageIndex, items.length - 1);
-        const item = items[idx];
-        if (!item) {
-          return;
-        }
-        const slotHeight = GetLgSlotHeight();
-        const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
-        const showTabs = node._totalImages >= 2;
-        const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
-        const previewY = inputsHeight + tabBarHeight;
-        const previewHeight = node.size[1] - previewY;
-        const previewWidth = node.size[0];
-        if (previewHeight < 50) {
-          return;
-        }
-        if (item.type === "image") {
-          const img = item.element;
-          if (!img?.complete || img.naturalWidth === 0) {
-            return;
-          }
-          const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
-          const drawWidth = img.width * scale;
-          const drawHeight = img.height * scale;
-          const drawX = (previewWidth - drawWidth) / 2;
-          const drawY = previewY + (previewHeight - drawHeight) / 2;
-          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        } else if (item.type === "text") {
-          ctx.save();
-          const padding = 14;
-          const margin = 6;
-          const lineHeight = 22;
-          const fontSize = 15;
-          const panelX = margin;
-          const panelY = previewY + margin;
-          const panelWidth = previewWidth - margin * 2;
-          const panelHeight = previewHeight - margin * 2;
-          ctx.fillStyle = "rgba(24, 24, 28, 0.95)";
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 6);
-          } else {
-            ctx.rect(panelX, panelY, panelWidth, panelHeight);
-          }
-          ctx.fill();
-          ctx.fillStyle = "#c8c8cc";
-          ctx.font = `${fontSize}px monospace`;
-          ctx.textAlign = "left";
-          ctx.textBaseline = "top";
-          const textMaxWidth = panelWidth - padding * 2;
-          const lines = item.text.split("\n");
-          let y = panelY + padding;
-          const yLimit = panelY + panelHeight - padding;
-          for (const line of lines) {
-            const wrappedLines = wrapText(ctx, line, textMaxWidth);
-            for (const wrappedLine of wrappedLines) {
-              if (y + lineHeight > yLimit) {
-                ctx.fillStyle = "#888";
-                ctx.font = `${fontSize - 2}px monospace`;
-                ctx.fillText("…", panelX + padding, y);
-                ctx.restore();
-                return;
-              }
-              ctx.fillText(wrappedLine, panelX + padding, y);
-              y += lineHeight;
-            }
-          }
-          ctx.restore();
-        }
-        if (showTabs) {
-          const tabY = inputsHeight;
-          const tabWidths = measureTabWidths(ctx, node._totalImages);
-          const totalTabWidth = tabWidths.reduce((a, b) => a + b, 0) + TAB_GAP * (node._totalImages - 1);
-          let tabX = (node.size[0] - totalTabWidth) / 2;
-          node._tabHitAreas = [];
-          for (let i = 0; i < node._totalImages; i++) {
-            const tabWidth = tabWidths[i];
-            const isSelected = i === node._currentImageIndex;
-            ctx.fillStyle = isSelected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)";
-            ctx.beginPath();
-            if (ctx.roundRect) {
-              ctx.roundRect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4, 4);
-            } else {
-              ctx.rect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4);
-            }
-            ctx.fill();
-            ctx.fillStyle = isSelected ? "#fff" : "#aaa";
-            ctx.font = "12px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2);
-            node._tabHitAreas.push({ x: tabX, y: tabY, width: tabWidth, height: TAB_BAR_HEIGHT, index: i });
-            tabX += tabWidth + TAB_GAP;
-          }
-        }
-      };
-      const prevOnMouseDown = nodeType.prototype.onMouseDown;
-      nodeType.prototype.onMouseDown = function(e, pos, canvas) {
-        if (this._tabHitAreas?.length) {
-          for (const area of this._tabHitAreas) {
-            if (pos[0] >= area.x && pos[0] <= area.x + area.width && pos[1] >= area.y && pos[1] <= area.y + area.height) {
-              this.selectImage(area.index);
-              return true;
-            }
-          }
-        }
-        return prevOnMouseDown?.call(this, e, pos, canvas) ?? false;
       };
       const prevOnExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function(message) {
@@ -1632,8 +1658,7 @@ function configureDynamicPreview() {
         node._previewItems = previewItems;
         node._totalImages = previewItems.length;
         node._currentImageIndex = Math.min(node._currentImageIndex ?? 0, Math.max(0, node._totalImages - 1));
-        node._tabHitAreas = [];
-        this.graph?.setDirtyCanvas?.(true, true);
+        updatePreviewDisplay(node);
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
@@ -1725,6 +1750,7 @@ function configureDynamicPreview() {
           }
         }
         this.imgs = null;
+        createPreviewWidget(this);
         const pending = consumePendingConnection();
         const loading = IsGraphLoading();
         DeferMicrotask(() => {

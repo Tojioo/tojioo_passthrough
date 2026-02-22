@@ -1,6 +1,6 @@
-﻿import {consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgSlotHeight, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
+﻿import {consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-import {ANY_TYPE, MAX_SOCKETS, TAB_BAR_HEIGHT, TAB_GAP, TAB_PADDING} from '@/types/tojioo';
+import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import logger_internal, {loggerInstance} from '@/logger_internal';
 
 type PreviewItem = | { type: "image"; element: HTMLImageElement } | { type: "text"; text: string };
@@ -23,7 +23,6 @@ export function configureDynamicPreview(): ComfyExtension
 			(nodeType.prototype as any)._currentImageIndex = 0;
 			(nodeType.prototype as any)._previewItems = [] as PreviewItem[];
 			(nodeType.prototype as any)._totalImages = 0;
-			(nodeType.prototype as any)._tabHitAreas = [];
 
 			function normalizeInputs(node: any): void
 			{
@@ -123,15 +122,212 @@ export function configureDynamicPreview(): ComfyExtension
 				GetGraph(node)?.setDirtyCanvas?.(true, true);
 			}
 
-			function measureTabWidths(ctx: CanvasRenderingContext2D, count: number): number[]
+			function createPreviewWidget(node: any): void
 			{
-				ctx.font = "12px Arial";
-				const widths: number[] = [];
-				for (let i = 1; i <= count; i++)
+				if (node._previewContainer)
 				{
-					widths.push(ctx.measureText(String(i)).width + TAB_PADDING * 2);
+					return;
 				}
-				return widths;
+
+				const container = document.createElement("div");
+				Object.assign(container.style, {
+					display: "flex",
+					flexDirection: "column",
+					width: "100%",
+					height: "100%",
+					overflow: "hidden",
+					background: "transparent"
+				});
+
+				const tabBar = document.createElement("div");
+				Object.assign(tabBar.style, {
+					display: "none",
+					flexDirection: "row",
+					justifyContent: "center",
+					gap: "4px",
+					padding: "4px 8px 0 8px",
+					marginBottom: "6px",
+					flexShrink: "0",
+					overflowX: "hidden",
+					overflowY: "hidden",
+					scrollbarWidth: "thin",
+					scrollbarColor: "rgba(255,255,255,0.3) transparent"
+				});
+
+				const content = document.createElement("div");
+				Object.assign(content.style, {
+					flex: "1",
+					overflow: "hidden",
+					position: "relative",
+					minHeight: "60px"
+				});
+
+				container.appendChild(tabBar);
+				container.appendChild(content);
+
+				node._previewContainer = container;
+				node._previewTabBar = tabBar;
+				node._previewContent = content;
+
+				if (typeof node.addDOMWidget === "function")
+				{
+					node._previewWidget = node.addDOMWidget("preview_display", "customtext", container, {
+						serialize: false
+					});
+				}
+
+				new ResizeObserver(() => updateTabBarOverflow(node)).observe(tabBar);
+			}
+
+			function updateTabBarOverflow(node: any): void
+			{
+				const tabBar = node._previewTabBar as HTMLElement | undefined;
+				if (!tabBar || tabBar.style.display === "none" || !tabBar.children.length)
+				{
+					return;
+				}
+
+				const gap = 4;
+				let totalWidth = 0;
+				for (let c = 0; c < tabBar.children.length; c++)
+				{
+					totalWidth += (tabBar.children[c] as HTMLElement).offsetWidth;
+				}
+				totalWidth += gap * Math.max(0, tabBar.children.length - 1);
+				const availableWidth = tabBar.clientWidth - 16;
+
+				if (totalWidth > availableWidth)
+				{
+					tabBar.style.justifyContent = "flex-start";
+					tabBar.style.overflowX = "scroll";
+				}
+				else
+				{
+					tabBar.style.justifyContent = "center";
+					tabBar.style.overflowX = "hidden";
+				}
+			}
+
+			function updatePreviewDisplay(node: any): void
+			{
+				const content = node._previewContent as HTMLElement | undefined;
+				const tabBar = node._previewTabBar as HTMLElement | undefined;
+				if (!content || !tabBar)
+				{
+					return;
+				}
+
+				const items: PreviewItem[] = node._previewItems ?? [];
+				const total = node._totalImages ?? 0;
+
+				if (!items.length || total === 0)
+				{
+					content.innerHTML = "";
+					tabBar.style.display = "none";
+					return;
+				}
+
+				if (total >= 2)
+				{
+					tabBar.style.display = "flex";
+					tabBar.innerHTML = "";
+					for (let i = 0; i < total; i++)
+					{
+						const tab = document.createElement("button");
+						tab.textContent = String(i + 1);
+						const selected = i === node._currentImageIndex;
+						Object.assign(tab.style, {
+							padding: "2px 10px",
+							border: selected ? "1px solid rgba(80, 120, 200, 0.9)" : "1px solid transparent",
+							borderRadius: "4px",
+							cursor: "pointer",
+							fontSize: "12px",
+							fontFamily: "Arial, sans-serif",
+							background: selected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)",
+							color: selected ? "#fff" : "#aaa",
+							outline: "none",
+							lineHeight: "1.4",
+							flexShrink: "0"
+						});
+						const idx = i;
+						tab.addEventListener("click", () =>
+						{
+							node._currentImageIndex = idx;
+							updatePreviewDisplay(node);
+						});
+						tabBar.appendChild(tab);
+					}
+
+					if (!(tabBar as any)._hasWheelHandler)
+					{
+						tabBar.addEventListener("wheel", (e: WheelEvent) =>
+						{
+							if (tabBar.scrollWidth > tabBar.clientWidth)
+							{
+								e.preventDefault();
+								e.stopPropagation();
+								tabBar.scrollLeft += e.deltaY;
+							}
+						}, {passive: false});
+						(tabBar as any)._hasWheelHandler = true;
+					}
+
+					requestAnimationFrame(() => updateTabBarOverflow(node));
+				}
+				else
+				{
+					tabBar.style.display = "none";
+				}
+
+				const itemIdx = Math.min(node._currentImageIndex, items.length - 1);
+				const item = items[itemIdx];
+				content.innerHTML = "";
+
+				if (!item)
+				{
+					return;
+				}
+
+				if (item.type === "image")
+				{
+					Object.assign(content.style, {
+						overflow: "hidden",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						padding: "0"
+					});
+
+					const img = item.element.cloneNode(true) as HTMLImageElement;
+					Object.assign(img.style, {
+						maxWidth: "100%",
+						maxHeight: "100%",
+						objectFit: "contain"
+					});
+					content.appendChild(img);
+				}
+				else if (item.type === "text")
+				{
+					Object.assign(content.style, {
+						overflow: "hidden",
+						display: "flex",
+						alignItems: "stretch",
+						justifyContent: "stretch",
+						padding: "0"
+					});
+
+					const textarea = document.createElement("textarea");
+					textarea.readOnly = true;
+					textarea.value = item.text;
+					Object.assign(textarea.style, {
+						width: "100%",
+						height: "100%",
+						resize: "none",
+						boxSizing: "border-box"
+					});
+					textarea.classList.add("comfy-multiline-input");
+					content.appendChild(textarea);
+				}
 			}
 
 			function resetPreviewState(node: any): void
@@ -139,35 +335,7 @@ export function configureDynamicPreview(): ComfyExtension
 				node._currentImageIndex = 0;
 				node._previewItems = [];
 				node._totalImages = 0;
-				node._tabHitAreas = [];
-			}
-
-			function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[]
-			{
-				const words = text.split(" ");
-				const lines: string[] = [];
-				let currentLine = "";
-
-				for (const word of words)
-				{
-					const testLine = currentLine ? `${currentLine} ${word}` : word;
-					if (ctx.measureText(testLine).width > maxWidth && currentLine)
-					{
-						lines.push(currentLine);
-						currentLine = word;
-					}
-					else
-					{
-						currentLine = testLine;
-					}
-				}
-
-				if (currentLine)
-				{
-					lines.push(currentLine);
-				}
-
-				return lines.length ? lines : [""];
+				updatePreviewDisplay(node);
 			}
 
 			(nodeType.prototype as any).selectImage = function(this: any, index: number): void
@@ -177,7 +345,7 @@ export function configureDynamicPreview(): ComfyExtension
 					return;
 				}
 				this._currentImageIndex = index;
-				this.graph?.setDirtyCanvas?.(true, true);
+				updatePreviewDisplay(this);
 			};
 
 			nodeType.prototype.onConnectInput = function(
@@ -189,7 +357,7 @@ export function configureDynamicPreview(): ComfyExtension
 				_sourceSlot: number
 			): boolean
 			{
-				logger_internal.debug(`onConnectInput called ${_type}\n\tNode: ${_sourceNode.properties["Node name for S&R"] ?? _sourceNode}`);
+				log.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
 				return true;
 			};
 
@@ -220,166 +388,10 @@ export function configureDynamicPreview(): ComfyExtension
 			nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement)
 			{
 				prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-
 				if (!ctx || IsNodes2Mode())
 				{
 					return;
 				}
-
-				const node = this as any;
-				const items: PreviewItem[] = node._previewItems ?? [];
-				if (!items.length || node._totalImages === 0)
-				{
-					return;
-				}
-
-				const idx = Math.min(node._currentImageIndex, items.length - 1);
-				const item = items[idx];
-				if (!item)
-				{
-					return;
-				}
-
-				const slotHeight = GetLgSlotHeight();
-				const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
-				const showTabs = node._totalImages >= 2;
-				const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
-				const previewY = inputsHeight + tabBarHeight;
-				const previewHeight = node.size[1] - previewY;
-				const previewWidth = node.size[0];
-
-				if (previewHeight < 50)
-				{
-					return;
-				}
-
-				if (item.type === "image")
-				{
-					const img = item.element;
-					if (!img?.complete || img.naturalWidth === 0)
-					{
-						return;
-					}
-
-					const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
-					const drawWidth = img.width * scale;
-					const drawHeight = img.height * scale;
-					const drawX = (previewWidth - drawWidth) / 2;
-					const drawY = previewY + (previewHeight - drawHeight) / 2;
-
-					ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-				}
-				else if (item.type === "text")
-				{
-					ctx.save();
-
-					const padding = 14;
-					const margin = 6;
-					const lineHeight = 22;
-					const fontSize = 15;
-
-					const panelX = margin;
-					const panelY = previewY + margin;
-					const panelWidth = previewWidth - margin * 2;
-					const panelHeight = previewHeight - margin * 2;
-
-					ctx.fillStyle = "rgba(24, 24, 28, 0.95)";
-					ctx.beginPath();
-					if ((ctx as any).roundRect)
-					{
-						(ctx as any).roundRect(panelX, panelY, panelWidth, panelHeight, 6);
-					}
-					else
-					{
-						ctx.rect(panelX, panelY, panelWidth, panelHeight);
-					}
-					ctx.fill();
-
-					ctx.fillStyle = "#c8c8cc";
-					ctx.font = `${fontSize}px monospace`;
-					ctx.textAlign = "left";
-					ctx.textBaseline = "top";
-
-					const textMaxWidth = panelWidth - padding * 2;
-					const lines = item.text.split("\n");
-					let y = panelY + padding;
-					const yLimit = panelY + panelHeight - padding;
-
-					for (const line of lines)
-					{
-						const wrappedLines = wrapText(ctx, line, textMaxWidth);
-						for (const wrappedLine of wrappedLines)
-						{
-							if (y + lineHeight > yLimit)
-							{
-								ctx.fillStyle = "#888";
-								ctx.font = `${fontSize - 2}px monospace`;
-								ctx.fillText("…", panelX + padding, y);
-								ctx.restore();
-								return;
-							}
-							ctx.fillText(wrappedLine, panelX + padding, y);
-							y += lineHeight;
-						}
-					}
-
-					ctx.restore();
-				}
-
-				if (showTabs)
-				{
-					const tabY = inputsHeight;
-					const tabWidths = measureTabWidths(ctx, node._totalImages);
-					const totalTabWidth = tabWidths.reduce((a: number, b: number) => a + b, 0) + TAB_GAP * (node._totalImages - 1);
-					let tabX = (node.size[0] - totalTabWidth) / 2;
-
-					node._tabHitAreas = [];
-
-					for (let i = 0; i < node._totalImages; i++)
-					{
-						const tabWidth = tabWidths[i];
-						const isSelected = i === node._currentImageIndex;
-
-						ctx.fillStyle = isSelected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)";
-						ctx.beginPath();
-						if ((ctx as any).roundRect)
-						{
-							(ctx as any).roundRect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4, 4);
-						}
-						else
-						{
-							ctx.rect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4);
-						}
-						ctx.fill();
-
-						ctx.fillStyle = isSelected ? "#fff" : "#aaa";
-						ctx.font = "12px Arial";
-						ctx.textAlign = "center";
-						ctx.textBaseline = "middle";
-						ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2);
-
-						node._tabHitAreas.push({x: tabX, y: tabY, width: tabWidth, height: TAB_BAR_HEIGHT, index: i});
-						tabX += tabWidth + TAB_GAP;
-					}
-				}
-			};
-
-			const prevOnMouseDown = nodeType.prototype.onMouseDown;
-			nodeType.prototype.onMouseDown = function(this: any, e, pos, canvas)
-			{
-				if (this._tabHitAreas?.length)
-				{
-					for (const area of this._tabHitAreas)
-					{
-						if (pos[0] >= area.x && pos[0] <= area.x + area.width &&
-							pos[1] >= area.y && pos[1] <= area.y + area.height)
-						{
-							this.selectImage(area.index);
-							return true;
-						}
-					}
-				}
-				return prevOnMouseDown?.call(this, e, pos, canvas) ?? false;
 			};
 
 			const prevOnExecuted = (nodeType.prototype as any).onExecuted;
@@ -429,9 +441,8 @@ export function configureDynamicPreview(): ComfyExtension
 				node._previewItems = previewItems;
 				node._totalImages = previewItems.length;
 				node._currentImageIndex = Math.min(node._currentImageIndex ?? 0, Math.max(0, node._totalImages - 1));
-				node._tabHitAreas = [];
 
-				this.graph?.setDirtyCanvas?.(true, true);
+				updatePreviewDisplay(node);
 			};
 
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -568,6 +579,8 @@ export function configureDynamicPreview(): ComfyExtension
 					}
 				}
 				(this as any).imgs = null;
+
+				createPreviewWidget(this);
 
 				const pending = consumePendingConnection();
 

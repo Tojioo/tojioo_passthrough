@@ -9,6 +9,7 @@ app.registerExtension({
 	{
 		InstallGraphLoadingHook(app);
 		configureSlotMenu("BUS", "PT_DynamicBus", "Dynamic Bus");
+		// Todo: Add all dynamic nodes to slot menu
 		configureSlotMenu(
 			["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"],
 			["PT_DynamicPreview", "Dynamic Preview"]
