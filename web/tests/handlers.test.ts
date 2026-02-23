@@ -587,7 +587,8 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 			{
 				const origin = {id: 40, outputs: [{type: "IMAGE"}]};
 				ctx.nodes[origin.id] = origin;
-				const link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 10, origin});
+
+				let link: any;
 
 				return [
 					{
@@ -601,7 +602,11 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						},
 					},
 					{
-						act: () => applyInputChange(ctx, 0, true, link),
+						act: () =>
+						{
+							link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 10, origin});
+							return applyInputChange(ctx, 0, true, link);
+						},
 						assert: () =>
 						{
 							expect(ctx.node.inputs[0].type).toBe("IMAGE");
@@ -656,7 +661,7 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 			},
 		},
 		{
-			name: "labels untyped slots as 'value'",
+			name: "labels untyped slots as 'input'",
 			steps: (ctx) =>
 			{
 				return [
@@ -668,14 +673,14 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						},
 						assert: () =>
 						{
-							expect(ctx.node.inputs[0].label).toBe("value");
+							expect(ctx.node.inputs[0].label).toBe("input");
 						},
 					},
 				];
 			},
 		},
 		{
-			name: "labels typed slot by type, untyped as 'value'",
+			name: "labels typed slot by type, untyped as 'input'",
 			steps: (ctx) =>
 			{
 				const origin = {id: 41, outputs: [{type: "IMAGE"}]};
@@ -701,8 +706,7 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						assert: () =>
 						{
 							expect(ctx.node.inputs[0].label).toBe("image");
-							expect(ctx.node.inputs[1].label).toBe("value");
-						},
+							expect(ctx.node.inputs[1].label).toBe("input");						},
 					},
 				];
 			},
@@ -767,7 +771,8 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 			{
 				const origin = {id: 42, outputs: [{type: "STRING"}]};
 				ctx.nodes[origin.id] = origin;
-				const link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 12, origin});
+
+				let link: any;
 
 				return [
 					{
@@ -781,7 +786,11 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						},
 					},
 					{
-						act: () => applyInputChange(ctx, 0, true, link),
+						act: () =>
+						{
+							link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 12, origin});
+							return applyInputChange(ctx, 0, true, link);
+						},
 						assert: () =>
 						{
 							expect(ctx.node.inputs[0].type).toBe("STRING");
@@ -832,6 +841,30 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						{
 							expect(ctx.node.inputs[0].name).toBe("input_1");
 							expect(ctx.node.inputs[0].label).toBe("image");
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "creates DOM preview widget on add",
+			steps: (ctx) =>
+			{
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+							expect(ctx.node.addDOMWidget).toHaveBeenCalledWith(
+								"preview_display", "customtext", expect.anything(), {serialize: false}
+							);
+							expect(ctx.node._previewContainer).toBeDefined();
+							expect(ctx.node._previewTabBar).toBeDefined();
+							expect(ctx.node._previewContent).toBeDefined();
 						},
 					},
 				];

@@ -75,6 +75,85 @@ export function installTestGlobals(): void
 
 		(globalThis as any).Image = ImageMock;
 	}
+
+	if (typeof globalThis.document === "undefined")
+	{
+		const stubStyle = () => new Proxy({}, {set: () => true, get: () => ""});
+		const stubElement = (tag: string): any =>
+		{
+			const children: any[] = [];
+			return {
+				tagName: tag.toUpperCase(),
+				style: stubStyle(),
+				children,
+				childNodes: children,
+				classList: {add: () => {}, remove: () => {}, contains: () => false},
+				appendChild(child: any)
+				{
+					children.push(child);
+					return child;
+				},
+				removeChild(child: any)
+				{
+					const idx = children.indexOf(child);
+					if (idx >= 0) children.splice(idx, 1);
+					return child;
+				},
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				setAttribute: () => {},
+				getAttribute: () => null,
+				get innerHTML()
+				{
+					return "";
+				},
+				set innerHTML(_v: string)
+				{
+					children.length = 0;
+				},
+				get textContent()
+				{
+					return "";
+				},
+				set textContent(_v: string)
+				{
+				},
+				get offsetWidth()
+				{
+					return 40;
+				},
+				get clientWidth()
+				{
+					return 200;
+				},
+				get scrollWidth()
+				{
+					return 200;
+				},
+				scrollLeft: 0,
+				readOnly: false,
+				value: "",
+				cloneNode()
+				{
+					return stubElement(tag);
+				},
+			};
+		};
+
+		(globalThis as any).document = {
+			createElement: (tag: string) => stubElement(tag),
+		};
+	}
+
+	if (typeof globalThis.ResizeObserver === "undefined")
+	{
+		(globalThis as any).ResizeObserver = class
+		{
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		};
+	}
 }
 
 export function makeGraph(links: Record<number, Link> = {}, nodes: Record<number, any> = {}): Graph
@@ -127,6 +206,7 @@ export function makeNode(
 		},
 		computeSize: () => [120, 40] as [number, number],
 		setSize: vi.fn(),
+		addDOMWidget: vi.fn((_name: string, _type: string, _element: any, _options?: any) => ({name: _name, type: _type, element: _element})),
 		rootGraph: graph,
 		properties: {},
 		widgets: [],

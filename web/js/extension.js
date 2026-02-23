@@ -1740,6 +1740,10 @@ function configureDynamicPreview() {
           }
         }, 100);
       };
+      nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function() {
+        log.debug("created");
+      };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);

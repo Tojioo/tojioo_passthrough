@@ -565,6 +565,12 @@ export function configureDynamicPreview(): ComfyExtension
 				}, 100);
 			};
 
+			// Todo: Make use of this
+			const prevOnNodeCreated = nodeType.prototype.onNodeCreated;
+			nodeType.prototype.onNodeCreated = function(){
+				log.debug("created");
+			}
+
 			const prevOnAdded = nodeType.prototype.onAdded;
 			nodeType.prototype.onAdded = function()
 			{
