@@ -8,13 +8,13 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 * **Conditioning Passthrough**: Positive and negative conditioning. Handles missing/muted inputs.
 * **Multi-Passthrough Hub**: Optional inputs with typed outputs.
 * **Utility Nodes**:
-  + Dual CLIP Text Encode: Encodes positive and negative prompts into conditioning using a shared CLIP model.
-  + Tiled VAE Settings: Provides tiled VAE encoding/decoding settings as connectable outputs.
+	+ Dual CLIP Text Encode: Encodes positive and negative prompts into conditioning using a shared CLIP model.
+	+ Tiled VAE Settings: Provides tiled VAE encoding/decoding settings as connectable outputs.
 * **Dynamic Nodes**:
-  + Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
-  + Dynamic Any: Single input passthrough with type mirroring
-  + Dynamic Bus: Context/bus for carrying multiple typed values
-  + Dynamic Preview: Tabbed multi-input preview with interactive controls
+	+ Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
+	+ Dynamic Any: Single input passthrough with type mirroring
+	+ Dynamic Bus: Context/bus for carrying multiple typed values
+	+ Dynamic Preview: Tabbed multi-input preview for any data type
 * **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
 * **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
 
@@ -50,16 +50,16 @@ Restart ComfyUI.
 
 * Purpose: Encode a positive and negative text prompt into conditioning using a single shared CLIP model, keeping the two encode nodes consolidated.
 * Behaviour:
-  + Accepts one CLIP input and two text widgets (positive, negative)
-  + Outputs separate `positive` and `negative` CONDITIONING values
+	+ Accepts one CLIP input and two text widgets (positive, negative)
+	+ Outputs separate `positive` and `negative` CONDITIONING values
 
 #### Tiled VAE Settings
 
 * Purpose: Bundle tiled VAE encoding/decoding parameters into connectable outputs so they can be routed cleanly through subgraphs without wiring individual widgets.
 * Behaviour:
-  + Exposes `tile_size`, `overlap`, `temporal_size`, and `temporal_overlap` as typed outputs
-  + Default values: tile_size 512, overlap 64, temporal_size 64, temporal_overlap 8
-  + All values are adjustable via the built-in widget controls
+	+ Exposes `tile_size`, `overlap`, `temporal_size`, and `temporal_overlap` as typed outputs
+	+ Default values: tile_size 512, overlap 64, temporal_size 64, temporal_overlap 8
+	+ All values are adjustable via the built-in widget controls
 
 #### Example:
 
@@ -72,10 +72,10 @@ Restart ComfyUI.
 
 * Purpose: Combine multiple compatible inputs into a single batch while keeping wiring tidy.
 * Behaviour:
-  + Starts with one slot, adds a new slot when the last one gets connected
-  + With a single connected input, passes through unchanged
-  + With multiple connected inputs, builds a batch when shapes are compatible
-  + Muted or bypassed upstream nodes are treated as missing and ignored
+	+ Starts with one slot, adds a new slot when the last one gets connected
+	+ With a single connected input, passes through unchanged
+	+ With multiple connected inputs, builds a batch when shapes are compatible
+	+ Muted or bypassed upstream nodes are treated as missing and ignored
 
 #### Example:
 
@@ -87,9 +87,9 @@ Restart ComfyUI.
 
 * Purpose: Select the first valid connected input, based on slot order.
 * Behaviour:
-  + Dynamic inputs auto-add slots
-  + Returns the first connected input by slot number
-  + Muted or bypassed upstream nodes are treated as missing and ignored
+	+ Dynamic inputs auto-add slots
+	+ Returns the first connected input by slot number
+	+ Muted or bypassed upstream nodes are treated as missing and ignored
 
 #### Example:
 
@@ -101,9 +101,9 @@ Restart ComfyUI.
 
 * Purpose: A flexible multi-input passthrough where slot types mirror what you connect.
 * Behaviour:
-  + Dynamic inputs and outputs, slots grow as you connect
-  + Output slot types mirror their corresponding connected input types
-  + Updates live as connections change
+	+ Dynamic inputs and outputs, slots grow as you connect
+	+ Output slot types mirror their corresponding connected input types
+	+ Updates live as connections change
 
 #### Example:
 
@@ -113,13 +113,12 @@ Restart ComfyUI.
 
 #### Dynamic Preview
 
-* Purpose: In-graph image viewer for quick A/B checks across multiple IMAGE inputs.
+* Purpose: In-graph viewer for inspecting any value across multiple inputs.
 * Behaviour:
-  + Accepts multiple IMAGE inputs and shows one at a time
-  + Switch between inputs via the built-in tab selector
-  + Includes interactive viewer controls
-  + No outputs, this node is a pure viewer
-  + Marked Beta because UI and behavior may change as the ComfyUI frontend evolves
+	+ Accepts any input type — slots grow dynamically as you connect
+	+ Images and masks display visually; all other types (strings, tensors, conditioning, etc.) display as formatted text
+	+ Switch between inputs via the built-in tab selector, which scrolls horizontally when tabs overflow the node width
+	+ No outputs, this node is a pure viewer
 
 #### Example (together with Dynamic Bus Node):
 
