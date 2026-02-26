@@ -22,6 +22,49 @@ export function consumePendingConnection(): PendingConnection | null
 	return pending;
 }
 
+export function connectPending(
+	node: any,
+	pending: PendingConnection | null,
+	slotFilter?: (index: number, pendingType: string) => boolean
+): void
+{
+	if (!pending?.sourceNode || !node.inputs?.length)
+	{
+		return;
+	}
+
+	const links = node.graph?.links;
+	if (links)
+	{
+		for (const inp of node.inputs)
+		{
+			if (inp?.link == null)
+			{
+				continue;
+			}
+			const lnk = links[inp.link];
+			if (lnk?.origin_id === pending.sourceNode.id && lnk?.origin_slot === pending.sourceSlot)
+			{
+				return;
+			}
+		}
+	}
+
+	const type = pending.type;
+	for (let i = 0; i < node.inputs.length; i++)
+	{
+		if (slotFilter && !slotFilter(i, type))
+		{
+			continue;
+		}
+		if (node.inputs[i]?.link == null)
+		{
+			pending.sourceNode.connect(pending.sourceSlot, node, i);
+			return;
+		}
+	}
+}
+
 function startConnectionPolling(): void
 {
 	if (_pollingStarted)

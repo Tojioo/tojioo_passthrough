@@ -1,4 +1,4 @@
-﻿import {consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
+﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import logger_internal, {loggerInstance} from '@/logger_internal';
@@ -357,7 +357,7 @@ export function configureDynamicPreview(): ComfyExtension
 				_sourceSlot: number
 			): boolean
 			{
-				log.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
+				logger_internal.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
 				return true;
 			};
 
@@ -565,12 +565,6 @@ export function configureDynamicPreview(): ComfyExtension
 				}, 100);
 			};
 
-			// Todo: Make use of this
-			const prevOnNodeCreated = nodeType.prototype.onNodeCreated;
-			nodeType.prototype.onNodeCreated = function(){
-				log.debug("created");
-			}
-
 			const prevOnAdded = nodeType.prototype.onAdded;
 			nodeType.prototype.onAdded = function()
 			{
@@ -611,14 +605,7 @@ export function configureDynamicPreview(): ComfyExtension
 						(this as any).__tojioo_skip_resize = false;
 					}
 
-					if (pending?.sourceNode && this.inputs?.length)
-					{
-						const firstFree = this.inputs.findIndex((inp: any) => inp?.link == null);
-						if (firstFree >= 0)
-						{
-							pending.sourceNode.connect(pending.sourceSlot, this, firstFree);
-						}
-					}
+					connectPending(this, pending);
 				});
 			};
 		}

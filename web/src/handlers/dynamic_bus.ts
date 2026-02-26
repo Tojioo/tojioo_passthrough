@@ -1,4 +1,4 @@
-﻿import {DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -515,6 +515,51 @@ export function configureDynamicBus(): ComfyExtension
 				synchronize(this);
 			};
 
+			nodeType.prototype.onConnectInput = function(
+				this: any,
+				targetSlot: number,
+				_type: ISlotType,
+				_output: any,
+				_sourceNode: any,
+				_sourceSlot: number
+			): boolean
+			{
+				return !(targetSlot === 0 && String(_type) !== BUS_TYPE);
+
+			};
+
+			const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+			nodeType.prototype.findInputSlotByType = function(
+				this: any,
+				type: ISlotType,
+				returnObj?: true | undefined,
+				preferFreeSlot?: boolean,
+				doNotUseOccupied?: boolean
+			): any
+			{
+				if (this.inputs)
+				{
+					if (String(type) === BUS_TYPE)
+					{
+						if (this.inputs[0]?.link == null)
+						{
+							return returnObj ? this.inputs[0] : 0;
+						}
+					}
+					else
+					{
+						for (let i = 1; i < this.inputs.length; i++)
+						{
+							if (this.inputs[i]?.link == null)
+							{
+								return returnObj ? this.inputs[i] : i;
+							}
+						}
+					}
+				}
+				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+			};
+
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
@@ -642,6 +687,9 @@ export function configureDynamicBus(): ComfyExtension
 			nodeType.prototype.onAdded = function(this)
 			{
 				prevOnAdded?.apply(this, arguments as any);
+
+				const pending = consumePendingConnection();
+
 				DeferMicrotask(() =>
 				{
 					try
@@ -652,6 +700,8 @@ export function configureDynamicBus(): ComfyExtension
 					{
 						log.error("error in onAdded", e);
 					}
+
+					connectPending(this, pending, (i, type) => type === BUS_TYPE ? i === 0 : i > 0);
 				});
 			};
 		}

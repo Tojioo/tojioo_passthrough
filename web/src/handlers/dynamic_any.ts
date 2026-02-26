@@ -1,4 +1,4 @@
-﻿import {DeferMicrotask, GetGraph, GetInputLink, GetLink, IsGraphLoading, ResolveConnectedType} from '@/utils';
+﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLink, IsGraphLoading, ResolveConnectedType} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -57,6 +57,34 @@ export function configureDynamicAny(): ComfyExtension
 				GetGraph(node)?.setDirtyCanvas?.(true, true);
 			}
 
+			nodeType.prototype.onConnectInput = function(
+				this: any,
+				_targetSlot: number,
+				_type: ISlotType,
+				_output: any,
+				_sourceNode: any,
+				_sourceSlot: number
+			): boolean
+			{
+				return true;
+			};
+
+			const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+			nodeType.prototype.findInputSlotByType = function(
+				this: any,
+				type: ISlotType,
+				returnObj?: true | undefined,
+				preferFreeSlot?: boolean,
+				doNotUseOccupied?: boolean
+			): any
+			{
+				if (this.inputs?.[0]?.link == null)
+				{
+					return returnObj ? this.inputs[0] : 0;
+				}
+				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+			};
+
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
@@ -109,6 +137,9 @@ export function configureDynamicAny(): ComfyExtension
 			nodeType.prototype.onAdded = function(this)
 			{
 				prevOnAdded?.apply(this, arguments as any);
+
+				const pending = consumePendingConnection();
+
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
@@ -128,6 +159,8 @@ export function configureDynamicAny(): ComfyExtension
 					{
 						(this as any).__tojioo_skip_resize = false;
 					}
+
+					connectPending(this, pending);
 				});
 			};
 		}

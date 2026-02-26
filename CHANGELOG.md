@@ -4,40 +4,16 @@ All notable changes are listed here.
 ## [1.7.1] - 2026-02-23
 ### Improved
 - **Dynamic Preview**:
-	- Removed "Beta" label. The node is now simply "Dynamic Preview".
-	- Accepts any input type, not just IMAGE. Images and masks display visually; all other types (strings, tensors, conditioning, etc.) display as formatted text.
-	- Rewrote the preview rendering from canvas-based drawing to DOM widgets, fixing text content overflowing and covering tab buttons.
-	- Tab bar now scrolls horizontally when tabs overflow the node width, and centers tabs when they fit.
-	- Tab bar layout responds to node resizing via `ResizeObserver`.
-	- Text previews use ComfyUI's native `comfy-multiline-input` textarea styling.
-- **Frontend**:
-	- Simplified new-menu detection in `compat.ts` to use the `Comfy.NodeDesign.Modern` setting.
-	- Replaced `RegisterSlotMenuEntries` / `RegisterSlotMenuEntriesBulk` with a unified `configureSlotMenu` API supporting single and bulk entry registration with optional display names.
-	- Slot menu entries now support display names, shown in the UI but resolved to the correct node type on creation.
-	- `Dynamic Preview` node is now registered in the slot menu for common types.
-	- Added `consumePendingConnection` utility for auto-connecting a dragged link to a newly created node.
-	- Introduced scoped logger instances via `loggerInstance()` for per-handler log prefixes.
-- **Backend**:
-	- `Dynamic Preview` now handles mask tensors (2D and batched 3D), rendering them as grayscale images.
-	- Non-image values are converted to descriptive text (tensor shape/dtype, conditioning entry count, JSON for lists/dicts, truncated strings).
-	- `Dynamic Bus` now includes a static `bus` slot in its optional inputs.
-	- `FlexibleOptionalInputType` supports pre-defined static keys with correct type-spec fallback for unknown keys.
+	- Removed "Beta" label.
+	- Accepts any input type, not just IMAGE. Images and masks display visually, all other types display as formatted text.
+	- Rewrote preview rendering to DOM widgets, fixing text overflow and tab button occlusion.
+	- Tab bar scrolls horizontally when tabs overflow and centers when they fit.
+- **Dynamic Nodes**:
+	- All dynamic nodes (Passthrough, Any, Bus, Preview) now appear in the slot menu when dragging a link, and auto-connect on creation.
 
 ### Internal
-- **Backend**:
-	- Renamed `logger.py` to `logger_internal.py` and updated all imports accordingly.
-- **Frontend**:
-	- Switched extension logging to use `logger_internal` with scoped instances.
-	- Added DOM mocks (`document`, `ResizeObserver`, `addDOMWidget`) to test helpers for DOM widget testing.
-	- Updated tests to reflect new import paths, API changes, and DOM-based preview architecture.
-	- Added test cases for clone stale-link clearing and DOM widget creation.
-
-### Internal
-- **Backend**:
-	- Renamed `logger.py` to `logger_internal.py` and updated all imports accordingly.
-- **Frontend**:
-	- Switched extension logging to use `logger_internal`.
-	- Updated tests to reflect new import paths and API changes.
+- Reorganized and standardized internal logging.
+- Expanded test coverage for DOM widgets, clone handling, and dynamic node behavior.
 
 ## [1.7.0] - 2026-02-20
 ### New Features

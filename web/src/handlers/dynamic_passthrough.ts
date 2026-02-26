@@ -1,4 +1,4 @@
-﻿import {ApplyDynamicTypes, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -75,6 +75,40 @@ export function configureDynamicPassthrough(): ComfyExtension
 				UpdateNodeSize(node, (node as any).__tojioo_dynamic_io_size_fixed || false);
 				(node as any).__tojioo_dynamic_io_size_fixed = true;
 			}
+
+			nodeType.prototype.onConnectInput = function(
+				this: any,
+				_targetSlot: number,
+				_type: ISlotType,
+				_output: any,
+				_sourceNode: any,
+				_sourceSlot: number
+			): boolean
+			{
+				return true;
+			};
+
+			const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+			nodeType.prototype.findInputSlotByType = function(
+				this: any,
+				type: ISlotType,
+				returnObj?: true | undefined,
+				preferFreeSlot?: boolean,
+				doNotUseOccupied?: boolean
+			): any
+			{
+				if (this.inputs)
+				{
+					for (let i = 0; i < this.inputs.length; i++)
+					{
+						if (this.inputs[i]?.link == null)
+						{
+							return returnObj ? this.inputs[i] : i;
+						}
+					}
+				}
+				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+			};
 
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this: any, type: number, index: number, isConnected: boolean, link_info: any, inputOrOutput: any)
@@ -224,6 +258,9 @@ export function configureDynamicPassthrough(): ComfyExtension
 			nodeType.prototype.onAdded = function(this: any)
 			{
 				prevOnAdded?.apply(this, arguments as any);
+
+				const pending = consumePendingConnection();
+
 				(this as any).__tojioo_dynamic_io_size_fixed = false;
 				DeferMicrotask(() =>
 				{
@@ -236,6 +273,8 @@ export function configureDynamicPassthrough(): ComfyExtension
 					{
 						log.error("error in onAdded", e);
 					}
+
+					connectPending(this, pending);
 				});
 			};
 		}

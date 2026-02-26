@@ -286,6 +286,33 @@ function consumePendingConnection() {
   _pendingConnection = null;
   return pending;
 }
+function connectPending(node, pending, slotFilter) {
+  if (!pending?.sourceNode || !node.inputs?.length) {
+    return;
+  }
+  const links = node.graph?.links;
+  if (links) {
+    for (const inp of node.inputs) {
+      if (inp?.link == null) {
+        continue;
+      }
+      const lnk = links[inp.link];
+      if (lnk?.origin_id === pending.sourceNode.id && lnk?.origin_slot === pending.sourceSlot) {
+        return;
+      }
+    }
+  }
+  const type = pending.type;
+  for (let i = 0; i < node.inputs.length; i++) {
+    if (slotFilter && !slotFilter(i, type)) {
+      continue;
+    }
+    if (node.inputs[i]?.link == null) {
+      pending.sourceNode.connect(pending.sourceSlot, node, i);
+      return;
+    }
+  }
+}
 function startConnectionPolling() {
   if (_pollingStarted) {
     return;
@@ -695,6 +722,16 @@ function configureDynamicAny() {
         }
         GetGraph(node)?.setDirtyCanvas?.(true, true);
       }
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs?.[0]?.link == null) {
+          return returnObj ? this.inputs[0] : 0;
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -729,6 +766,7 @@ function configureDynamicAny() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
           if (loading) {
@@ -741,6 +779,7 @@ function configureDynamicAny() {
           } finally {
             this.__tojioo_skip_resize = false;
           }
+          connectPending(this, pending);
         });
       };
     }
@@ -1089,6 +1128,26 @@ function configureDynamicBus() {
       nodeType.prototype.onBusChanged = function() {
         synchronize(this);
       };
+      nodeType.prototype.onConnectInput = function(targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return !(targetSlot === 0 && String(_type) !== BUS_TYPE);
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs) {
+          if (String(type) === BUS_TYPE) {
+            if (this.inputs[0]?.link == null) {
+              return returnObj ? this.inputs[0] : 0;
+            }
+          } else {
+            for (let i = 1; i < this.inputs.length; i++) {
+              if (this.inputs[i]?.link == null) {
+                return returnObj ? this.inputs[i] : i;
+              }
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -1173,12 +1232,14 @@ function configureDynamicBus() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         DeferMicrotask(() => {
           try {
             synchronize(this);
           } catch (e) {
             log$2.error("error in onAdded", e);
           }
+          connectPending(this, pending, (i, type) => type === BUS_TYPE ? i === 0 : i > 0);
         });
       };
     }
@@ -1233,6 +1294,20 @@ function configureDynamicPassthrough() {
         UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
         node.__tojioo_dynamic_io_size_fixed = true;
       }
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs) {
+          for (let i = 0; i < this.inputs.length; i++) {
+            if (this.inputs[i]?.link == null) {
+              return returnObj ? this.inputs[i] : i;
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -1333,6 +1408,7 @@ function configureDynamicPassthrough() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
           try {
@@ -1341,6 +1417,7 @@ function configureDynamicPassthrough() {
           } catch (e) {
             log$1.error("error in onAdded", e);
           }
+          connectPending(this, pending);
         });
       };
     }
@@ -1601,7 +1678,7 @@ function configureDynamicPreview() {
         updatePreviewDisplay(this);
       };
       nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
-        log.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
+        logger_internal.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
         return true;
       };
       const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
@@ -1740,10 +1817,6 @@ function configureDynamicPreview() {
           }
         }, 100);
       };
-      nodeType.prototype.onNodeCreated;
-      nodeType.prototype.onNodeCreated = function() {
-        log.debug("created");
-      };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
@@ -1769,12 +1842,7 @@ function configureDynamicPreview() {
           } finally {
             this.__tojioo_skip_resize = false;
           }
-          if (pending?.sourceNode && this.inputs?.length) {
-            const firstFree = this.inputs.findIndex((inp) => inp?.link == null);
-            if (firstFree >= 0) {
-              pending.sourceNode.connect(pending.sourceSlot, this, firstFree);
-            }
-          }
+          connectPending(this, pending);
         });
       };
     }
@@ -1855,21 +1923,23 @@ function configureSwitchNodes() {
     }
   };
 }
+const commonTypes = ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"];
 app.registerExtension({
   name: "Tojioo.Passthrough.Core",
   async setup() {
     InstallGraphLoadingHook(app);
-    configureSlotMenu("BUS", "PT_DynamicBus", "Dynamic Bus");
-    configureSlotMenu(
-      ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"],
+    configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
+    configureSlotMenu(commonTypes, [
+      ["PT_DynamicPassthrough", "Dynamic Passthrough"],
+      ["PT_DynamicAny", "Dynamic Any"],
       ["PT_DynamicPreview", "Dynamic Preview"]
-    );
+    ]);
     logger_internal.log(`Loaded Version ${"1.7.1"}`);
   }
 });
-app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureDynamicBus());
 app.registerExtension(configureDynamicPassthrough());
 app.registerExtension(configureDynamicPreview());
 app.registerExtension(configureDynamicAny());
+app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureSwitchNodes());

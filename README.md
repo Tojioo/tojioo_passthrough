@@ -4,19 +4,16 @@ Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-ty
 
 ### Nodes
 
-* **Simple Passthroughs**: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool. Muted or bypassed predecessor nodes are gracefully handled (treated as `None`).
-* **Conditioning Passthrough**: Positive and negative conditioning. Handles missing/muted inputs.
+* **Simple Passthroughs**: Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool, and Conditioning (positive/negative). Muted or bypassed predecessors are treated as `None`.
 * **Multi-Passthrough Hub**: Optional inputs with typed outputs.
-* **Utility Nodes**:
-	+ Dual CLIP Text Encode: Encodes positive and negative prompts into conditioning using a shared CLIP model.
-	+ Tiled VAE Settings: Provides tiled VAE encoding/decoding settings as connectable outputs.
-* **Dynamic Nodes**:
-	+ Dynamic Passthrough: Flexible multi-input passthrough with type mirroring
-	+ Dynamic Any: Single input passthrough with type mirroring
-	+ Dynamic Bus: Context/bus for carrying multiple typed values
-	+ Dynamic Preview: Tabbed multi-input preview for any data type
-* **Batch Switch Nodes**: Any Image, Mask, Latent, Conditioning Batch Switch
-* **Switch Nodes**: Any Image, Mask, Latent, CLIP, Model, VAE, ControlNet, SAM Model, String, Int, Float, Bool Switch
+* **Dynamic Passthrough**: Multi-input passthrough with automatic type mirroring.
+* **Dynamic Any**: Single-input passthrough with type mirroring.
+* **Dynamic Bus**: Carries multiple typed values through a single bus connection.
+* **Dynamic Preview**: Tabbed viewer for inspecting any data type in-graph.
+* **Batch Switch Nodes**: Combine compatible inputs into a single batch (Image, Mask, Latent, Conditioning).
+* **Switch Nodes**: Return the first valid connected input by slot order.
+* **Dual CLIP Text Encode**: Encodes positive and negative prompts using a shared CLIP model.
+* **Tiled VAE Settings**: Exposes tiled VAE parameters as connectable outputs.
 
 ### Install
 
