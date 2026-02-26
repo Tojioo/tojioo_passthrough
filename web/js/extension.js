@@ -1,5 +1,4 @@
 import { app } from "../../scripts/app.js";
-const LG_NODE_SLOT_HEIGHT = 20;
 const LG_OUTPUT = 2;
 const LG_INPUT = 1;
 function getLiteGraph() {
@@ -19,26 +18,12 @@ function GetLgOutput() {
   const lg = getLiteGraph();
   return lg?.OUTPUT ?? LG_OUTPUT;
 }
-function GetLgSlotHeight() {
-  const lg = getLiteGraph();
-  return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
-}
 function IsNodes2Mode() {
   try {
     const app2 = window.app;
     if (app2?.extensionManager?.setting?.get) {
-      const setting = app2.extensionManager.setting.get("Comfy.UseNewMenu");
-      if (setting === "Top" || setting === "Bottom") {
-        return true;
-      }
-    }
-    const lg = getLiteGraph();
-    if (!lg) {
-      return true;
-    }
-    if (typeof document !== "undefined") {
-      const vueCanvas = document.querySelector("[data-comfy-graph-canvas]");
-      if (vueCanvas) {
+      const nodes2 = app2.extensionManager.setting.get("Comfy.NodeDesign.Modern");
+      if (nodes2 === true) {
         return true;
       }
     }
@@ -292,31 +277,122 @@ function NormalizeInputs(node) {
   }
   ScheduleSizeUpdate(node);
 }
-function RegisterSlotMenuEntries(type, nodeTypes) {
+const _displayNameReverseMap = /* @__PURE__ */ new Map();
+let _createNodePatched = false;
+let _pollingStarted = false;
+let _pendingConnection = null;
+function consumePendingConnection() {
+  const pending = _pendingConnection;
+  _pendingConnection = null;
+  return pending;
+}
+function connectPending(node, pending, slotFilter) {
+  if (!pending?.sourceNode || !node.inputs?.length) {
+    return;
+  }
+  const links = node.graph?.links;
+  if (links) {
+    for (const inp of node.inputs) {
+      if (inp?.link == null) {
+        continue;
+      }
+      const lnk = links[inp.link];
+      if (lnk?.origin_id === pending.sourceNode.id && lnk?.origin_slot === pending.sourceSlot) {
+        return;
+      }
+    }
+  }
+  const type = pending.type;
+  for (let i = 0; i < node.inputs.length; i++) {
+    if (slotFilter && !slotFilter(i, type)) {
+      continue;
+    }
+    if (node.inputs[i]?.link == null) {
+      pending.sourceNode.connect(pending.sourceSlot, node, i);
+      return;
+    }
+  }
+}
+function startConnectionPolling() {
+  if (_pollingStarted) {
+    return;
+  }
+  _pollingStarted = true;
+  function poll() {
+    const canvas = window.app?.canvas;
+    const links = canvas?.connecting_links;
+    if (links?.length) {
+      const link = links[0];
+      _pendingConnection = {
+        sourceNode: link.node,
+        sourceSlot: link.slot ?? link.output?.slot_index ?? 0,
+        type: link.output?.type ?? link.type ?? "*"
+      };
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+}
+function configureSlotMenu(types, entriesOrNodeType, displayName) {
+  const typeList = Array.isArray(types) ? types : [types];
+  if (typeof entriesOrNodeType === "string") {
+    registerSlotEntries(typeList, entriesOrNodeType);
+    registerDisplayName(entriesOrNodeType, displayName);
+    return;
+  }
+  const entryList = Array.isArray(entriesOrNodeType[0]) ? entriesOrNodeType : [entriesOrNodeType];
+  for (const [nodeType, name] of entryList) {
+    registerSlotEntries(typeList, nodeType);
+    registerDisplayName(nodeType, name);
+  }
+}
+function registerSlotEntries(types, nodeType) {
   const lg = getLiteGraph();
   if (!lg) {
     return;
   }
-  if (!lg.slot_types_default_out) {
-    lg.slot_types_default_out = {};
-  }
-  if (!lg.slot_types_default_in) {
-    lg.slot_types_default_in = {};
-  }
-  if (!lg.slot_types_default_out[type]) {
-    lg.slot_types_default_out[type] = [];
-  }
-  if (!lg.slot_types_default_in[type]) {
-    lg.slot_types_default_in[type] = [];
-  }
-  for (const nodeType of nodeTypes) {
-    if (!lg.slot_types_default_out[type].includes(nodeType)) {
-      lg.slot_types_default_out[type].push(nodeType);
-    }
-    if (!lg.slot_types_default_in[type].includes(nodeType)) {
-      lg.slot_types_default_in[type].push(nodeType);
+  lg.slot_types_default_out ??= {};
+  lg.slot_types_default_in ??= {};
+  for (const type of types) {
+    for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in]) {
+      registry[type] ??= [];
+      if (!registry[type].includes(nodeType)) {
+        registry[type].push(nodeType);
+      }
     }
   }
+}
+function registerDisplayName(nodeType, displayName) {
+  const lg = getLiteGraph();
+  if (!lg) {
+    return;
+  }
+  _displayNameReverseMap.set(displayName, nodeType);
+  for (const registry of [lg.slot_types_default_out, lg.slot_types_default_in]) {
+    if (!registry) {
+      continue;
+    }
+    for (const entries of Object.values(registry)) {
+      for (let i = 0; i < entries.length; i++) {
+        if (entries[i] === nodeType) {
+          entries[i] = displayName;
+        }
+      }
+    }
+  }
+  if (_createNodePatched) {
+    return;
+  }
+  _createNodePatched = true;
+  startConnectionPolling();
+  const originalCreateNode = lg.createNode;
+  if (!originalCreateNode) {
+    return;
+  }
+  lg.createNode = function(type, ...args) {
+    const resolved = _displayNameReverseMap.get(type) ?? type;
+    return originalCreateNode.call(this, resolved, ...args);
+  };
 }
 const ANY_TYPE$1 = "*";
 function ResolvePairType(node, zeroBasedIndex) {
@@ -497,9 +573,6 @@ function ApplyDynamicTypes(node) {
 const ANY_TYPE = "*";
 const BUS_TYPE = "BUS";
 const MAX_SOCKETS = 32;
-const TAB_BAR_HEIGHT = 28;
-const TAB_PADDING = 10;
-const TAB_GAP = 4;
 function isBatchSwitch(nodeData) {
   const n = nodeData?.name ?? "";
   return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
@@ -575,6 +648,45 @@ function configureBatchSwitchNodes() {
     }
   };
 }
+const METHOD_STYLES = {
+  log: { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
+  info: { color: "#4a7fff", prefix: "ℹ [Tojioo Passthrough]" },
+  warn: { color: "#e6a117", prefix: "⚠ [Tojioo Passthrough]" },
+  error: { color: "#e05252", prefix: "✖ [Tojioo Passthrough]" },
+  debug: { color: "#b07aff", prefix: "[Tojioo Passthrough]" }
+};
+const createLoggerMethod = (method, scope) => {
+  const { color, prefix } = METHOD_STYLES[method];
+  if (scope) {
+    return (...args) => {
+      console[method](
+        `%c${prefix}%c ${scope}:%c`,
+        `color: ${color}; font-weight: bold`,
+        "color: yellow;",
+        "color: inherit",
+        ...args
+      );
+    };
+  } else {
+    return (...args) => {
+      console[method](
+        `%c${prefix}%c`,
+        `color: ${color}; font-weight: bold`,
+        "color: inherit",
+        ...args
+      );
+    };
+  }
+};
+const loggerInstance = (scope) => ({
+  log: createLoggerMethod("log"),
+  warn: createLoggerMethod("warn"),
+  error: createLoggerMethod("error", scope),
+  info: createLoggerMethod("info"),
+  debug: createLoggerMethod("debug", scope)
+});
+const logger_internal = loggerInstance();
+const log$3 = loggerInstance("DynamicAny");
 function configureDynamicAny() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicAny",
@@ -610,6 +722,16 @@ function configureDynamicAny() {
         }
         GetGraph(node)?.setDirtyCanvas?.(true, true);
       }
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs?.[0]?.link == null) {
+          return returnObj ? this.inputs[0] : 0;
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -623,11 +745,13 @@ function configureDynamicAny() {
         prevConfigure?.call(this, info);
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             applyType(this);
           } catch (e) {
-            console.error("Tojioo.DynamicAny: error in configure", e);
+            log$3.error("error in configure", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -642,38 +766,26 @@ function configureDynamicAny() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             applyType(this);
           } catch (e) {
-            console.error("Tojioo.DynamicAny: error in onAdded", e);
+            log$3.error("error in onAdded", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
+          connectPending(this, pending);
         });
       };
     }
   };
 }
-const createLoggerMethod = (method) => {
-  return (...args) => {
-    console[method](
-      "%c[Tojioo Passthrough]%c",
-      "color: #00d4ff; font-weight: bold",
-      "color: #888",
-      ...args
-    );
-  };
-};
-const logger_internal = {
-  log: createLoggerMethod("log"),
-  warn: createLoggerMethod("warn"),
-  error: createLoggerMethod("error"),
-  info: createLoggerMethod("info"),
-  debug: createLoggerMethod("debug")
-};
+const log$2 = loggerInstance("DynamicBus");
 function configureDynamicBus() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicBus",
@@ -900,21 +1012,31 @@ function configureDynamicBus() {
             const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
             const hasOutput = outputLinkIds.some((linkId) => {
               const link = GetLink(node, linkId);
-              if (!link) return false;
+              if (!link) {
+                return false;
+              }
               const targetNode = GetNodeById(node, link.target_id);
-              if (!targetNode) return false;
+              if (!targetNode) {
+                return false;
+              }
               return targetNode.inputs?.[link.target_slot]?.link === linkId;
             });
-            if (hasInput || hasOutput) continue;
+            if (hasInput || hasOutput) {
+              continue;
+            }
             let hasConnectionsAfter = false;
             for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
               const laterInput = node.inputs[i]?.link != null;
               const laterOutputIds = node.outputs[i]?.links ?? [];
               const laterOutput = laterOutputIds.some((id) => {
                 const link = GetLink(node, id);
-                if (!link) return false;
+                if (!link) {
+                  return false;
+                }
                 const target = GetNodeById(node, link.target_id);
-                if (!target) return false;
+                if (!target) {
+                  return false;
+                }
                 return target.inputs?.[link.target_slot]?.link === id;
               });
               if (laterInput || laterOutput) {
@@ -1006,6 +1128,26 @@ function configureDynamicBus() {
       nodeType.prototype.onBusChanged = function() {
         synchronize(this);
       };
+      nodeType.prototype.onConnectInput = function(targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return !(targetSlot === 0 && String(_type) !== BUS_TYPE);
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs) {
+          if (String(type) === BUS_TYPE) {
+            if (this.inputs[0]?.link == null) {
+              return returnObj ? this.inputs[0] : 0;
+            }
+          } else {
+            for (let i = 1; i < this.inputs.length; i++) {
+              if (this.inputs[i]?.link == null) {
+                return returnObj ? this.inputs[i] : i;
+              }
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -1076,7 +1218,7 @@ function configureDynamicBus() {
               synchronize(node, info);
             }
           } catch (e) {
-            logger_internal.error("DynamicBus configure error", e);
+            log$2.error("error in configure", e);
           }
         });
         setTimeout(() => {
@@ -1090,17 +1232,20 @@ function configureDynamicBus() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         DeferMicrotask(() => {
           try {
             synchronize(this);
           } catch (e) {
-            logger_internal.error("DynamicBus onAdded error", e);
+            log$2.error("error in onAdded", e);
           }
+          connectPending(this, pending, (i, type) => type === BUS_TYPE ? i === 0 : i > 0);
         });
       };
     }
   };
 }
+const log$1 = loggerInstance("DynamicPassthrough");
 function configureDynamicPassthrough() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicPassthrough",
@@ -1109,8 +1254,12 @@ function configureDynamicPassthrough() {
         return;
       }
       function normalizeIO(node) {
-        if (!node.inputs) node.inputs = [];
-        if (!node.outputs) node.outputs = [];
+        if (!node.inputs) {
+          node.inputs = [];
+        }
+        if (!node.outputs) {
+          node.outputs = [];
+        }
         let lastConnectedInput = -1;
         for (let i = node.inputs.length - 1; i >= 0; i--) {
           if (node.inputs[i]?.link != null) {
@@ -1145,6 +1294,20 @@ function configureDynamicPassthrough() {
         UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
         node.__tojioo_dynamic_io_size_fixed = true;
       }
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        if (this.inputs) {
+          for (let i = 0; i < this.inputs.length; i++) {
+            if (this.inputs[i]?.link == null) {
+              return returnObj ? this.inputs[i] : i;
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+      };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
         if (IsGraphLoading()) {
@@ -1173,7 +1336,7 @@ function configureDynamicPassthrough() {
               }
             }
           } catch (e) {
-            console.error(e);
+            log$1.error(e);
           }
           DeferMicrotask(() => {
             normalizeIO(this);
@@ -1203,8 +1366,12 @@ function configureDynamicPassthrough() {
               }
             }
             if (hasConnectionsAfter) {
-              if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
-              if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
+              if (typeof node.removeInput === "function") {
+                node.removeInput(disconnectedIndex);
+              }
+              if (typeof node.removeOutput === "function") {
+                node.removeOutput(disconnectedIndex);
+              }
             }
             normalizeIO(this);
             ApplyDynamicTypes(this);
@@ -1225,7 +1392,7 @@ function configureDynamicPassthrough() {
             normalizeIO(this);
             ApplyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPassthrough: error in configure", e);
+            log$1.error("error in configure", e);
           }
         });
         setTimeout(() => {
@@ -1241,19 +1408,23 @@ function configureDynamicPassthrough() {
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
+        const pending = consumePendingConnection();
         this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
           try {
             normalizeIO(this);
             ApplyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPassthrough: error in onAdded", e);
+            log$1.error("error in onAdded", e);
           }
+          connectPending(this, pending);
         });
       };
     }
   };
 }
+const defaultLabel = "input";
+const log = loggerInstance("DynamicPreview");
 function configureDynamicPreview() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicPreview",
@@ -1262,11 +1433,12 @@ function configureDynamicPreview() {
         return;
       }
       nodeType.prototype._currentImageIndex = 0;
-      nodeType.prototype._imageElements = [];
+      nodeType.prototype._previewItems = [];
       nodeType.prototype._totalImages = 0;
-      nodeType.prototype._tabHitAreas = [];
       function normalizeInputs(node) {
-        if (!node.inputs) node.inputs = [];
+        if (!node.inputs) {
+          node.inputs = [];
+        }
         if (!node.__tojioo_dynamic_io_rebuilt) {
           node.__tojioo_dynamic_io_rebuilt = true;
           const hasAnyLinks = node.inputs?.some((i) => i?.link != null);
@@ -1288,13 +1460,15 @@ function configureDynamicPreview() {
           node.removeInput(node.inputs.length - 1);
         }
         while (node.inputs.length < desiredCount && typeof node.addInput === "function") {
-          node.addInput("image", ANY_TYPE);
-          node.inputs[node.inputs.length - 1].label = "image";
+          node.addInput(defaultLabel, ANY_TYPE);
+          node.inputs[node.inputs.length - 1].label = defaultLabel;
         }
         UpdatePreviewNodeSize(node);
       }
       function applyDynamicTypes(node) {
-        if (!node.inputs?.length) return;
+        if (!node.inputs?.length) {
+          return;
+        }
         const types = [];
         const typeCounters = {};
         for (let i = 0; i < node.inputs.length; i++) {
@@ -1302,7 +1476,9 @@ function configureDynamicPreview() {
           let resolvedType = ANY_TYPE;
           if (link) {
             const t = GetLinkTypeFromEndpoints(node, link);
-            if (t !== ANY_TYPE) resolvedType = t;
+            if (t !== ANY_TYPE) {
+              resolvedType = t;
+            }
           }
           types.push(resolvedType);
         }
@@ -1319,118 +1495,257 @@ function configureDynamicPreview() {
           } else {
             typeCounters["__untyped__"] = (typeCounters["__untyped__"] ?? 0) + 1;
             const n = typeCounters["__untyped__"];
-            label = n === 1 ? "image" : `image_${n}`;
+            label = n === 1 ? defaultLabel : `${defaultLabel}_${n}`;
           }
-          inp.name = `input_${i + 1}`;
+          inp.name = `${defaultLabel}_${i + 1}`;
           inp.label = label;
         }
         GetGraph(node)?.setDirtyCanvas?.(true, true);
       }
-      function measureTabWidths(ctx, count) {
-        ctx.font = "12px Arial";
-        const widths = [];
-        for (let i = 1; i <= count; i++) {
-          widths.push(ctx.measureText(String(i)).width + TAB_PADDING * 2);
+      function createPreviewWidget(node) {
+        if (node._previewContainer) {
+          return;
         }
-        return widths;
+        const container = document.createElement("div");
+        Object.assign(container.style, {
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+          background: "transparent"
+        });
+        const tabBar = document.createElement("div");
+        Object.assign(tabBar.style, {
+          display: "none",
+          flexDirection: "row",
+          justifyContent: "center",
+          gap: "4px",
+          padding: "4px 8px 0 8px",
+          marginBottom: "6px",
+          flexShrink: "0",
+          overflowX: "hidden",
+          overflowY: "hidden",
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(255,255,255,0.3) transparent"
+        });
+        const content = document.createElement("div");
+        Object.assign(content.style, {
+          flex: "1",
+          overflow: "hidden",
+          position: "relative",
+          minHeight: "60px"
+        });
+        container.appendChild(tabBar);
+        container.appendChild(content);
+        node._previewContainer = container;
+        node._previewTabBar = tabBar;
+        node._previewContent = content;
+        if (typeof node.addDOMWidget === "function") {
+          node._previewWidget = node.addDOMWidget("preview_display", "customtext", container, {
+            serialize: false
+          });
+        }
+        new ResizeObserver(() => updateTabBarOverflow(node)).observe(tabBar);
+      }
+      function updateTabBarOverflow(node) {
+        const tabBar = node._previewTabBar;
+        if (!tabBar || tabBar.style.display === "none" || !tabBar.children.length) {
+          return;
+        }
+        const gap = 4;
+        let totalWidth = 0;
+        for (let c = 0; c < tabBar.children.length; c++) {
+          totalWidth += tabBar.children[c].offsetWidth;
+        }
+        totalWidth += gap * Math.max(0, tabBar.children.length - 1);
+        const availableWidth = tabBar.clientWidth - 16;
+        if (totalWidth > availableWidth) {
+          tabBar.style.justifyContent = "flex-start";
+          tabBar.style.overflowX = "scroll";
+        } else {
+          tabBar.style.justifyContent = "center";
+          tabBar.style.overflowX = "hidden";
+        }
+      }
+      function updatePreviewDisplay(node) {
+        const content = node._previewContent;
+        const tabBar = node._previewTabBar;
+        if (!content || !tabBar) {
+          return;
+        }
+        const items = node._previewItems ?? [];
+        const total = node._totalImages ?? 0;
+        if (!items.length || total === 0) {
+          content.innerHTML = "";
+          tabBar.style.display = "none";
+          return;
+        }
+        if (total >= 2) {
+          tabBar.style.display = "flex";
+          tabBar.innerHTML = "";
+          for (let i = 0; i < total; i++) {
+            const tab = document.createElement("button");
+            tab.textContent = String(i + 1);
+            const selected = i === node._currentImageIndex;
+            Object.assign(tab.style, {
+              padding: "2px 10px",
+              border: selected ? "1px solid rgba(80, 120, 200, 0.9)" : "1px solid transparent",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontFamily: "Arial, sans-serif",
+              background: selected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)",
+              color: selected ? "#fff" : "#aaa",
+              outline: "none",
+              lineHeight: "1.4",
+              flexShrink: "0"
+            });
+            const idx = i;
+            tab.addEventListener("click", () => {
+              node._currentImageIndex = idx;
+              updatePreviewDisplay(node);
+            });
+            tabBar.appendChild(tab);
+          }
+          if (!tabBar._hasWheelHandler) {
+            tabBar.addEventListener("wheel", (e) => {
+              if (tabBar.scrollWidth > tabBar.clientWidth) {
+                e.preventDefault();
+                e.stopPropagation();
+                tabBar.scrollLeft += e.deltaY;
+              }
+            }, { passive: false });
+            tabBar._hasWheelHandler = true;
+          }
+          requestAnimationFrame(() => updateTabBarOverflow(node));
+        } else {
+          tabBar.style.display = "none";
+        }
+        const itemIdx = Math.min(node._currentImageIndex, items.length - 1);
+        const item = items[itemIdx];
+        content.innerHTML = "";
+        if (!item) {
+          return;
+        }
+        if (item.type === "image") {
+          Object.assign(content.style, {
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0"
+          });
+          const img = item.element.cloneNode(true);
+          Object.assign(img.style, {
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain"
+          });
+          content.appendChild(img);
+        } else if (item.type === "text") {
+          Object.assign(content.style, {
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "stretch",
+            justifyContent: "stretch",
+            padding: "0"
+          });
+          const textarea = document.createElement("textarea");
+          textarea.readOnly = true;
+          textarea.value = item.text;
+          Object.assign(textarea.style, {
+            width: "100%",
+            height: "100%",
+            resize: "none",
+            boxSizing: "border-box"
+          });
+          textarea.classList.add("comfy-multiline-input");
+          content.appendChild(textarea);
+        }
+      }
+      function resetPreviewState(node) {
+        node._currentImageIndex = 0;
+        node._previewItems = [];
+        node._totalImages = 0;
+        updatePreviewDisplay(node);
       }
       nodeType.prototype.selectImage = function(index) {
-        if (index < 0 || index >= this._totalImages) return;
+        if (index < 0 || index >= this._totalImages) {
+          return;
+        }
         this._currentImageIndex = index;
-        this.graph?.setDirtyCanvas?.(true, true);
+        updatePreviewDisplay(this);
+      };
+      nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
+        logger_internal.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
+        return true;
+      };
+      const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+      nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
+        logger_internal.debug("findInputSlotByType called", type);
+        if (this.inputs) {
+          for (let i = 0; i < this.inputs.length; i++) {
+            if (this.inputs[i]?.link == null) {
+              return returnObj ? this.inputs[i] : i;
+            }
+          }
+        }
+        return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
       };
       const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
       nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement) {
         prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-        if (!ctx || IsNodes2Mode()) return;
-        const node = this;
-        if (!node._imageElements?.length || node._totalImages === 0) return;
-        const imgs = node._imageElements;
-        const idx = Math.min(node._currentImageIndex, imgs.length - 1);
-        const img = imgs[idx];
-        if (!img?.complete || img.naturalWidth === 0) return;
-        const slotHeight = GetLgSlotHeight();
-        const inputsHeight = (node.inputs?.length || 1) * slotHeight + 10;
-        const showTabs = node._totalImages >= 2;
-        const tabBarHeight = showTabs ? TAB_BAR_HEIGHT : 0;
-        const previewY = inputsHeight + tabBarHeight;
-        const previewHeight = node.size[1] - previewY;
-        const previewWidth = node.size[0];
-        if (previewHeight < 50) return;
-        const scale = Math.min(previewWidth / img.width, previewHeight / img.height);
-        const drawWidth = img.width * scale;
-        const drawHeight = img.height * scale;
-        const drawX = (previewWidth - drawWidth) / 2;
-        const drawY = previewY + (previewHeight - drawHeight) / 2;
-        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        if (showTabs) {
-          const tabY = inputsHeight;
-          const tabWidths = measureTabWidths(ctx, node._totalImages);
-          const totalTabWidth = tabWidths.reduce((a, b) => a + b, 0) + TAB_GAP * (node._totalImages - 1);
-          let tabX = (node.size[0] - totalTabWidth) / 2;
-          node._tabHitAreas = [];
-          for (let i = 0; i < node._totalImages; i++) {
-            const tabWidth = tabWidths[i];
-            const isSelected = i === node._currentImageIndex;
-            ctx.fillStyle = isSelected ? "rgba(80, 120, 200, 0.9)" : "rgba(60, 60, 60, 0.8)";
-            ctx.beginPath();
-            if (ctx.roundRect) {
-              ctx.roundRect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4, 4);
-            } else {
-              ctx.rect(tabX, tabY + 2, tabWidth, TAB_BAR_HEIGHT - 4);
-            }
-            ctx.fill();
-            ctx.fillStyle = isSelected ? "#fff" : "#aaa";
-            ctx.font = "12px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(String(i + 1), tabX + tabWidth / 2, tabY + TAB_BAR_HEIGHT / 2);
-            node._tabHitAreas.push({ x: tabX, y: tabY, width: tabWidth, height: TAB_BAR_HEIGHT, index: i });
-            tabX += tabWidth + TAB_GAP;
-          }
+        if (!ctx || IsNodes2Mode()) {
+          return;
         }
-      };
-      const prevOnMouseDown = nodeType.prototype.onMouseDown;
-      nodeType.prototype.onMouseDown = function(e, pos, canvas) {
-        if (this._tabHitAreas?.length) {
-          for (const area of this._tabHitAreas) {
-            if (pos[0] >= area.x && pos[0] <= area.x + area.width && pos[1] >= area.y && pos[1] <= area.y + area.height) {
-              this.selectImage(area.index);
-              return true;
-            }
-          }
-        }
-        return prevOnMouseDown?.call(this, e, pos, canvas) ?? false;
       };
       const prevOnExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function(message) {
+        logger_internal.debug("onExecuted", message);
         prevOnExecuted?.call(this, message);
         const node = this;
         node.imgs = null;
-        const images = message?.preview_data;
-        if (!images?.length) {
-          node._imageElements = [];
-          node._totalImages = 0;
-          node._currentImageIndex = 0;
-          node._tabHitAreas = [];
-          return;
-        }
-        node._totalImages = images.length;
-        node._currentImageIndex = Math.min(node._currentImageIndex, node._totalImages - 1);
-        node._imageElements = images.map((imgInfo) => {
+        const images = message?.preview_data ?? [];
+        const textEntries = message?.text_data ?? [];
+        const previewItems = [];
+        const slotContent = /* @__PURE__ */ new Map();
+        for (const imgInfo of images) {
+          const slot = imgInfo.slot ?? 0;
+          if (!slotContent.has(slot)) {
+            slotContent.set(slot, []);
+          }
           const img = new Image();
           img.src = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
             imgInfo.subfolder || ""
           )}&type=${encodeURIComponent(imgInfo.type || "output")}`;
-          return img;
-        });
-        this.graph?.setDirtyCanvas?.(true, true);
+          slotContent.get(slot).push({ type: "image", element: img });
+        }
+        for (const entry of textEntries) {
+          const slot = entry.slot ?? 0;
+          if (!slotContent.has(slot)) {
+            slotContent.set(slot, []);
+          }
+          slotContent.get(slot).push({ type: "text", text: entry.text });
+        }
+        const sortedSlots = [...slotContent.keys()].sort((a, b) => a - b);
+        for (const slot of sortedSlots) {
+          previewItems.push(...slotContent.get(slot));
+        }
+        node._previewItems = previewItems;
+        node._totalImages = previewItems.length;
+        node._currentImageIndex = Math.min(node._currentImageIndex ?? 0, Math.max(0, node._totalImages - 1));
+        updatePreviewDisplay(node);
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) return;
+        if (IsGraphLoading()) {
+          return;
+        }
         prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (type !== GetLgInput()) return;
+        if (type !== GetLgInput()) {
+          return;
+        }
         const node = this;
         if (isConnected) {
           try {
@@ -1443,9 +1758,8 @@ function configureDynamicPreview() {
                 linkObj.type = inferredType;
                 if (node.inputs[index]) {
                   node.inputs[index].type = inferredType;
-                  const n = inferredType.toLowerCase();
-                  node.inputs[index].name = n;
-                  node.inputs[index].label = n;
+                  node.inputs[index].name = `${defaultLabel}_${index + 1}`;
+                  node.inputs[index].label = inferredType.toLowerCase();
                 }
               }
             }
@@ -1458,7 +1772,9 @@ function configureDynamicPreview() {
           return;
         }
         DeferMicrotask(() => {
-          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) return;
+          if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
+            return;
+          }
           if (node.inputs[index]?.link != null) {
             normalizeInputs(node);
             applyDynamicTypes(node);
@@ -1470,10 +1786,7 @@ function configureDynamicPreview() {
           }
           const hasAny = node.inputs?.some((inp) => inp?.link != null);
           if (!hasAny) {
-            node._currentImageIndex = 0;
-            node._imageElements = [];
-            node._totalImages = 0;
-            node._tabHitAreas = [];
+            resetPreviewState(node);
           }
           normalizeInputs(node);
           applyDynamicTypes(node);
@@ -1484,12 +1797,14 @@ function configureDynamicPreview() {
         prevConfigure?.call(this, info);
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPreview: error in configure", e);
+            log.error("error in configure", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
@@ -1507,20 +1822,27 @@ function configureDynamicPreview() {
         prevOnAdded?.apply(this, arguments);
         if (this.widgets) {
           const imgWidgetIndex = this.widgets.findIndex((w) => w.name === "image" || w.type === "preview");
-          if (imgWidgetIndex !== -1) this.widgets.splice(imgWidgetIndex, 1);
+          if (imgWidgetIndex !== -1) {
+            this.widgets.splice(imgWidgetIndex, 1);
+          }
         }
         this.imgs = null;
+        createPreviewWidget(this);
+        const pending = consumePendingConnection();
         const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) this.__tojioo_skip_resize = true;
+          if (loading) {
+            this.__tojioo_skip_resize = true;
+          }
           try {
             normalizeInputs(this);
             applyDynamicTypes(this);
           } catch (e) {
-            console.error("Tojioo.DynamicPreview: error in onAdded", e);
+            log.error("error in onAdded", e);
           } finally {
             this.__tojioo_skip_resize = false;
           }
+          connectPending(this, pending);
         });
       };
     }
@@ -1601,17 +1923,23 @@ function configureSwitchNodes() {
     }
   };
 }
+const commonTypes = ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"];
 app.registerExtension({
   name: "Tojioo.Passthrough.Core",
   async setup() {
     InstallGraphLoadingHook(app);
-    RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
-    console.log(`%c[Tojioo Passthrough]%c Loaded Version ${"1.7.0"}`, "color: #00d4ff; font-weight: bold", "color: #888");
+    configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
+    configureSlotMenu(commonTypes, [
+      ["PT_DynamicPassthrough", "Dynamic Passthrough"],
+      ["PT_DynamicAny", "Dynamic Any"],
+      ["PT_DynamicPreview", "Dynamic Preview"]
+    ]);
+    logger_internal.log(`Loaded Version ${"1.7.1"}`);
   }
 });
-app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureDynamicBus());
 app.registerExtension(configureDynamicPassthrough());
 app.registerExtension(configureDynamicPreview());
 app.registerExtension(configureDynamicAny());
+app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureSwitchNodes());

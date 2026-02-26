@@ -1,6 +1,6 @@
 [project]
 name = "tojioo-passthrough"
-version = "1.7.0"
+version = "1.7.1"
 description = "Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements."
 license = {file = "LICENSE"}
 requires-python = ">=3.10"

@@ -133,7 +133,7 @@ def test_dynamic_bus_direct_input_overrides_bus():
 
 def test_dynamic_preview_empty_result():
 	node = PT_DynamicPreview()
-	assert node.preview_images() == {"ui": {"preview_data": []}}
+	assert node.preview_images() == {"ui": {"preview_data": [], "text_data": []}}
 
 
 def test_dynamic_preview_connected_inputs(monkeypatch, torch_stub):
@@ -159,6 +159,76 @@ def test_dynamic_preview_connected_inputs(monkeypatch, torch_stub):
 	result = node.preview_images(input_1 = image_a, input_2 = image_b)
 	assert "ui" in result
 	assert len(result["ui"]["preview_data"]) == 2
+	assert all("slot" in entry for entry in result["ui"]["preview_data"])
+	assert result["ui"]["text_data"] == []
+
+
+def test_dynamic_preview_mask_input(monkeypatch, torch_stub):
+	from PIL import Image
+	import tempfile
+	import folder_paths
+
+	if not isinstance(Image, MagicMock):
+		monkeypatch.setattr(Image.Image, "save", lambda *args, **kwargs: None, raising = False)
+
+	temp_dir = tempfile.gettempdir()
+	monkeypatch.setattr(folder_paths, "get_temp_directory", lambda: temp_dir, raising = False)
+	monkeypatch.setattr(
+		folder_paths,
+		"get_save_image_path",
+		lambda *args, **kwargs: (temp_dir, "preview", 0, "", ""),
+		raising = False,
+	)
+
+	node = PT_DynamicPreview()
+	mask = torch_stub.randn(64, 64)
+	result = node.preview_images(input_1 = mask)
+	assert len(result["ui"]["preview_data"]) == 1
+	assert result["ui"]["preview_data"][0]["slot"] == 0
+	assert result["ui"]["text_data"] == []
+
+
+def test_dynamic_preview_text_input():
+	node = PT_DynamicPreview()
+	result = node.preview_images(input_1 = "hello world")
+	assert result["ui"]["preview_data"] == []
+	assert len(result["ui"]["text_data"]) == 1
+	assert result["ui"]["text_data"][0]["slot"] == 0
+	assert result["ui"]["text_data"][0]["text"] == "hello world"
+
+
+def test_dynamic_preview_mixed_inputs(monkeypatch, torch_stub):
+	from PIL import Image
+	import tempfile
+	import folder_paths
+
+	if not isinstance(Image, MagicMock):
+		monkeypatch.setattr(Image.Image, "save", lambda *args, **kwargs: None, raising = False)
+
+	temp_dir = tempfile.gettempdir()
+	monkeypatch.setattr(folder_paths, "get_temp_directory", lambda: temp_dir, raising = False)
+	monkeypatch.setattr(
+		folder_paths,
+		"get_save_image_path",
+		lambda *args, **kwargs: (temp_dir, "preview", 0, "", ""),
+		raising = False,
+	)
+
+	node = PT_DynamicPreview()
+	image = torch_stub.randn(64, 64, 3)
+	result = node.preview_images(input_1 = image, input_2 = {"key": "value"})
+	assert len(result["ui"]["preview_data"]) == 1
+	assert len(result["ui"]["text_data"]) == 1
+	assert result["ui"]["text_data"][0]["slot"] == 1
+	assert "key" in result["ui"]["text_data"][0]["text"]
+
+
+def test_dynamic_preview_dict_text():
+	node = PT_DynamicPreview()
+	result = node.preview_images(input_1 = {"a": 1, "b": [2, 3]})
+	text = result["ui"]["text_data"][0]["text"]
+	assert '"a": 1' in text
+	assert '"b"' in text
 
 
 def test_dual_clip_encode_round_trip():

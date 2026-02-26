@@ -1,20 +1,32 @@
-﻿import {configureBatchSwitchNodes, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureDynamicAny, configureSwitchNodes} from '@/handlers';
-import {InstallGraphLoadingHook, RegisterSlotMenuEntries} from '@/utils';
+﻿import {configureBatchSwitchNodes, configureDynamicAny, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureSwitchNodes} from '@/handlers';
+import {configureSlotMenu, InstallGraphLoadingHook} from '@/utils';
 import {app} from 'scripts/app.js';
+import logger_internal from '@/logger_internal';
+
+const commonTypes = ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"];
 
 app.registerExtension({
 	name: "Tojioo.Passthrough.Core",
 	async setup()
 	{
 		InstallGraphLoadingHook(app);
-		RegisterSlotMenuEntries("BUS", ["PT_DynamicBus"]);
-		console.log(`%c[Tojioo Passthrough]%c Loaded Version ${__VERSION__}`, 'color: #00d4ff; font-weight: bold', 'color: #888');
+
+		configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
+		configureSlotMenu(commonTypes, [
+			["PT_DynamicPassthrough", "Dynamic Passthrough"],
+			["PT_DynamicAny", "Dynamic Any"],
+			["PT_DynamicPreview", "Dynamic Preview"],
+		]);
+		logger_internal.log(`Loaded Version ${__VERSION__}`);
 	}
 });
 
-app.registerExtension(configureBatchSwitchNodes());
+// Dynamic nodes
 app.registerExtension(configureDynamicBus());
 app.registerExtension(configureDynamicPassthrough());
 app.registerExtension(configureDynamicPreview());
 app.registerExtension(configureDynamicAny());
+
+// Switch nodes
+app.registerExtension(configureBatchSwitchNodes());
 app.registerExtension(configureSwitchNodes());

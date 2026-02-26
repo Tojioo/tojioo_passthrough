@@ -4,7 +4,7 @@
 # Licensed under the GNU General Public License v3.0 only.
 # See https://www.gnu.org/licenses/gpl-3.0.txt
 
-from .logger import get_logger
+from .logger_internal import get_logger
 
 
 logger = get_logger(__name__)
@@ -23,10 +23,7 @@ def apply_wsl_safetensors_patch():
 					with open(filename, "rb") as f:
 						return safetensors.torch.load(f.read())
 			except Exception as e:
-				logger.warning(
-					f"WSL safetensors patch failed for '{filename}', falling back.",
-					exc_info = e
-				)
+				logger.warning(f"WSL safetensors patch failed for '{filename}', falling back.",exc_info = e)
 			return _load_file_org(filename, device, *args, **kwargs)
 
 

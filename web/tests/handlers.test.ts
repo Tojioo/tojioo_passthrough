@@ -376,7 +376,9 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 							ctx.nodeType.prototype.onAdded.call(ctx.node);
 							return flushMicrotasks();
 						},
-						assert: () => {},
+						assert: () =>
+						{
+						},
 					},
 					{
 						act: async () =>
@@ -423,7 +425,9 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 							ctx.nodeType.prototype.onAdded.call(ctx.node);
 							return flushMicrotasks();
 						},
-						assert: () => {},
+						assert: () =>
+						{
+						},
 					},
 					{
 						act: async () =>
@@ -476,7 +480,9 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 							ctx.nodeType.prototype.onAdded.call(ctx.node);
 							return flushMicrotasks();
 						},
-						assert: () => {},
+						assert: () =>
+						{
+						},
 					},
 					{
 						act: async () =>
@@ -533,7 +539,9 @@ function makeDynamicBusCases(): Array<{ name: string; steps: (ctx: HandlerContex
 							ctx.nodeType.prototype.onAdded.call(ctx.node);
 							return flushMicrotasks();
 						},
-						assert: () => {},
+						assert: () =>
+						{
+						},
 					},
 					{
 						act: async () =>
@@ -579,7 +587,8 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 			{
 				const origin = {id: 40, outputs: [{type: "IMAGE"}]};
 				ctx.nodes[origin.id] = origin;
-				const link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 10, origin});
+
+				let link: any;
 
 				return [
 					{
@@ -593,7 +602,11 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						},
 					},
 					{
-						act: () => applyInputChange(ctx, 0, true, link),
+						act: () =>
+						{
+							link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 10, origin});
+							return applyInputChange(ctx, 0, true, link);
+						},
 						assert: () =>
 						{
 							expect(ctx.node.inputs[0].type).toBe("IMAGE");
@@ -603,7 +616,7 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 					{
 						act: () =>
 						{
-							ctx.node._imageElements = [1];
+							ctx.node._previewItems = [{type: "image", element: {}}];
 							ctx.node._totalImages = 1;
 							ctx.node._currentImageIndex = 0;
 							disconnectInput(ctx.node, 0);
@@ -613,7 +626,7 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						{
 							expect(ctx.node.inputs.length).toBe(1);
 							expect(ctx.node._totalImages).toBe(0);
-							expect(ctx.node._imageElements.length).toBe(0);
+							expect(ctx.node._previewItems.length).toBe(0);
 						},
 					},
 				];
@@ -630,8 +643,8 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 							ctx.node._currentImageIndex = 4;
 							ctx.nodeType.prototype.onExecuted.call(ctx.node, {
 								preview_data: [
-									{filename: "a.png", subfolder: "", type: "temp"},
-									{filename: "b.png", subfolder: "", type: "temp"},
+									{filename: "a.png", subfolder: "", type: "temp", slot: 0},
+									{filename: "b.png", subfolder: "", type: "temp", slot: 0},
 								],
 							});
 						},
@@ -639,7 +652,219 @@ function makeDynamicPreviewCases(): Array<{ name: string; steps: (ctx: HandlerCo
 						{
 							expect(ctx.node._totalImages).toBe(2);
 							expect(ctx.node._currentImageIndex).toBe(1);
-							expect(ctx.node._imageElements.length).toBe(2);
+							expect(ctx.node._previewItems.length).toBe(2);
+							expect(ctx.node._previewItems[0].type).toBe("image");
+							expect(ctx.node._previewItems[1].type).toBe("image");
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "labels untyped slots as 'input'",
+			steps: (ctx) =>
+			{
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+							expect(ctx.node.inputs[0].label).toBe("input");
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "labels typed slot by type, untyped as 'input'",
+			steps: (ctx) =>
+			{
+				const origin = {id: 41, outputs: [{type: "IMAGE"}]};
+				ctx.nodes[origin.id] = origin;
+
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+						},
+					},
+					{
+						act: async () =>
+						{
+							const link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 11, origin});
+							await applyInputChange(ctx, 0, true, link);
+						},
+						assert: () =>
+						{
+							expect(ctx.node.inputs[0].label).toBe("image");
+							expect(ctx.node.inputs[1].label).toBe("input");						},
+					},
+				];
+			},
+		},
+		{
+			name: "handles text-only preview data",
+			steps: (ctx) =>
+			{
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onExecuted.call(ctx.node, {
+								preview_data: [],
+								text_data: [
+									{slot: 0, text: "Tensor: shape=[1, 64, 64], dtype=float32"},
+								],
+							});
+						},
+						assert: () =>
+						{
+							expect(ctx.node._previewItems.length).toBe(1);
+							expect(ctx.node._previewItems[0].type).toBe("text");
+							expect(ctx.node._previewItems[0].text).toContain("Tensor");
+							expect(ctx.node._totalImages).toBe(1);
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "handles mixed image and text preview data",
+			steps: (ctx) =>
+			{
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onExecuted.call(ctx.node, {
+								preview_data: [
+									{filename: "img.png", subfolder: "", type: "temp", slot: 0},
+								],
+								text_data: [
+									{slot: 1, text: "Some string value"},
+								],
+							});
+						},
+						assert: () =>
+						{
+							expect(ctx.node._previewItems.length).toBe(2);
+							expect(ctx.node._previewItems[0].type).toBe("image");
+							expect(ctx.node._previewItems[1].type).toBe("text");
+							expect(ctx.node._totalImages).toBe(2);
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "disconnect resets all preview state including text",
+			steps: (ctx) =>
+			{
+				const origin = {id: 42, outputs: [{type: "STRING"}]};
+				ctx.nodes[origin.id] = origin;
+
+				let link: any;
+
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+						},
+					},
+					{
+						act: () =>
+						{
+							link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 12, origin});
+							return applyInputChange(ctx, 0, true, link);
+						},
+						assert: () =>
+						{
+							expect(ctx.node.inputs[0].type).toBe("STRING");
+						},
+					},
+					{
+						act: () =>
+						{
+							ctx.node._previewItems = [{type: "text", text: "hello"}];
+							ctx.node._totalImages = 1;
+							disconnectInput(ctx.node, 0);
+							return applyInputChange(ctx, 0, false, link);
+						},
+						assert: () =>
+						{
+							expect(ctx.node._previewItems.length).toBe(0);
+							expect(ctx.node._totalImages).toBe(0);
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "input.name stays input_N format on connect",
+			steps: (ctx) =>
+			{
+				const origin = {id: 43, outputs: [{type: "IMAGE"}]};
+				ctx.nodes[origin.id] = origin;
+
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+						},
+					},
+					{
+						act: async () =>
+						{
+							const link = connectInput({node: ctx.node, graph: ctx.graph, index: 0, linkId: 13, origin});
+							await applyInputChange(ctx, 0, true, link);
+						},
+						assert: () =>
+						{
+							expect(ctx.node.inputs[0].name).toBe("input_1");
+							expect(ctx.node.inputs[0].label).toBe("image");
+						},
+					},
+				];
+			},
+		},
+		{
+			name: "creates DOM preview widget on add",
+			steps: (ctx) =>
+			{
+				return [
+					{
+						act: () =>
+						{
+							ctx.nodeType.prototype.onAdded.call(ctx.node);
+							return flushMicrotasks();
+						},
+						assert: () =>
+						{
+							expect(ctx.node.addDOMWidget).toHaveBeenCalledWith(
+								"preview_display", "customtext", expect.anything(), {serialize: false}
+							);
+							expect(ctx.node._previewContainer).toBeDefined();
+							expect(ctx.node._previewTabBar).toBeDefined();
+							expect(ctx.node._previewContent).toBeDefined();
 						},
 					},
 				];

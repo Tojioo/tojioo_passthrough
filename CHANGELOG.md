@@ -1,6 +1,20 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.7.1] - 2026-02-23
+### Improved
+- **Dynamic Preview**:
+	- Removed "Beta" label.
+	- Accepts any input type, not just IMAGE. Images and masks display visually, all other types display as formatted text.
+	- Rewrote preview rendering to DOM widgets, fixing text overflow and tab button occlusion.
+	- Tab bar scrolls horizontally when tabs overflow and centers when they fit.
+- **Dynamic Nodes**:
+	- All dynamic nodes (Passthrough, Any, Bus, Preview) now appear in the slot menu when dragging a link, and auto-connect on creation.
+
+### Internal
+- Reorganized and standardized internal logging.
+- Expanded test coverage for DOM widgets, clone handling, and dynamic node behavior.
+
 ## [1.7.0] - 2026-02-20
 ### New Features
 - Added Dual CLIP Text Encode

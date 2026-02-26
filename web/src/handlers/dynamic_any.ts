@@ -1,6 +1,10 @@
-﻿import {GetGraph, GetInputLink, GetLink, DeferMicrotask, IsGraphLoading, ResolveConnectedType} from '@/utils';
+﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLink, IsGraphLoading, ResolveConnectedType} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
+import {loggerInstance} from '@/logger_internal';
+
+// Scoped log
+const log = loggerInstance("DynamicAny");
 
 export function configureDynamicAny(): ComfyExtension
 {
@@ -53,6 +57,34 @@ export function configureDynamicAny(): ComfyExtension
 				GetGraph(node)?.setDirtyCanvas?.(true, true);
 			}
 
+			nodeType.prototype.onConnectInput = function(
+				this: any,
+				_targetSlot: number,
+				_type: ISlotType,
+				_output: any,
+				_sourceNode: any,
+				_sourceSlot: number
+			): boolean
+			{
+				return true;
+			};
+
+			const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+			nodeType.prototype.findInputSlotByType = function(
+				this: any,
+				type: ISlotType,
+				returnObj?: true | undefined,
+				preferFreeSlot?: boolean,
+				doNotUseOccupied?: boolean
+			): any
+			{
+				if (this.inputs?.[0]?.link == null)
+				{
+					return returnObj ? this.inputs[0] : 0;
+				}
+				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+			};
+
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
@@ -72,14 +104,17 @@ export function configureDynamicAny(): ComfyExtension
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading) (this as any).__tojioo_skip_resize = true;
+					if (loading)
+					{
+						(this as any).__tojioo_skip_resize = true;
+					}
 					try
 					{
 						applyType(this);
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicAny: error in configure", e);
+						log.error("error in configure", e);
 					}
 					finally
 					{
@@ -92,7 +127,9 @@ export function configureDynamicAny(): ComfyExtension
 					{
 						applyType(this);
 					}
-					catch {}
+					catch
+					{
+					}
 				}, 100);
 			};
 
@@ -100,22 +137,30 @@ export function configureDynamicAny(): ComfyExtension
 			nodeType.prototype.onAdded = function(this)
 			{
 				prevOnAdded?.apply(this, arguments as any);
+
+				const pending = consumePendingConnection();
+
 				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading) (this as any).__tojioo_skip_resize = true;
+					if (loading)
+					{
+						(this as any).__tojioo_skip_resize = true;
+					}
 					try
 					{
 						applyType(this);
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicAny: error in onAdded", e);
+						log.error("error in onAdded", e);
 					}
 					finally
 					{
 						(this as any).__tojioo_skip_resize = false;
 					}
+
+					connectPending(this, pending);
 				});
 			};
 		}

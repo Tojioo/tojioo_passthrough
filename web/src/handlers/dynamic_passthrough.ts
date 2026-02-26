@@ -1,6 +1,10 @@
-﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetLgInput, ApplyDynamicTypes, DeferMicrotask, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
+import {loggerInstance} from '@/logger_internal';
+
+// Scoped log
+const log = loggerInstance("DynamicPassthrough");
 
 export function configureDynamicPassthrough(): ComfyExtension
 {
@@ -15,8 +19,14 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 			function normalizeIO(node: any)
 			{
-				if (!node.inputs) node.inputs = [];
-				if (!node.outputs) node.outputs = [];
+				if (!node.inputs)
+				{
+					node.inputs = [];
+				}
+				if (!node.outputs)
+				{
+					node.outputs = [];
+				}
 
 				let lastConnectedInput = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
@@ -66,6 +76,40 @@ export function configureDynamicPassthrough(): ComfyExtension
 				(node as any).__tojioo_dynamic_io_size_fixed = true;
 			}
 
+			nodeType.prototype.onConnectInput = function(
+				this: any,
+				_targetSlot: number,
+				_type: ISlotType,
+				_output: any,
+				_sourceNode: any,
+				_sourceSlot: number
+			): boolean
+			{
+				return true;
+			};
+
+			const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
+			nodeType.prototype.findInputSlotByType = function(
+				this: any,
+				type: ISlotType,
+				returnObj?: true | undefined,
+				preferFreeSlot?: boolean,
+				doNotUseOccupied?: boolean
+			): any
+			{
+				if (this.inputs)
+				{
+					for (let i = 0; i < this.inputs.length; i++)
+					{
+						if (this.inputs[i]?.link == null)
+						{
+							return returnObj ? this.inputs[i] : i;
+						}
+					}
+				}
+				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
+			};
+
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this: any, type: number, index: number, isConnected: boolean, link_info: any, inputOrOutput: any)
 			{
@@ -109,7 +153,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error(e);
+						log.error(e);
 					}
 
 					DeferMicrotask(() =>
@@ -153,8 +197,14 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 						if (hasConnectionsAfter)
 						{
-							if (typeof node.removeInput === "function") node.removeInput(disconnectedIndex);
-							if (typeof node.removeOutput === "function") node.removeOutput(disconnectedIndex);
+							if (typeof node.removeInput === "function")
+							{
+								node.removeInput(disconnectedIndex);
+							}
+							if (typeof node.removeOutput === "function")
+							{
+								node.removeOutput(disconnectedIndex);
+							}
 						}
 
 						normalizeIO(this);
@@ -185,7 +235,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPassthrough: error in configure", e);
+						log.error("error in configure", e);
 					}
 				});
 
@@ -198,7 +248,9 @@ export function configureDynamicPassthrough(): ComfyExtension
 						ApplyDynamicTypes(this);
 						UpdateNodeSizeImmediate(this);
 					}
-					catch {}
+					catch
+					{
+					}
 				}, 100);
 			};
 
@@ -206,6 +258,9 @@ export function configureDynamicPassthrough(): ComfyExtension
 			nodeType.prototype.onAdded = function(this: any)
 			{
 				prevOnAdded?.apply(this, arguments as any);
+
+				const pending = consumePendingConnection();
+
 				(this as any).__tojioo_dynamic_io_size_fixed = false;
 				DeferMicrotask(() =>
 				{
@@ -216,8 +271,10 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 					catch (e)
 					{
-						console.error("Tojioo.DynamicPassthrough: error in onAdded", e);
+						log.error("error in onAdded", e);
 					}
+
+					connectPending(this, pending);
 				});
 			};
 		}
