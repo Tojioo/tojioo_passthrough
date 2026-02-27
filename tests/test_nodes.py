@@ -131,6 +131,79 @@ def test_dynamic_bus_direct_input_overrides_bus():
 	assert result[0][1]["data"] == "new"
 
 
+def test_dynamic_bus_overwrite_replaces_first_match():
+	node = PT_DynamicBus()
+	bus = {0: {"data": "old_image", "type": "IMAGE"}, 1: {"data": "mask", "type": "MASK"}}
+	result = node.run(bus = bus, input_1 = "new_image", _slot_types = "1:IMAGE", _overwrite_mode = "1")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "new_image"
+	assert out_bus[0]["type"] == "IMAGE"
+	assert out_bus[1]["data"] == "mask"
+	assert len(out_bus) == 2
+
+
+def test_dynamic_bus_overwrite_appends_when_no_match():
+	node = PT_DynamicBus()
+	bus = {0: {"data": "mask", "type": "MASK"}}
+	result = node.run(bus = bus, input_1 = "image", _slot_types = "1:IMAGE", _overwrite_mode = "1")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "mask"
+	assert out_bus[1]["data"] == "image"
+	assert len(out_bus) == 2
+
+
+def test_dynamic_bus_overwrite_off_always_appends():
+	node = PT_DynamicBus()
+	bus = {0: {"data": "old_image", "type": "IMAGE"}}
+	result = node.run(bus = bus, input_1 = "new_image", _slot_types = "1:IMAGE", _overwrite_mode = "0")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "old_image"
+	assert out_bus[1]["data"] == "new_image"
+	assert len(out_bus) == 2
+
+
+def test_dynamic_bus_overwrite_replaces_first_of_multiple():
+	node = PT_DynamicBus()
+	bus = {0: {"data": "img_1", "type": "IMAGE"}, 1: {"data": "mask", "type": "MASK"}, 2: {"data": "img_2", "type": "IMAGE"}}
+	result = node.run(bus = bus, input_1 = "replacement", _slot_types = "1:IMAGE", _overwrite_mode = "1")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "replacement"
+	assert out_bus[1]["data"] == "mask"
+	assert out_bus[2]["data"] == "img_2"
+	assert len(out_bus) == 3
+
+
+def test_dynamic_bus_overwrite_skips_untyped_local():
+	"""Untyped local input (ANY_TYPE) always appends, even in overwrite mode."""
+	node = PT_DynamicBus()
+	bus = {0: {"data": "image", "type": "IMAGE"}}
+	result = node.run(bus = bus, input_1 = "untyped", _slot_types = "1:*", _overwrite_mode = "1")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "image"
+	assert out_bus[1]["data"] == "untyped"
+	assert len(out_bus) == 2
+
+
+def test_dynamic_bus_overwrite_two_locals_same_type():
+	"""Two local IMAGEs: first replaces upstream IMAGE, second appends."""
+	node = PT_DynamicBus()
+	bus = {0: {"data": "old", "type": "IMAGE"}, 1: {"data": "mask", "type": "MASK"}}
+	result = node.run(bus = bus, input_1 = "new_1", input_2 = "new_2", _slot_types = "1:IMAGE,2:IMAGE", _overwrite_mode = "1")
+	out_bus = result[0]
+	assert out_bus[0]["data"] == "new_1"
+	assert out_bus[1]["data"] == "mask"
+	assert out_bus[2]["data"] == "new_2"
+	assert len(out_bus) == 3
+
+
+def test_dynamic_bus_find_matching_index():
+	bus = {0: {"data": "a", "type": "IMAGE"}, 1: {"data": "b", "type": "MASK"}, 2: {"data": "c", "type": "IMAGE"}}
+	assert PT_DynamicBus._find_matching_index(bus, "IMAGE", set()) == 0
+	assert PT_DynamicBus._find_matching_index(bus, "IMAGE", {0}) == 2
+	assert PT_DynamicBus._find_matching_index(bus, "IMAGE", {0, 2}) is None
+	assert PT_DynamicBus._find_matching_index(bus, "LATENT", set()) is None
+
+
 def test_dynamic_preview_empty_result():
 	node = PT_DynamicPreview()
 	assert node.preview_images() == {"ui": {"preview_data": [], "text_data": []}}
@@ -253,3 +326,129 @@ def test_dual_clip_encode_requires_clip():
 	node = PT_DualCLIPEncode()
 	with pytest.raises(RuntimeError):
 		node.run(None, "pos", "neg")
+
+
+class TestConditioningTextExtraction:
+
+	def test_direct_clip_text_encode(self):
+		prompt = {
+			"5": {"class_type": "CLIPTextEncode", "inputs": {"text": "a photo of a cat", "clip": ["3", 0]}},
+		}
+		result = PT_DynamicPreview._extract_prompt_text(prompt, "5", 0)
+		assert result == "a photo of a cat"
+
+
+	def test_through_passthrough_chain(self):
+		prompt = {
+			"5": {"class_type": "CLIPTextEncode", "inputs": {"text": "sunset over mountains", "clip": ["3", 0]}},
+			"7": {"class_type": "PT_Conditioning", "inputs": {"positive": ["5", 0]}},
+		}
+		result = PT_DynamicPreview._extract_prompt_text(prompt, "7", 0)
+		assert result == "sunset over mountains"
+
+
+	def test_dual_clip_positive_output(self):
+		prompt = {
+			"5": {"class_type": "PT_DualCLIPEncode", "inputs": {"clip": ["3", 0], "positive": "good", "negative": "bad"}},
+		}
+		assert PT_DynamicPreview._extract_prompt_text(prompt, "5", 0) == "good"
+		assert PT_DynamicPreview._extract_prompt_text(prompt, "5", 1) == "bad"
+
+
+	def test_flux_encode_fields(self):
+		prompt = {
+			"5": {"class_type": "CLIPTextEncodeFlux", "inputs": {"t5xxl": "main prompt", "l": "clip_l text", "clip": ["3", 0]}},
+		}
+		result = PT_DynamicPreview._extract_prompt_text(prompt, "5", 0)
+		assert "main prompt" in result
+		assert "clip_l text" in result
+
+
+	def test_sdxl_encode_fields(self):
+		prompt = {
+			"5": {"class_type": "CLIPTextEncodeSDXL", "inputs": {"text_g": "global", "text_l": "local", "clip": ["3", 0]}},
+		}
+		result = PT_DynamicPreview._extract_prompt_text(prompt, "5", 0)
+		assert "global" in result
+		assert "local" in result
+
+
+	def test_unknown_node_returns_none(self):
+		prompt = {
+			"5": {"class_type": "SomeCustomNode", "inputs": {"value": 42}},
+		}
+		assert PT_DynamicPreview._extract_prompt_text(prompt, "5", 0) is None
+
+
+	def test_missing_node_returns_none(self):
+		assert PT_DynamicPreview._extract_prompt_text({}, "999", 0) is None
+		assert PT_DynamicPreview._extract_prompt_text(None, "5", 0) is None
+
+
+	def test_cycle_protection(self):
+		prompt = {
+			"5": {"class_type": "Reroute", "inputs": {"input": ["6", 0]}},
+			"6": {"class_type": "Reroute", "inputs": {"input": ["5", 0]}},
+		}
+		assert PT_DynamicPreview._extract_prompt_text(prompt, "5", 0) is None
+
+
+	def test_linked_text_field_not_resolved(self):
+		prompt = {
+			"5": {"class_type": "CLIPTextEncode", "inputs": {"text": ["8", 0], "clip": ["3", 0]}},
+			"8": {"class_type": "PrimitiveNode", "inputs": {}},
+		}
+		assert PT_DynamicPreview._extract_prompt_text(prompt, "5", 0) is None
+
+
+	def test_resolve_all_conditioning_texts(self):
+		prompt = {
+			"1": {"class_type": "PT_DynamicPreview", "inputs": {"input_1": ["5", 0], "input_2": ["6", 0]}},
+			"5": {"class_type": "CLIPTextEncode", "inputs": {"text": "positive prompt", "clip": ["3", 0]}},
+			"6": {"class_type": "CLIPTextEncode", "inputs": {"text": "negative prompt", "clip": ["3", 0]}},
+		}
+		node = PT_DynamicPreview()
+		result = node._resolve_all_conditioning_texts(prompt, "1", {"input_1": "val1", "input_2": "val2"})
+		assert result["input_1"] == "positive prompt"
+		assert result["input_2"] == "negative prompt"
+
+
+	def test_resolve_skips_non_link_inputs(self):
+		prompt = {
+			"1": {"class_type": "PT_DynamicPreview", "inputs": {"input_1": "direct_value"}},
+		}
+		node = PT_DynamicPreview()
+		result = node._resolve_all_conditioning_texts(prompt, "1", {"input_1": "val"})
+		assert result == {}
+
+
+	def test_resolve_with_no_prompt(self):
+		node = PT_DynamicPreview()
+		assert node._resolve_all_conditioning_texts(None, "1", {"input_1": "val"}) == {}
+		assert node._resolve_all_conditioning_texts({}, None, {"input_1": "val"}) == {}
+
+
+	def test_preview_conditioning_with_prompt(self, torch_stub):
+		cond_tensor = torch_stub.randn(1, 77, 768)
+		cond_value = [(cond_tensor, {"pooled_output": torch_stub.randn(1, 768)})]
+
+		prompt = {
+			"1": {"class_type": "PT_DynamicPreview", "inputs": {"input_1": ["5", 0]}},
+			"5": {"class_type": "CLIPTextEncode", "inputs": {"text": "a beautiful sunset", "clip": ["3", 0]}},
+		}
+		node = PT_DynamicPreview()
+		result = node.preview_images(prompt = prompt, unique_id = "1", input_1 = cond_value)
+		text = result["ui"]["text_data"][0]["text"]
+		assert "Prompt: a beautiful sunset" in text
+		assert "CONDITIONING" in text
+
+
+	def test_preview_conditioning_without_prompt(self, torch_stub):
+		cond_tensor = torch_stub.randn(1, 77, 768)
+		cond_value = [(cond_tensor, {"pooled_output": torch_stub.randn(1, 768)})]
+
+		node = PT_DynamicPreview()
+		result = node.preview_images(input_1 = cond_value)
+		text = result["ui"]["text_data"][0]["text"]
+		assert "Prompt:" not in text
+		assert "CONDITIONING" in text

@@ -1,12 +1,16 @@
 ﻿import {configureBatchSwitchNodes, configureDynamicAny, configureDynamicBus, configureDynamicPassthrough, configureDynamicPreview, configureSwitchNodes} from '@/handlers';
 import {configureSlotMenu, InstallGraphLoadingHook} from '@/utils';
 import {app} from 'scripts/app.js';
+import {dynamicBusOverwrite} from '@/settings'
 import logger_internal from '@/logger_internal';
 
 const commonTypes = ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"];
 
 app.registerExtension({
 	name: "Tojioo.Passthrough.Core",
+	settings: [
+		dynamicBusOverwrite,
+	],
 	async setup()
 	{
 		InstallGraphLoadingHook(app);

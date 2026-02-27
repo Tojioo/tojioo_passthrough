@@ -11,6 +11,18 @@ any_type = AnyType("*")
 
 _MAX_TEXT_LEN = 2000
 
+_TEXT_ENCODE_FIELDS = {
+	"CLIPTextEncode": ("text",),
+	"CLIPTextEncodeFlux": ("t5xxl", "l"),
+	"CLIPTextEncodeSDXL": ("text_g", "text_l"),
+	"CLIPTextEncodeSDXLRefiner": ("text",),
+	"CLIPTextEncodeHunyuanDiT": ("text",),
+}
+
+_DUAL_OUTPUT_FIELDS = {
+	"PT_DualCLIPEncode": {0: ("positive",), 1: ("negative",)},
+}
+
 
 class PT_DynamicPreview:
 	NODE_NAME = "Dynamic Preview"
@@ -24,7 +36,11 @@ class PT_DynamicPreview:
 		return {
 			"required": {},
 			"optional": FlexibleOptionalInputType(any_type),
-			"hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+			"hidden": {
+				"prompt": "PROMPT",
+				"extra_pnginfo": "EXTRA_PNGINFO",
+				"unique_id": "UNIQUE_ID",
+			},
 		}
 
 
@@ -38,7 +54,7 @@ class PT_DynamicPreview:
 	FUNCTION = "preview_images"
 
 
-	def preview_images(self, prompt = None, extra_pnginfo = None, **kwargs):
+	def preview_images(self, prompt = None, extra_pnginfo = None, unique_id = None, **kwargs):
 		import numpy as np
 		from PIL import Image
 		from PIL.PngImagePlugin import PngInfo
@@ -54,6 +70,8 @@ class PT_DynamicPreview:
 		all_text = []
 		output_dir = folder_paths.get_temp_directory()
 		prefix = "preview_"
+
+		conditioning_texts = self._resolve_all_conditioning_texts(prompt, unique_id, kwargs)
 
 
 		def save_tensor_as_image(img_t, slot_idx):
@@ -90,16 +108,17 @@ class PT_DynamicPreview:
 		for key, value in sorted(kwargs.items(), key = lambda x: self._parse_slot_order(x[0])):
 			if value is None:
 				continue
+			cond_text = conditioning_texts.get(key)
 			if self._is_bus_dict(value):
 				for bus_idx in sorted(value.keys()):
 					entry = value[bus_idx]
 					data = entry["data"] if isinstance(entry, dict) and "data" in entry else entry
 					if data is not None:
-						expanded.append(data)
+						expanded.append((data, None))
 			else:
-				expanded.append(value)
+				expanded.append((value, cond_text))
 
-		for slot_idx, value in enumerate(expanded):
+		for slot_idx, (value, cond_text) in enumerate(expanded):
 
 			if torch is not None and isinstance(value, torch.Tensor):
 				if self._is_image_tensor(value):
@@ -113,7 +132,10 @@ class PT_DynamicPreview:
 						save_tensor_as_image(frame, slot_idx)
 					continue
 
-			all_text.append({"slot": slot_idx, "text": self._value_to_text(value, torch)})
+			text = self._value_to_text(value, torch)
+			if cond_text and self._is_conditioning(value, torch):
+				text = f"Prompt: {cond_text}\n\n{text}"
+			all_text.append({"slot": slot_idx, "text": text})
 
 		return {"ui": {"preview_data": all_images, "text_data": all_text}}
 
@@ -212,3 +234,88 @@ class PT_DynamicPreview:
 			except ValueError:
 				pass
 		return 1
+
+
+	@staticmethod
+	def _is_conditioning(value, torch):
+		return (
+			isinstance(value, list)
+			and len(value) > 0
+			and isinstance(value[0], (list, tuple))
+			and len(value[0]) == 2
+			and torch is not None
+			and isinstance(value[0][0], torch.Tensor)
+		)
+
+
+	def _resolve_all_conditioning_texts(self, prompt, unique_id, kwargs):
+		if not prompt or not unique_id:
+			return {}
+
+		our_node = prompt.get(str(unique_id))
+		if not our_node:
+			return {}
+
+		our_inputs = our_node.get("inputs", {})
+		result = {}
+
+		for key in kwargs:
+			link_ref = our_inputs.get(key)
+			if not isinstance(link_ref, list) or len(link_ref) < 2:
+				continue
+			text = self._extract_prompt_text(prompt, str(link_ref[0]), link_ref[1])
+			if text:
+				result[key] = text
+
+		return result
+
+
+	@classmethod
+	def _extract_prompt_text(cls, prompt, node_id, output_index, visited = None):
+		if visited is None:
+			visited = set()
+		if node_id in visited or not prompt:
+			return None
+		visited.add(node_id)
+
+		node = prompt.get(node_id)
+		if not node:
+			return None
+
+		class_type = node.get("class_type", "")
+		inputs = node.get("inputs", {})
+
+		text = cls._get_encode_text(class_type, inputs, output_index)
+		if text:
+			return text
+
+		for key, val in inputs.items():
+			if key.startswith("_"):
+				continue
+			if isinstance(val, list) and len(val) >= 2:
+				found = cls._extract_prompt_text(prompt, str(val[0]), val[1], visited)
+				if found:
+					return found
+
+		return None
+
+
+	@staticmethod
+	def _get_encode_text(class_type, inputs, output_index):
+		fields = _TEXT_ENCODE_FIELDS.get(class_type)
+
+		if not fields:
+			dual = _DUAL_OUTPUT_FIELDS.get(class_type)
+			if dual:
+				fields = dual.get(output_index)
+
+		if not fields:
+			return None
+
+		texts = []
+		for field in fields:
+			val = inputs.get(field)
+			if isinstance(val, str) and val.strip():
+				texts.append(val.strip())
+
+		return "\n".join(texts) if texts else None

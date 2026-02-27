@@ -1,6 +1,7 @@
 ﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
+import {getBusOverwriteMode} from '@/settings';
 import {loggerInstance} from '@/logger_internal';
 
 // Scoped log
@@ -28,11 +29,18 @@ export function configureDynamicBus(): ComfyExtension
 				const link = GetInputLink(node, 0);
 				if (!link)
 				{
+					busInput.link = null;
 					return {};
 				}
 
 				const sourceNode = GetNodeById(node, link.origin_id);
-				return (sourceNode?.properties as any)?._busTypes ?? {};
+				if (!sourceNode)
+				{
+					busInput.link = null;
+					return {};
+				}
+
+				return (sourceNode.properties as any)?._busTypes ?? {};
 			}
 
 			function getSlotType(node: any, slotIdx: number): string
@@ -242,6 +250,16 @@ export function configureDynamicBus(): ComfyExtension
 					node.inputs[0].type = BUS_TYPE as ISlotType;
 				}
 
+				// Stale link references can survive workflow serialization
+				if (node.inputs[0]?.link != null)
+				{
+					const busLink = GetInputLink(node, 0);
+					if (!busLink || !GetNodeById(node, busLink.origin_id))
+					{
+						node.inputs[0].link = null;
+					}
+				}
+
 				if (node.outputs.length === 0)
 				{
 					node.addOutput?.("bus", BUS_TYPE as ISlotType);
@@ -313,6 +331,19 @@ export function configureDynamicBus(): ComfyExtension
 					const slotIdx = node.outputs.length;
 					node.addOutput?.("output", ANY_TYPE as ISlotType);
 					node.outputs[slotIdx].name = `output_${slotIdx}`;
+				}
+
+				// Clear stale link references from data slots
+				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
+				{
+					if (node.inputs[slotIdx]?.link != null)
+					{
+						const link = GetInputLink(node, slotIdx);
+						if (!link || !GetNodeById(node, link.origin_id))
+						{
+							node.inputs[slotIdx].link = null;
+						}
+					}
 				}
 
 				// Clear stale types from slots with no live connections
@@ -469,16 +500,38 @@ export function configureDynamicBus(): ComfyExtension
 					node.properties = {};
 				}
 
+				const overwrite = getBusOverwriteMode();
+				log.debug('Overwrite is set to: ', overwrite);
+
 				const combinedTypes: Record<number, string> = {...upstreamTypes};
 				let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
+				const usedUpstreamIndices = new Set<number>();
 
 				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 				{
-					if (node.inputs[slotIdx]?.link != null)
+					if (node.inputs[slotIdx]?.link == null)
 					{
-						combinedTypes[nextIdx] = slotTypes[slotIdx] || ANY_TYPE;
-						nextIdx++;
+						continue;
 					}
+
+					const localType = slotTypes[slotIdx] || ANY_TYPE;
+
+					if (overwrite && localType !== ANY_TYPE)
+					{
+						const matchIdx = Object.keys(combinedTypes)
+							.map(Number)
+							.sort((a, b) => a - b)
+							.find(idx => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+
+						if (matchIdx !== undefined)
+						{
+							usedUpstreamIndices.add(matchIdx);
+							continue;
+						}
+					}
+
+					combinedTypes[nextIdx] = localType;
+					nextIdx++;
 				}
 
 				(node.properties as any)._busTypes = combinedTypes;
@@ -488,6 +541,9 @@ export function configureDynamicBus(): ComfyExtension
 
 				const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
 				outputHintsWidget.value = buildOutputHints(node);
+
+				const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
+				overwriteWidget.value = overwrite ? "1" : "0";
 
 				const busOutLinks = node.outputs?.[0]?.links;
 				if (busOutLinks?.length)
@@ -640,6 +696,19 @@ export function configureDynamicBus(): ComfyExtension
 				prevConfigure?.call(this, info);
 
 				const node = this;
+
+				// Early stale link cleanup before deferred synchronize
+				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
+				{
+					if (node.inputs[i]?.link != null)
+					{
+						const link = GetInputLink(node, i);
+						if (!link || !GetNodeById(node, link.origin_id))
+						{
+							node.inputs[i].link = null;
+						}
+					}
+				}
 
 				DeferMicrotask(() =>
 				{

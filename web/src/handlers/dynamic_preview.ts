@@ -250,8 +250,9 @@ export function configureDynamicPreview(): ComfyExtension
 							flexShrink: "0"
 						});
 						const idx = i;
-						tab.addEventListener("click", () =>
+						tab.addEventListener("click", (e: MouseEvent) =>
 						{
+							e.stopPropagation();
 							node._currentImageIndex = idx;
 							updatePreviewDisplay(node);
 						});

@@ -19,6 +19,7 @@ class PT_DynamicBus(BaseNode):
 			"hidden": {
 				"_slot_types": ("STRING", {"default": ""}),
 				"_output_hints": ("STRING", {"default": ""}),
+				"_overwrite_mode": ("STRING", {"default": "0"}),
 			}
 		}
 
@@ -34,8 +35,9 @@ class PT_DynamicBus(BaseNode):
 	CATEGORY = CATEGORIES["dynamic"]
 
 
-	def run(self, bus = None, _slot_types = "", _output_hints = "", **kwargs):
+	def run(self, bus = None, _slot_types = "", _output_hints = "", _overwrite_mode = "0", **kwargs):
 		bus_dict = dict(bus) if isinstance(bus, dict) else {}
+		overwrite = str(_overwrite_mode) == "1"
 
 		slot_type_map = {}
 		if _slot_types:
@@ -48,6 +50,7 @@ class PT_DynamicBus(BaseNode):
 						pass
 
 		next_bus_idx = max(bus_dict.keys(), default = -1) + 1
+		used_bus_indices = set()
 
 		direct_inputs = {}
 		for key, value in kwargs.items():
@@ -56,10 +59,16 @@ class PT_DynamicBus(BaseNode):
 			slot_idx = self._parse_slot_index(key)
 			if slot_idx is not None:
 				slot_type = slot_type_map.get(slot_idx, "*")
-				bus_dict[next_bus_idx] = {
-					"data": value,
-					"type": slot_type
-				}
+
+				if overwrite and slot_type != "*":
+					match_idx = self._find_matching_index(bus_dict, slot_type, used_bus_indices)
+					if match_idx is not None:
+						used_bus_indices.add(match_idx)
+						bus_dict[match_idx] = {"data": value, "type": slot_type}
+						direct_inputs[slot_idx] = value
+						continue
+
+				bus_dict[next_bus_idx] = {"data": value, "type": slot_type}
 				direct_inputs[slot_idx] = value
 				next_bus_idx += 1
 
@@ -100,6 +109,24 @@ class PT_DynamicBus(BaseNode):
 			outputs.append(None)
 
 		return tuple(outputs)
+
+
+	@staticmethod
+	def _find_matching_index(bus_dict, expected_type, used_indices):
+		"""Returns the index of the first bus entry with a matching type."""
+		for idx in sorted(bus_dict.keys()):
+			if idx in used_indices:
+				continue
+			entry = bus_dict[idx]
+			if entry is None:
+				continue
+			if isinstance(entry, dict) and "data" in entry:
+				entry_type = entry.get("type", "*")
+			else:
+				entry_type = "*"
+			if entry_type == expected_type:
+				return idx
+		return None
 
 
 	@staticmethod

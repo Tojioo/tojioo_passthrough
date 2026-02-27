@@ -785,6 +785,36 @@ function configureDynamicAny() {
     }
   };
 }
+const SETTING_IDS = {
+  BUS_OVERWRITE: "Tojioo.DynamicBus.OverwriteMode"
+};
+const dynamicBusOverwrite = {
+  id: SETTING_IDS.BUS_OVERWRITE,
+  name: "Overwrite matching bus types",
+  type: "boolean",
+  defaultValue: false,
+  tooltip: "When enabled, a local input whose type already exists on the upstream bus will replace the first matching entry instead of appending.",
+  category: ["Tojioo Passthrough", "Dynamic Bus", "Overwrite matching types"],
+  onChange: (newVal) => {
+    const graph = app.rootGraph;
+    if (!graph) {
+      return;
+    }
+    const value = newVal ? "1" : "0";
+    for (const node of graph._nodes ?? []) {
+      if (node.type !== "PT_DynamicBus") {
+        continue;
+      }
+      const widget = node.widgets?.find((w) => w.name === "_overwrite_mode");
+      if (widget) {
+        widget.value = value;
+      }
+    }
+  }
+};
+function getBusOverwriteMode() {
+  return app.extensionManager?.setting?.get(SETTING_IDS.BUS_OVERWRITE) ?? false;
+}
 const log$2 = loggerInstance("DynamicBus");
 function configureDynamicBus() {
   return {
@@ -800,10 +830,15 @@ function configureDynamicBus() {
         }
         const link = GetInputLink(node, 0);
         if (!link) {
+          busInput.link = null;
           return {};
         }
         const sourceNode = GetNodeById(node, link.origin_id);
-        return sourceNode?.properties?._busTypes ?? {};
+        if (!sourceNode) {
+          busInput.link = null;
+          return {};
+        }
+        return sourceNode.properties?._busTypes ?? {};
       }
       function getSlotType(node, slotIdx) {
         const input = node.inputs?.[slotIdx];
@@ -941,6 +976,12 @@ function configureDynamicBus() {
           node.inputs[0].label = "bus";
           node.inputs[0].type = BUS_TYPE;
         }
+        if (node.inputs[0]?.link != null) {
+          const busLink = GetInputLink(node, 0);
+          if (!busLink || !GetNodeById(node, busLink.origin_id)) {
+            node.inputs[0].link = null;
+          }
+        }
         if (node.outputs.length === 0) {
           node.addOutput?.("bus", BUS_TYPE);
         } else {
@@ -992,6 +1033,14 @@ function configureDynamicBus() {
           const slotIdx = node.outputs.length;
           node.addOutput?.("output", ANY_TYPE);
           node.outputs[slotIdx].name = `output_${slotIdx}`;
+        }
+        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+          if (node.inputs[slotIdx]?.link != null) {
+            const link = GetInputLink(node, slotIdx);
+            if (!link || !GetNodeById(node, link.origin_id)) {
+              node.inputs[slotIdx].link = null;
+            }
+          }
         }
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
           const hasInput = node.inputs[slotIdx]?.link != null;
@@ -1097,19 +1146,33 @@ function configureDynamicBus() {
         if (!node.properties) {
           node.properties = {};
         }
+        const overwrite = getBusOverwriteMode();
+        log$2.debug("Overwrite is set to: ", overwrite);
         const combinedTypes = { ...upstreamTypes };
         let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
+        const usedUpstreamIndices = /* @__PURE__ */ new Set();
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          if (node.inputs[slotIdx]?.link != null) {
-            combinedTypes[nextIdx] = slotTypes[slotIdx] || ANY_TYPE;
-            nextIdx++;
+          if (node.inputs[slotIdx]?.link == null) {
+            continue;
           }
+          const localType = slotTypes[slotIdx] || ANY_TYPE;
+          if (overwrite && localType !== ANY_TYPE) {
+            const matchIdx = Object.keys(combinedTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+            if (matchIdx !== void 0) {
+              usedUpstreamIndices.add(matchIdx);
+              continue;
+            }
+          }
+          combinedTypes[nextIdx] = localType;
+          nextIdx++;
         }
         node.properties._busTypes = combinedTypes;
         const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
         slotTypesWidget.value = buildSlotTypes(node);
         const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
         outputHintsWidget.value = buildOutputHints(node);
+        const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
+        overwriteWidget.value = overwrite ? "1" : "0";
         const busOutLinks = node.outputs?.[0]?.links;
         if (busOutLinks?.length) {
           for (const linkId of busOutLinks) {
@@ -1202,6 +1265,14 @@ function configureDynamicBus() {
       nodeType.prototype.configure = function(info) {
         prevConfigure?.call(this, info);
         const node = this;
+        for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
+          if (node.inputs[i]?.link != null) {
+            const link = GetInputLink(node, i);
+            if (!link || !GetNodeById(node, link.origin_id)) {
+              node.inputs[i].link = null;
+            }
+          }
+        }
         DeferMicrotask(() => {
           try {
             const hasTypedUnconnectedSlots = info.inputs?.slice(1).some((inp, idx) => {
@@ -1602,7 +1673,8 @@ function configureDynamicPreview() {
               flexShrink: "0"
             });
             const idx = i;
-            tab.addEventListener("click", () => {
+            tab.addEventListener("click", (e) => {
+              e.stopPropagation();
               node._currentImageIndex = idx;
               updatePreviewDisplay(node);
             });
@@ -1926,6 +1998,9 @@ function configureSwitchNodes() {
 const commonTypes = ["IMAGE", "MASK", "LATENT", "CONDITIONING", "CLIP", "MODEL", "VAE", "STRING", "INT", "FLOAT", "BOOLEAN"];
 app.registerExtension({
   name: "Tojioo.Passthrough.Core",
+  settings: [
+    dynamicBusOverwrite
+  ],
   async setup() {
     InstallGraphLoadingHook(app);
     configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
