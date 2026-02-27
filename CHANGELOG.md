@@ -1,6 +1,12 @@
 ﻿# Changelog
 All notable changes are listed here.
 
+## [1.7.2] - XXXX-YY-ZZ
+
+### Improved
+- **Dynamic Bus**:
+	- Added ability to unpack bus connections into individual outputs.
+
 ## [1.7.1] - 2026-02-23
 ### Improved
 - **Dynamic Preview**:

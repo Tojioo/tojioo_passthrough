@@ -86,11 +86,20 @@ class PT_DynamicPreview:
 			)
 
 
-		for slot_idx, (key, value) in enumerate(
-			sorted(kwargs.items(), key = lambda x: self._parse_slot_order(x[0]))
-		):
+		expanded = []
+		for key, value in sorted(kwargs.items(), key = lambda x: self._parse_slot_order(x[0])):
 			if value is None:
 				continue
+			if self._is_bus_dict(value):
+				for bus_idx in sorted(value.keys()):
+					entry = value[bus_idx]
+					data = entry["data"] if isinstance(entry, dict) and "data" in entry else entry
+					if data is not None:
+						expanded.append(data)
+			else:
+				expanded.append(value)
+
+		for slot_idx, value in enumerate(expanded):
 
 			if torch is not None and isinstance(value, torch.Tensor):
 				if self._is_image_tensor(value):
@@ -183,6 +192,15 @@ class PT_DynamicPreview:
 		if len(text) > _MAX_TEXT_LEN:
 			text = text[:_MAX_TEXT_LEN] + "\n... (truncated)"
 		return text
+
+
+	@staticmethod
+	def _is_bus_dict(value):
+		if not isinstance(value, dict):
+			return False
+		if not value:
+			return False
+		return all(isinstance(k, int) and isinstance(v, dict) and "data" in v for k, v in value.items())
 
 
 	@staticmethod
