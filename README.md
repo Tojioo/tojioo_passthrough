@@ -104,7 +104,9 @@ Restart ComfyUI.
 
 #### Example:
 
-<img alt="image" src="https://github.com/user-attachments/assets/311f7d35-2895-4527-9113-d8c4eaa3aa96" />
+https://github.com/user-attachments/assets/6ca45029-c8a9-4b75-8250-ad577a09ddd8
+
+
 
 ---
 
@@ -112,14 +114,16 @@ Restart ComfyUI.
 
 * Purpose: In-graph viewer for inspecting any value across multiple inputs.
 * Behaviour:
-	+ Accepts any input type — slots grow dynamically as you connect
-	+ Images and masks display visually; all other types (strings, tensors, conditioning, etc.) display as formatted text
+	+ Accepts any input type, so slots grow dynamically as you connect
+	+ Images and masks display visually, all other types (strings, tensors, conditioning, etc.) display as formatted text
 	+ Switch between inputs via the built-in tab selector, which scrolls horizontally when tabs overflow the node width
 	+ No outputs, this node is a pure viewer
 
 #### Example (together with Dynamic Bus Node):
 
-<img alt="image" src="https://github.com/user-attachments/assets/14202fa5-741a-417c-908c-2589086b2d4a" />
+https://github.com/user-attachments/assets/1536665b-328c-4d78-821e-d5ff6191e438
+
+
 
 ---
 
