@@ -1,7 +1,7 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.7.1] - 2026-02-23
+## [1.7.1] - 2026-02-26
 ### Improved
 - **Dynamic Preview**:
 	- Removed "Beta" label.
