@@ -16,10 +16,10 @@ app.registerExtension({
 		InstallGraphLoadingHook(app);
 
 		configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
+		configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicPreview", "Dynamic Preview"]);
 		configureSlotMenu(commonTypes, [
 			["PT_DynamicPassthrough", "Dynamic Passthrough"],
 			["PT_DynamicAny", "Dynamic Any"],
-			["PT_DynamicPreview", "Dynamic Preview"],
 		]);
 		logger_internal.log(`Loaded Version ${__VERSION__}`);
 	}

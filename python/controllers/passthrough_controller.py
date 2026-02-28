@@ -13,8 +13,7 @@ class PassthroughController:
 
 		for class_name, type_name, socket_name in TYPE_SPECS:
 			display_name = (
-				class_name.replace("PT_", "")
-				.replace("String", "Text") + " Passthrough"
+				class_name.replace("PT_", "") + " Passthrough"
 			)
 			nodes[class_name] = PassthroughController._make_node(
 				class_name, type_name, socket_name, display_name,
@@ -25,8 +24,7 @@ class PassthroughController:
 			if type_name in FORCE_INPUT_TYPES:
 				widget_class = f"{class_name}Widget"
 				display_name = (
-					class_name.replace("PT_", "")
-					.replace("String", "Text") + " Passthrough (Widget)"
+					class_name.replace("PT_", "") + " Passthrough (Widget)"
 				)
 				nodes[widget_class] = PassthroughController._make_node(
 					widget_class, type_name, socket_name, display_name,

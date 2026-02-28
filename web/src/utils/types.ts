@@ -1,7 +1,6 @@
-﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType} from './graph';
-import {UpdateNodeSize} from './lifecycle';
+﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType, UpdateNodeSize} from '../utils';
 
-const ANY_TYPE: string = "*";
+export const ANY_TYPE: string = "*";
 
 export function ResolvePairType(node: any, zeroBasedIndex: number): string
 {

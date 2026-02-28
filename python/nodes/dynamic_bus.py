@@ -4,6 +4,9 @@ from ..config.categories import CATEGORIES
 
 any_type = AnyType("*")
 
+# Todo: Nothing. Wait for Comfy to fix their subgraphs I guess.
+bus_type = AnyType("BUS")
+
 
 class PT_DynamicBus(BaseNode):
 	NODE_NAME = "Dynamic Bus"
@@ -15,11 +18,14 @@ class PT_DynamicBus(BaseNode):
 	def INPUT_TYPES(cls):
 		return {
 			"required": {},
+			# Todo: "optional": FlexibleOptionalInputType(any_type, {"bus": (bus_type,)}),
 			"optional": FlexibleOptionalInputType(any_type, {"bus": (any_type,)}),
 			"hidden": {
 				"_slot_types": ("STRING", {"default": ""}),
 				"_output_hints": ("STRING", {"default": ""}),
 				"_overwrite_mode": ("STRING", {"default": "0"}),
+				"prompt": "PROMPT",
+				"unique_id": "UNIQUE_ID",
 			}
 		}
 
@@ -29,13 +35,27 @@ class PT_DynamicBus(BaseNode):
 		return True
 
 
-	RETURN_TYPES = tuple(any_type for _ in range(_MAX_SLOTS))
+	# RETURN_TYPES = (bus_type,) + tuple(any_type for _ in range(_MAX_SLOTS - 1))
+	RETURN_TYPES = tuple(any_type for _ in range(_MAX_SLOTS - 1))
 	RETURN_NAMES = ("bus",) + tuple(f"output_{i}" for i in range(1, _MAX_SLOTS))
 	OUTPUT_IS_LIST = tuple(False for _ in range(_MAX_SLOTS))
 	CATEGORY = CATEGORIES["dynamic"]
 
 
-	def run(self, bus = None, _slot_types = "", _output_hints = "", _overwrite_mode = "0", **kwargs):
+	def run(self, bus = None, _slot_types = "", _output_hints = "", _overwrite_mode = "0", prompt = None, unique_id = None, **kwargs):
+		from ..utils.logger_internal import get_logger
+		logger = get_logger(__name__)
+		logger.debug(f"unique_id={unique_id}")
+		logger.debug(f"bus type={type(bus).__name__}, isinstance_dict={isinstance(bus, dict)}")
+		logger.debug(f"_slot_types={_slot_types!r}")
+		logger.debug(f"_output_hints={_output_hints!r}")
+		logger.debug(f"kwargs keys={list(kwargs.keys())}")
+		if isinstance(bus, dict):
+			logger.debug(f"bus_dict keys={sorted(bus.keys())}, entries={[(k, type(v).__name__ if not isinstance(v, dict) else v.get('type','?')) for k,v in sorted(bus.items())]}")
+		if prompt and unique_id:
+			my_prompt = prompt.get(str(unique_id), {})
+			logger.debug(f"prompt inputs for this node: {my_prompt.get('inputs', {})}")
+
 		bus_dict = dict(bus) if isinstance(bus, dict) else {}
 		overwrite = str(_overwrite_mode) == "1"
 
@@ -103,8 +123,11 @@ class PT_DynamicBus(BaseNode):
 				if match is not None:
 					matched_idx, matched_data = match
 					used_indices.add(matched_idx)
+					logger.debug(f"slot {slot_idx}: unpack type={expected_type} → bus idx {matched_idx}")
 					outputs.append(matched_data)
 					continue
+				else:
+					logger.debug(f"slot {slot_idx}: unpack type={expected_type} → NO MATCH")
 
 			outputs.append(None)
 

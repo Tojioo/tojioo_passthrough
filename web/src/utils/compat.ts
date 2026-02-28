@@ -1,6 +1,6 @@
-﻿export const LG_NODE_SLOT_HEIGHT = 20;
-export const LG_OUTPUT = 2;
-export const LG_INPUT = 1;
+﻿const LG_NODE_SLOT_HEIGHT = 20;
+const LG_OUTPUT = 2;
+const LG_INPUT = 1;
 
 export function getLiteGraph(): any | null
 {

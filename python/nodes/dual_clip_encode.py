@@ -14,8 +14,8 @@ class PT_DualCLIPEncode(BaseNode):
 		return {
 			"required": {
 				"clip": (COMFY_TYPES["clip"],),
-				"positive": (COMFY_TYPES["text"], {"multiline": True, "dynamicPrompts": True}),
-				"negative": (COMFY_TYPES["text"], {"multiline": True, "dynamicPrompts": True}),
+				"positive": (COMFY_TYPES["string"], {"multiline": True, "dynamicPrompts": True}),
+				"negative": (COMFY_TYPES["string"], {"multiline": True, "dynamicPrompts": True}),
 			}
 		}
 
@@ -29,13 +29,7 @@ class PT_DualCLIPEncode(BaseNode):
 	def run(clip, positive, negative):
 		"""Encodes positive and negative prompts into conditioning"""
 		if clip is None:
-			import os
-
-			raise RuntimeError(
-				"clip input is invalid: None"
-				+ os.linesep + os.linesep
-				+ "If the clip is from a checkpoint loader node, your checkpoint does not contain a valid clip or text encoder model."
-			)
+			return ([], [])
 
 		positive_tokens = clip.tokenize(positive)
 		negative_tokens = clip.tokenize(negative)

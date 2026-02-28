@@ -31,7 +31,6 @@ function IsNodes2Mode() {
   }
   return false;
 }
-const ANY_TYPE$3 = "*";
 function GetGraph(node) {
   return (node.rootGraph ?? node.graph) || window.app?.graph;
 }
@@ -65,25 +64,24 @@ function SetLinkType(node, linkId, type) {
 }
 function GetLinkTypeFromEndpoints(node, link) {
   if (!link) {
-    return ANY_TYPE$3;
+    return ANY_TYPE$1;
   }
   const origin = GetNodeById(node, link.origin_id);
   const oSlot = origin?.outputs?.[link.origin_slot];
-  if (oSlot?.type && oSlot.type !== ANY_TYPE$3 && oSlot.type !== -1) {
+  if (oSlot?.type && oSlot.type !== ANY_TYPE$1 && oSlot.type !== -1) {
     return oSlot.type;
   }
   const target = GetNodeById(node, link.target_id);
   const tSlot = target?.inputs?.[link.target_slot];
-  if (tSlot?.type && tSlot.type !== ANY_TYPE$3 && tSlot.type !== -1) {
+  if (tSlot?.type && tSlot.type !== ANY_TYPE$1 && tSlot.type !== -1) {
     return tSlot.type;
   }
   const linkType = link.type;
-  if (linkType && linkType !== ANY_TYPE$3 && linkType !== -1) {
+  if (linkType && linkType !== ANY_TYPE$1 && linkType !== -1) {
     return linkType;
   }
-  return ANY_TYPE$3;
+  return ANY_TYPE$1;
 }
-const ANY_TYPE$2 = "*";
 let _graphLoading = false;
 let _pendingCanvasUpdate = null;
 let _pendingSizeUpdates = /* @__PURE__ */ new Set();
@@ -137,27 +135,27 @@ function DeriveDynamicPrefixFromNodeData(nodeData) {
 function ResolveInputType(node, inputIndex) {
   const inp = node.inputs?.[inputIndex];
   if (!inp) {
-    return ANY_TYPE$2;
+    return ANY_TYPE$1;
   }
   const linkId = inp.link;
   if (linkId == null) {
-    return ANY_TYPE$2;
+    return ANY_TYPE$1;
   }
   const g = GetGraph(node);
   const link = g?.links?.[linkId];
   if (!link) {
-    return ANY_TYPE$2;
+    return ANY_TYPE$1;
   }
   const inferredType = GetLinkTypeFromEndpoints(node, link);
-  if (inferredType && inferredType !== ANY_TYPE$2) {
+  if (inferredType && inferredType !== ANY_TYPE$1) {
     return inferredType;
   }
   const sourceNode = g?.getNodeById?.(link.origin_id);
   const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
-  if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$2 && sourceSlot.type !== -1) {
+  if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
     return sourceSlot.type;
   }
-  return ANY_TYPE$2;
+  return ANY_TYPE$1;
 }
 function ScheduleCanvasUpdate(node) {
   if (_pendingCanvasUpdate !== null) {
@@ -203,25 +201,25 @@ function ApplySwitchDynamicTypes(node, inputPrefix) {
   if (!node.inputs || node.inputs.length === 0) {
     return;
   }
-  let resolvedType = ANY_TYPE$2;
+  let resolvedType = ANY_TYPE$1;
   const inputTypes = [];
   for (let i = 0; i < node.inputs.length; i++) {
     const t = ResolveInputType(node, i);
     inputTypes.push(t);
-    if (t && t !== ANY_TYPE$2 && resolvedType === ANY_TYPE$2) {
+    if (t && t !== ANY_TYPE$1 && resolvedType === ANY_TYPE$1) {
       resolvedType = t;
     }
   }
   for (let i = 0; i < node.inputs.length; i++) {
     const inp = node.inputs[i];
     const currentType = inputTypes[i];
-    const effectiveType = currentType !== ANY_TYPE$2 ? currentType : resolvedType;
+    const effectiveType = currentType !== ANY_TYPE$1 ? currentType : resolvedType;
     inp.type = effectiveType;
-    const label = effectiveType !== ANY_TYPE$2 ? i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}` : i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`;
+    const label = effectiveType !== ANY_TYPE$1 ? i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}` : i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`;
     inp.name = `input_${i + 1}`;
     inp.label = label;
     const linkId = inp.link;
-    if (linkId != null && effectiveType !== ANY_TYPE$2) {
+    if (linkId != null && effectiveType !== ANY_TYPE$1) {
       SetLinkType(node, linkId, effectiveType);
     }
   }
@@ -229,13 +227,13 @@ function ApplySwitchDynamicTypes(node, inputPrefix) {
     for (let i = 0; i < node.outputs.length; i++) {
       const out = node.outputs[i];
       out.type = resolvedType;
-      if (resolvedType !== ANY_TYPE$2) {
+      if (resolvedType !== ANY_TYPE$1) {
         out.name = "output_1";
         out.label = resolvedType.toLowerCase();
       }
       const outLinks = out.links ?? [];
       for (const linkId of outLinks) {
-        if (linkId != null && resolvedType !== ANY_TYPE$2) {
+        if (linkId != null && resolvedType !== ANY_TYPE$1) {
           SetLinkType(node, linkId, resolvedType);
         }
       }
@@ -796,8 +794,13 @@ const dynamicBusOverwrite = {
   tooltip: "When enabled, a local input whose type already exists on the upstream bus will replace the first matching entry instead of appending.",
   category: ["Tojioo Passthrough", "Dynamic Bus", "Overwrite matching types"],
   onChange: (newVal) => {
-    const graph = app.rootGraph;
-    if (!graph) {
+    let graph;
+    try {
+      graph = app.rootGraph ?? app.graph;
+    } catch {
+      return;
+    }
+    if (!graph?._nodes) {
       return;
     }
     const value = newVal ? "1" : "0";
@@ -1146,8 +1149,8 @@ function configureDynamicBus() {
         if (!node.properties) {
           node.properties = {};
         }
-        const overwrite = getBusOverwriteMode();
-        log$2.debug("Overwrite is set to: ", overwrite);
+        const isOverwriteEnabled = getBusOverwriteMode();
+        log$2.debug("Overwrite is set to: ", isOverwriteEnabled);
         const combinedTypes = { ...upstreamTypes };
         let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
         const usedUpstreamIndices = /* @__PURE__ */ new Set();
@@ -1156,7 +1159,7 @@ function configureDynamicBus() {
             continue;
           }
           const localType = slotTypes[slotIdx] || ANY_TYPE;
-          if (overwrite && localType !== ANY_TYPE) {
+          if (isOverwriteEnabled && localType !== ANY_TYPE) {
             const matchIdx = Object.keys(combinedTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
             if (matchIdx !== void 0) {
               usedUpstreamIndices.add(matchIdx);
@@ -1172,7 +1175,7 @@ function configureDynamicBus() {
         const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
         outputHintsWidget.value = buildOutputHints(node);
         const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
-        overwriteWidget.value = overwrite ? "1" : "0";
+        overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
         const busOutLinks = node.outputs?.[0]?.links;
         if (busOutLinks?.length) {
           for (const linkId of busOutLinks) {
@@ -2004,10 +2007,10 @@ app.registerExtension({
   async setup() {
     InstallGraphLoadingHook(app);
     configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicBus", "Dynamic Bus"]);
+    configureSlotMenu([...commonTypes, "BUS"], ["PT_DynamicPreview", "Dynamic Preview"]);
     configureSlotMenu(commonTypes, [
       ["PT_DynamicPassthrough", "Dynamic Passthrough"],
-      ["PT_DynamicAny", "Dynamic Any"],
-      ["PT_DynamicPreview", "Dynamic Preview"]
+      ["PT_DynamicAny", "Dynamic Any"]
     ]);
     logger_internal.log(`Loaded Version ${"1.7.1"}`);
   }

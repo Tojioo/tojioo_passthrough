@@ -500,8 +500,8 @@ export function configureDynamicBus(): ComfyExtension
 					node.properties = {};
 				}
 
-				const overwrite = getBusOverwriteMode();
-				log.debug('Overwrite is set to: ', overwrite);
+				const isOverwriteEnabled = getBusOverwriteMode();
+				log.debug('Overwrite is set to: ', isOverwriteEnabled);
 
 				const combinedTypes: Record<number, string> = {...upstreamTypes};
 				let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
@@ -516,7 +516,7 @@ export function configureDynamicBus(): ComfyExtension
 
 					const localType = slotTypes[slotIdx] || ANY_TYPE;
 
-					if (overwrite && localType !== ANY_TYPE)
+					if (isOverwriteEnabled && localType !== ANY_TYPE)
 					{
 						const matchIdx = Object.keys(combinedTypes)
 							.map(Number)
@@ -543,7 +543,7 @@ export function configureDynamicBus(): ComfyExtension
 				outputHintsWidget.value = buildOutputHints(node);
 
 				const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
-				overwriteWidget.value = overwrite ? "1" : "0";
+				overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
 
 				const busOutLinks = node.outputs?.[0]?.links;
 				if (busOutLinks?.length)
@@ -697,19 +697,25 @@ export function configureDynamicBus(): ComfyExtension
 
 				const node = this;
 
-				// Early stale link cleanup before deferred synchronize
-				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
+				// Todo: Move from down ther up here
+				/*DeferMicrotask(() =>
 				{
-					if (node.inputs[i]?.link != null)
-					{
-						const link = GetInputLink(node, i);
-						if (!link || !GetNodeById(node, link.origin_id))
+					try
+					{*/
+						// Stale link cleanup — deferred so subgraph links are fully registered
+						for (let i = 0; i < (node.inputs?.length ?? 0); i++)
 						{
-							node.inputs[i].link = null;
+							if (node.inputs[i]?.link != null)
+							{
+								const link = GetInputLink(node, i);
+								if (!link || !GetNodeById(node, link.origin_id))
+								{
+									node.inputs[i].link = null;
+								}
+							}
 						}
-					}
-				}
 
+				// Todo: Move this up there
 				DeferMicrotask(() =>
 				{
 					try

@@ -1,11 +1,28 @@
 ﻿# Changelog
 All notable changes are listed here.
 
-## [1.7.2] - XXXX-YY-ZZ
+## [1.8.0] - XXXX-YY-ZZ
+### New Features
+- **Settings System**:
+	- Added entry in Settings at `Settings → Tojioo Passthrough`.
+- **Dynamic Bus**:
+	- Added "Overwrite matching bus types" setting.
+    When enabled, a local input replaces the first matching type on the upstream bus instead of appending.
 
 ### Improved
+- **Dynamic Preview**:
+	- Added ability for preview node to unpack bus connections into individual outputs.
+	- CONDITIONING inputs now display the original prompt text traced from upstream text encode nodes (CLIPTextEncode, Flux, SDXL, HunyuanDiT, Dual CLIP Encode).
+
+### Fixed
 - **Dynamic Bus**:
-	- Added ability to unpack bus connections into individual outputs.
+	- Fixed stale link references surviving workflow save/restore, which caused `InvalidLinkError` on queue.
+- **Dynamic Preview**:
+	- Tab button clicks no longer trigger node selection.
+
+### Internal
+- Added centralized settings infrastructure under `web/src/settings/`.
+- Added 8 new Python tests for bus overwrite mode behavior.
 
 ## [1.7.1] - 2026-02-23
 ### Improved

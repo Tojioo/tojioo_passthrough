@@ -15,7 +15,7 @@ class SwitchController:
 		("PT_AnyVAESwitch", "vae", "vae", "vae", "Any VAE Switch"),
 		("PT_AnyControlNetSwitch", "control_net", "control_net", "control_net", "Any ControlNet Switch"),
 		("PT_AnySAMModelSwitch", "sam_model", "sam_model", "sam_model", "Any SAM Model Switch"),
-		("PT_AnyStringSwitch", "text", "text", "string", "Any String Switch"),
+		("PT_AnyStringSwitch", "string", "string", "string", "Any String Switch"),
 		("PT_AnyIntSwitch", "int", "int", "int", "Any Int Switch"),
 		("PT_AnyFloatSwitch", "float", "float", "float", "Any Float Switch"),
 		("PT_AnyBoolSwitch", "boolean", "boolean", "boolean", "Any Bool Switch"),

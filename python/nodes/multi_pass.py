@@ -21,7 +21,7 @@ class PT_MultiPass(BaseNode):
 				"vae": ("VAE",),
 				"control_net": ("CONTROL_NET",),
 				"sam_model": ("SAM_MODEL",),
-				"text": ("STRING", {"forceInput": True}),
+				"string": ("STRING", {"forceInput": True}),
 				"int": ("INT", {"forceInput": True}),
 				"float": ("FLOAT", {"forceInput": True}),
 				"boolean": ("BOOLEAN", {"forceInput": True}),
@@ -57,7 +57,7 @@ class PT_MultiPass(BaseNode):
 		"vae",
 		"control_net",
 		"sam_model",
-		"text",
+		"string",
 		"int",
 		"float",
 		"boolean"

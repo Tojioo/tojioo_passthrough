@@ -10,7 +10,7 @@ COMFY_TYPES = {
 	"vae": "VAE",
 	"control_net": "CONTROL_NET",
 	"sam_model": "SAM_MODEL",
-	"text": "STRING",
+	"string": "STRING",
 	"int": "INT",
 	"float": "FLOAT",
 	"boolean": "BOOLEAN",
@@ -28,7 +28,7 @@ TYPE_SPECS: Tuple[Tuple[str, str, str], ...] = (
 	("PT_VAE", "VAE", "vae"),
 	("PT_ControlNet", "CONTROL_NET", "control_net"),
 	("PT_SAMModel", "SAM_MODEL", "sam_model"),
-	("PT_String", "STRING", "text"),
+	("PT_String", "STRING", "string"),
 	("PT_Int", "INT", "int"),
 	("PT_Float", "FLOAT", "float"),
 	("PT_Bool", "BOOLEAN", "boolean")

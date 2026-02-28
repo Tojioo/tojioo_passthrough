@@ -50,15 +50,17 @@ Restart ComfyUI.
 	+ Accepts one CLIP input and two text widgets (positive, negative)
 	+ Outputs separate `positive` and `negative` CONDITIONING values
 
+---
+
 #### Tiled VAE Settings
 
-* Purpose: Bundle tiled VAE encoding/decoding parameters into connectable outputs so they can be routed cleanly through subgraphs without wiring individual widgets.
+* Purpose: Bundle tiled VAE encoding/decoding parameters into connectable outputs so they can be routed cleanly through subgraphs without wiring or promoting individual widgets.
 * Behaviour:
 	+ Exposes `tile_size`, `overlap`, `temporal_size`, and `temporal_overlap` as typed outputs
 	+ Default values: tile_size 512, overlap 64, temporal_size 64, temporal_overlap 8
 	+ All values are adjustable via the built-in widget controls
 
-#### Example:
+#### Example (Both `Dual CLIP Text Encode` and `Tiled VAE Settings`):
 
 <img alt="v1 7 0_Nodes" src="https://github.com/user-attachments/assets/6c7f84a6-14dd-4578-bb8d-503e928fe6c7" />
 
@@ -118,6 +120,18 @@ https://github.com/user-attachments/assets/6ca45029-c8a9-4b75-8250-ad577a09ddd8
 	+ Images and masks display visually, all other types (strings, tensors, conditioning, etc.) display as formatted text
 	+ Switch between inputs via the built-in tab selector, which scrolls horizontally when tabs overflow the node width
 	+ No outputs, this node is a pure viewer
+
+---
+
+#### Dynamic Bus
+
+* Purpose: Pack multiple typed values into a single bus connection, unpack them downstream, or pass through.
+* Behaviour:
+	+ First slot is a static bus type, while subsequent slots are dynamic and grow as you connect
+	+ Input values are added to the bus alongside any upstream bus contents
+	+ Output slots unpack values from the bus by matching types
+	+ Direct inputs take priority over bus values for same-slot outputs
+	+ A global setting (Settings → Tojioo Passthrough → Dynamic Bus → Overwrite matching types) controls whether a local input replaces the first matching type on the upstream bus or appends as a new entry
 
 #### Example (together with Dynamic Bus Node):
 

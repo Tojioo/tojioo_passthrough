@@ -1,7 +1,8 @@
-﻿const ANY_TYPE = "*";
+﻿import {ANY_TYPE} from '../utils'
 
 export function GetGraph(node: any): LGraph | null
 {
+	// return node.graph || (window as any).app?.graph;
 	return (node.rootGraph ?? node.graph) || (window as any).app?.graph;
 }
 

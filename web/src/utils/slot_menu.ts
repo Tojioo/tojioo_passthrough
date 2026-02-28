@@ -1,4 +1,4 @@
-﻿import {getLiteGraph} from './compat';
+﻿import {getLiteGraph} from '../utils';
 
 const _displayNameReverseMap = new Map<string, string>();
 let _createNodePatched = false;

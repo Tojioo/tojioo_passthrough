@@ -1,7 +1,5 @@
-﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
+﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType, ANY_TYPE} from '../utils';
 import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
-
-const ANY_TYPE: string = "*";
 
 let _graphLoading = false;
 let _pendingCanvasUpdate: number | null = null;
