@@ -228,342 +228,360 @@ export function configureDynamicBus(): ComfyExtension
 
 			function synchronize(node: any, serializedInfo?: any): void
 			{
-				if (!node.inputs)
+				if (node._syncing)
 				{
-					node.inputs = [];
+					return;
 				}
-				if (!node.outputs)
+				node._syncing = true;
+				try
 				{
-					node.outputs = [];
-				}
-
-				const upstreamTypes = getUpstreamBusTypes(node);
-
-				if (node.inputs.length === 0)
-				{
-					node.addInput?.("bus", BUS_TYPE as ISlotType);
-				}
-				else
-				{
-					node.inputs[0].name = "bus";
-					node.inputs[0].label = "bus";
-					node.inputs[0].type = BUS_TYPE as ISlotType;
-				}
-
-				// Stale link references can survive workflow serialization
-				if (node.inputs[0]?.link != null)
-				{
-					const busLink = GetInputLink(node, 0);
-					if (!busLink || !GetNodeById(node, busLink.origin_id))
+					// entire existing body
+					if (!node.inputs)
 					{
-						node.inputs[0].link = null;
+						node.inputs = [];
 					}
-				}
-
-				if (node.outputs.length === 0)
-				{
-					node.addOutput?.("bus", BUS_TYPE as ISlotType);
-				}
-				else
-				{
-					node.outputs[0].name = "bus";
-					node.outputs[0].label = "bus";
-					node.outputs[0].type = BUS_TYPE as ISlotType;
-				}
-
-				let maxNeededSlot = 0;
-
-				const maxLen = Math.max(
-					node.inputs.length,
-					node.outputs.length,
-					serializedInfo?.inputs?.length ?? 0,
-					serializedInfo?.outputs?.length ?? 0
-				);
-
-				for (let slotIdx = 1; slotIdx < maxLen; slotIdx++)
-				{
-					const hasInput = node.inputs[slotIdx]?.link != null;
-					const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
-					const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
-					const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
-
-					if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput)
+					if (!node.outputs)
 					{
-						maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
+						node.outputs = [];
 					}
-				}
 
-				const targetCount = maxNeededSlot + 2;
+					const upstreamTypes = getUpstreamBusTypes(node);
 
-				while (node.inputs.length > targetCount)
-				{
-					const lastIdx = node.inputs.length - 1;
-					const hasLiveLink = node.inputs[lastIdx]?.link != null;
-					const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
-					if (hasLiveLink || hasSerializedLink)
+					if (node.inputs.length === 0)
 					{
-						break;
+						node.addInput?.("bus", BUS_TYPE as ISlotType);
 					}
-					node.removeInput?.(lastIdx);
-				}
-
-				while (node.outputs.length > targetCount)
-				{
-					const lastIdx = node.outputs.length - 1;
-					const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
-					const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
-					if (hasLiveLinks || hasSerializedLinks)
+					else
 					{
-						break;
+						node.inputs[0].name = "bus";
+						node.inputs[0].label = "bus";
+						node.inputs[0].type = BUS_TYPE as ISlotType;
 					}
-					node.removeOutput?.(lastIdx);
-				}
 
-				while (node.inputs.length < targetCount)
-				{
-					const slotIdx = node.inputs.length;
-					node.addInput?.("input", ANY_TYPE as ISlotType);
-					node.inputs[slotIdx].name = `input_${slotIdx}`;
-				}
-
-				while (node.outputs.length < targetCount)
-				{
-					const slotIdx = node.outputs.length;
-					node.addOutput?.("output", ANY_TYPE as ISlotType);
-					node.outputs[slotIdx].name = `output_${slotIdx}`;
-				}
-
-				// Clear stale link references from data slots
-				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
-				{
-					if (node.inputs[slotIdx]?.link != null)
+					// Stale link references can survive workflow serialization
+					if (node.inputs[0]?.link != null)
 					{
-						const link = GetInputLink(node, slotIdx);
-						if (!link || !GetNodeById(node, link.origin_id))
+						const busLink = GetInputLink(node, 0);
+						if (!busLink || !GetNodeById(node, busLink.origin_id))
 						{
-							node.inputs[slotIdx].link = null;
+							node.inputs[0].link = null;
 						}
 					}
-				}
 
-				// Clear stale types from slots with no live connections
-				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
-				{
-					const hasInput = node.inputs[slotIdx]?.link != null;
-					const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-					const hasOutput = outputLinkIds.some((linkId: number) => GetLink(node, linkId) != null);
-
-					if (!hasInput && !hasOutput)
+					if (node.outputs.length === 0)
 					{
-						if (node.inputs[slotIdx])
+						node.addOutput?.("bus", BUS_TYPE as ISlotType);
+					}
+					else
+					{
+						node.outputs[0].name = "bus";
+						node.outputs[0].label = "bus";
+						node.outputs[0].type = BUS_TYPE as ISlotType;
+					}
+
+					let maxNeededSlot = 0;
+
+					const maxLen = Math.max(
+						node.inputs.length,
+						node.outputs.length,
+						serializedInfo?.inputs?.length ?? 0,
+						serializedInfo?.outputs?.length ?? 0
+					);
+
+					for (let slotIdx = 1; slotIdx < maxLen; slotIdx++)
+					{
+						const hasInput = node.inputs[slotIdx]?.link != null;
+						const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+						const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
+						const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+
+						if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput)
 						{
-							node.inputs[slotIdx].type = ANY_TYPE as ISlotType;
-						}
-						if (node.outputs[slotIdx])
-						{
-							node.outputs[slotIdx].type = ANY_TYPE as ISlotType;
+							maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
 						}
 					}
-				}
 
-				// Compact gaps: remove empty slots that have connections after them
-				if (!serializedInfo)
-				{
-					for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--)
+					const targetCount = maxNeededSlot + 2;
+
+					while (node.inputs.length > targetCount)
+					{
+						const lastIdx = node.inputs.length - 1;
+						const hasLiveLink = node.inputs[lastIdx]?.link != null;
+						const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
+						if (hasLiveLink || hasSerializedLink)
+						{
+							break;
+						}
+						node.removeInput?.(lastIdx);
+					}
+
+					while (node.outputs.length > targetCount)
+					{
+						const lastIdx = node.outputs.length - 1;
+						const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+						const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
+						if (hasLiveLinks || hasSerializedLinks)
+						{
+							break;
+						}
+						node.removeOutput?.(lastIdx);
+					}
+
+					while (node.inputs.length < targetCount)
+					{
+						const slotIdx = node.inputs.length;
+						node.addInput?.("input", ANY_TYPE as ISlotType);
+						node.inputs[slotIdx].name = `input_${slotIdx}`;
+					}
+
+					while (node.outputs.length < targetCount)
+					{
+						const slotIdx = node.outputs.length;
+						node.addOutput?.("output", ANY_TYPE as ISlotType);
+						node.outputs[slotIdx].name = `output_${slotIdx}`;
+					}
+
+					// Clear stale link references from data slots
+					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
+					{
+						if (node.inputs[slotIdx]?.link != null)
+						{
+							const link = GetInputLink(node, slotIdx);
+							if (!link || !GetNodeById(node, link.origin_id))
+							{
+								node.inputs[slotIdx].link = null;
+							}
+						}
+					}
+
+					// Clear stale types from slots with no live connections
+					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
 						const hasInput = node.inputs[slotIdx]?.link != null;
 						const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-						const hasOutput = outputLinkIds.some((linkId: number) =>
-						{
-							const link = GetLink(node, linkId);
-							if (!link)
-							{
-								return false;
-							}
-							const targetNode = GetNodeById(node, link.target_id);
-							if (!targetNode)
-							{
-								return false;
-							}
-							return targetNode.inputs?.[link.target_slot]?.link === linkId;
-						});
+						const hasOutput = outputLinkIds.some((linkId: number) => GetLink(node, linkId) != null);
 
-						if (hasInput || hasOutput)
+						if (!hasInput && !hasOutput)
 						{
-							continue;
+							if (node.inputs[slotIdx])
+							{
+								node.inputs[slotIdx].type = ANY_TYPE as ISlotType;
+							}
+							if (node.outputs[slotIdx])
+							{
+								node.outputs[slotIdx].type = ANY_TYPE as ISlotType;
+							}
 						}
+					}
 
-						let hasConnectionsAfter = false;
-						for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
+					// Compact gaps: remove empty slots that have connections after them
+					if (!serializedInfo)
+					{
+						for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--)
 						{
-							const laterInput = node.inputs[i]?.link != null;
-							const laterOutputIds = node.outputs[i]?.links ?? [];
-							const laterOutput = laterOutputIds.some((id: number) =>
+							const hasInput = node.inputs[slotIdx]?.link != null;
+							const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
+							const hasOutput = outputLinkIds.some((linkId: number) =>
 							{
-								const link = GetLink(node, id);
+								const link = GetLink(node, linkId);
 								if (!link)
 								{
 									return false;
 								}
-								const target = GetNodeById(node, link.target_id);
-								if (!target)
+								const targetNode = GetNodeById(node, link.target_id);
+								if (!targetNode)
 								{
 									return false;
 								}
-								return target.inputs?.[link.target_slot]?.link === id;
+								return targetNode.inputs?.[link.target_slot]?.link === linkId;
 							});
 
-							if (laterInput || laterOutput)
+							if (hasInput || hasOutput)
 							{
-								hasConnectionsAfter = true;
-								break;
+								continue;
+							}
+
+							let hasConnectionsAfter = false;
+							for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
+							{
+								const laterInput = node.inputs[i]?.link != null;
+								const laterOutputIds = node.outputs[i]?.links ?? [];
+								const laterOutput = laterOutputIds.some((id: number) =>
+								{
+									const link = GetLink(node, id);
+									if (!link)
+									{
+										return false;
+									}
+									const target = GetNodeById(node, link.target_id);
+									if (!target)
+									{
+										return false;
+									}
+									return target.inputs?.[link.target_slot]?.link === id;
+								});
+
+								if (laterInput || laterOutput)
+								{
+									hasConnectionsAfter = true;
+									break;
+								}
+							}
+
+							if (hasConnectionsAfter)
+							{
+								node.removeInput?.(slotIdx);
+								node.removeOutput?.(slotIdx);
 							}
 						}
-
-						if (hasConnectionsAfter)
-						{
-							node.removeInput?.(slotIdx);
-							node.removeOutput?.(slotIdx);
-						}
 					}
-				}
 
-				// Restore types from serialized info for output-only slots
-				if (serializedInfo?.outputs)
-				{
-					for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
+					// Restore types from serialized info for output-only slots
+					if (serializedInfo?.outputs)
 					{
-						const serializedOut = serializedInfo.outputs[slotIdx];
-						if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
+						for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
 						{
-							if (node.outputs[slotIdx])
+							const serializedOut = serializedInfo.outputs[slotIdx];
+							if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
 							{
-								node.outputs[slotIdx].type = serializedOut.type as ISlotType;
-							}
-							if (node.inputs[slotIdx])
-							{
-								node.inputs[slotIdx].type = serializedOut.type as ISlotType;
+								if (node.outputs[slotIdx])
+								{
+									node.outputs[slotIdx].type = serializedOut.type as ISlotType;
+								}
+								if (node.inputs[slotIdx])
+								{
+									node.inputs[slotIdx].type = serializedOut.type as ISlotType;
+								}
 							}
 						}
 					}
-				}
 
-				const slotTypes: Record<number, string> = {};
+					const slotTypes: Record<number, string> = {};
 
-				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
-				{
-					const type = getSlotType(node, slotIdx);
-					if (type !== ANY_TYPE)
+					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
-						slotTypes[slotIdx] = type;
-					}
-				}
-
-				const labels = generateLabels(slotTypes);
-
-				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
-				{
-					const type = slotTypes[slotIdx] || ANY_TYPE;
-
-					if (node.inputs[slotIdx])
-					{
-						node.inputs[slotIdx].name = `input_${slotIdx}`;
-						node.inputs[slotIdx].label = labels[slotIdx] || "input";
-						node.inputs[slotIdx].type = type as ISlotType;
-					}
-
-					if (node.outputs[slotIdx])
-					{
-						node.outputs[slotIdx].name = `output_${slotIdx}`;
-						node.outputs[slotIdx].label = labels[slotIdx] || "output";
-						node.outputs[slotIdx].type = type as ISlotType;
-					}
-
-					const inLink = GetInputLink(node, slotIdx);
-					if (inLink && type !== ANY_TYPE)
-					{
-						inLink.type = type;
-					}
-
-					for (const linkId of node.outputs[slotIdx]?.links ?? [])
-					{
-						const link = GetLink(node, linkId);
-						if (link && type !== ANY_TYPE)
+						const type = getSlotType(node, slotIdx);
+						if (type !== ANY_TYPE)
 						{
-							link.type = type;
+							slotTypes[slotIdx] = type;
 						}
 					}
-				}
 
-				if (!node.properties)
-				{
-					node.properties = {};
-				}
+					const labels = generateLabels(slotTypes);
 
-				const isOverwriteEnabled = getBusOverwriteMode();
-				log.debug('Overwrite is set to: ', isOverwriteEnabled);
-
-				const combinedTypes: Record<number, string> = {...upstreamTypes};
-				let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
-				const usedUpstreamIndices = new Set<number>();
-
-				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
-				{
-					if (node.inputs[slotIdx]?.link == null)
+					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
-						continue;
+						const type = slotTypes[slotIdx] || ANY_TYPE;
+
+						if (node.inputs[slotIdx])
+						{
+							node.inputs[slotIdx].name = `input_${slotIdx}`;
+							node.inputs[slotIdx].label = labels[slotIdx] || "input";
+							node.inputs[slotIdx].type = type as ISlotType;
+						}
+
+						if (node.outputs[slotIdx])
+						{
+							node.outputs[slotIdx].name = `output_${slotIdx}`;
+							node.outputs[slotIdx].label = labels[slotIdx] || "output";
+							node.outputs[slotIdx].type = type as ISlotType;
+						}
+
+						const inLink = GetInputLink(node, slotIdx);
+						if (inLink && type !== ANY_TYPE)
+						{
+							inLink.type = type;
+						}
+
+						for (const linkId of node.outputs[slotIdx]?.links ?? [])
+						{
+							const link = GetLink(node, linkId);
+							if (link && type !== ANY_TYPE)
+							{
+								link.type = type;
+							}
+						}
 					}
 
-					const localType = slotTypes[slotIdx] || ANY_TYPE;
-
-					if (isOverwriteEnabled && localType !== ANY_TYPE)
+					if (!node.properties)
 					{
-						const matchIdx = Object.keys(combinedTypes)
-							.map(Number)
-							.sort((a, b) => a - b)
-							.find(idx => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+						node.properties = {};
+					}
 
-						if (matchIdx !== undefined)
+					const isOverwriteEnabled = getBusOverwriteMode();
+					log.debug('Overwrite is set to: ', isOverwriteEnabled);
+
+					const combinedTypes: Record<number, string> = {...upstreamTypes};
+					let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
+					const usedUpstreamIndices = new Set<number>();
+
+					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
+					{
+						if (node.inputs[slotIdx]?.link == null)
 						{
-							usedUpstreamIndices.add(matchIdx);
 							continue;
 						}
+
+						const localType = slotTypes[slotIdx] || ANY_TYPE;
+
+						if (isOverwriteEnabled && localType !== ANY_TYPE)
+						{
+							const matchIdx = Object.keys(combinedTypes)
+								.map(Number)
+								.sort((a, b) => a - b)
+								.find(idx => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+
+							if (matchIdx !== undefined)
+							{
+								usedUpstreamIndices.add(matchIdx);
+								continue;
+							}
+						}
+
+						combinedTypes[nextIdx] = localType;
+						nextIdx++;
 					}
 
-					combinedTypes[nextIdx] = localType;
-					nextIdx++;
-				}
+					(node.properties as any)._busTypes = combinedTypes;
 
-				(node.properties as any)._busTypes = combinedTypes;
+					const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
+					slotTypesWidget.value = buildSlotTypes(node);
 
-				const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
-				slotTypesWidget.value = buildSlotTypes(node);
+					const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
+					outputHintsWidget.value = buildOutputHints(node);
 
-				const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
-				outputHintsWidget.value = buildOutputHints(node);
+					const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
+					overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
 
-				const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
-				overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
-
-				const busOutLinks = node.outputs?.[0]?.links;
-				if (busOutLinks?.length)
-				{
-					for (const linkId of busOutLinks)
+					const busOutLinks = node.outputs?.[0]?.links;
+					if (busOutLinks?.length)
 					{
-						const link = GetLink(node, linkId);
-						if (link)
+						for (const linkId of busOutLinks)
 						{
-							const targetNode = GetNodeById(node, link.target_id);
-							if (targetNode && (targetNode as any).onBusChanged)
+							const link = GetLink(node, linkId);
+							if (link)
 							{
-								DeferMicrotask(() => (targetNode as any).onBusChanged());
+								const targetNode = GetNodeById(node, link.target_id);
+								if (targetNode && (targetNode as any).onBusChanged && !(targetNode as any)._busChangeScheduled)
+								{
+									(targetNode as any)._busChangeScheduled = true;
+									DeferMicrotask(() =>
+									{
+										(targetNode as any)._busChangeScheduled = false;
+										(targetNode as any).onBusChanged();
+									});
+								}
 							}
 						}
 					}
-				}
 
-				GetGraph(node)?.setDirtyCanvas?.(true, true);
-				UpdateNodeSize(node);
+					GetGraph(node)?.setDirtyCanvas?.(true, true);
+					UpdateNodeSize(node);
+				}
+				finally
+				{
+					node._syncing = false;
+				}
 			}
 
 			(nodeType.prototype as any).onBusChanged = function()
@@ -702,18 +720,18 @@ export function configureDynamicBus(): ComfyExtension
 				{
 					try
 					{*/
-						// Stale link cleanup — deferred so subgraph links are fully registered
-						for (let i = 0; i < (node.inputs?.length ?? 0); i++)
+				// Stale link cleanup — deferred so subgraph links are fully registered
+				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
+				{
+					if (node.inputs[i]?.link != null)
+					{
+						const link = GetInputLink(node, i);
+						if (!link || !GetNodeById(node, link.origin_id))
 						{
-							if (node.inputs[i]?.link != null)
-							{
-								const link = GetInputLink(node, i);
-								if (!link || !GetNodeById(node, link.origin_id))
-								{
-									node.inputs[i].link = null;
-								}
-							}
+							node.inputs[i].link = null;
 						}
+					}
+				}
 
 				// Todo: Move this up there
 				DeferMicrotask(() =>

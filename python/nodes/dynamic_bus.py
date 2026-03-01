@@ -36,7 +36,7 @@ class PT_DynamicBus(BaseNode):
 
 
 	# RETURN_TYPES = (bus_type,) + tuple(any_type for _ in range(_MAX_SLOTS - 1))
-	RETURN_TYPES = tuple(any_type for _ in range(_MAX_SLOTS - 1))
+	RETURN_TYPES = tuple(any_type for _ in range(_MAX_SLOTS))
 	RETURN_NAMES = ("bus",) + tuple(f"output_{i}" for i in range(1, _MAX_SLOTS))
 	OUTPUT_IS_LIST = tuple(False for _ in range(_MAX_SLOTS))
 	CATEGORY = CATEGORIES["dynamic"]

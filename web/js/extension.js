@@ -794,13 +794,8 @@ const dynamicBusOverwrite = {
   tooltip: "When enabled, a local input whose type already exists on the upstream bus will replace the first matching entry instead of appending.",
   category: ["Tojioo Passthrough", "Dynamic Bus", "Overwrite matching types"],
   onChange: (newVal) => {
-    let graph;
-    try {
-      graph = app.rootGraph ?? app.graph;
-    } catch {
-      return;
-    }
-    if (!graph?._nodes) {
+    const graph = app.rootGraph;
+    if (!graph) {
       return;
     }
     const value = newVal ? "1" : "0";
@@ -965,231 +960,243 @@ function configureDynamicBus() {
         }
       }
       function synchronize(node, serializedInfo) {
-        if (!node.inputs) {
-          node.inputs = [];
+        if (node._syncing) {
+          return;
         }
-        if (!node.outputs) {
-          node.outputs = [];
-        }
-        const upstreamTypes = getUpstreamBusTypes(node);
-        if (node.inputs.length === 0) {
-          node.addInput?.("bus", BUS_TYPE);
-        } else {
-          node.inputs[0].name = "bus";
-          node.inputs[0].label = "bus";
-          node.inputs[0].type = BUS_TYPE;
-        }
-        if (node.inputs[0]?.link != null) {
-          const busLink = GetInputLink(node, 0);
-          if (!busLink || !GetNodeById(node, busLink.origin_id)) {
-            node.inputs[0].link = null;
+        node._syncing = true;
+        try {
+          if (!node.inputs) {
+            node.inputs = [];
           }
-        }
-        if (node.outputs.length === 0) {
-          node.addOutput?.("bus", BUS_TYPE);
-        } else {
-          node.outputs[0].name = "bus";
-          node.outputs[0].label = "bus";
-          node.outputs[0].type = BUS_TYPE;
-        }
-        let maxNeededSlot = 0;
-        const maxLen = Math.max(
-          node.inputs.length,
-          node.outputs.length,
-          serializedInfo?.inputs?.length ?? 0,
-          serializedInfo?.outputs?.length ?? 0
-        );
-        for (let slotIdx = 1; slotIdx < maxLen; slotIdx++) {
-          const hasInput = node.inputs[slotIdx]?.link != null;
-          const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
-          const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
-          const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
-          if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput) {
-            maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
+          if (!node.outputs) {
+            node.outputs = [];
           }
-        }
-        const targetCount = maxNeededSlot + 2;
-        while (node.inputs.length > targetCount) {
-          const lastIdx = node.inputs.length - 1;
-          const hasLiveLink = node.inputs[lastIdx]?.link != null;
-          const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
-          if (hasLiveLink || hasSerializedLink) {
-            break;
+          const upstreamTypes = getUpstreamBusTypes(node);
+          if (node.inputs.length === 0) {
+            node.addInput?.("bus", BUS_TYPE);
+          } else {
+            node.inputs[0].name = "bus";
+            node.inputs[0].label = "bus";
+            node.inputs[0].type = BUS_TYPE;
           }
-          node.removeInput?.(lastIdx);
-        }
-        while (node.outputs.length > targetCount) {
-          const lastIdx = node.outputs.length - 1;
-          const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
-          const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
-          if (hasLiveLinks || hasSerializedLinks) {
-            break;
-          }
-          node.removeOutput?.(lastIdx);
-        }
-        while (node.inputs.length < targetCount) {
-          const slotIdx = node.inputs.length;
-          node.addInput?.("input", ANY_TYPE);
-          node.inputs[slotIdx].name = `input_${slotIdx}`;
-        }
-        while (node.outputs.length < targetCount) {
-          const slotIdx = node.outputs.length;
-          node.addOutput?.("output", ANY_TYPE);
-          node.outputs[slotIdx].name = `output_${slotIdx}`;
-        }
-        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          if (node.inputs[slotIdx]?.link != null) {
-            const link = GetInputLink(node, slotIdx);
-            if (!link || !GetNodeById(node, link.origin_id)) {
-              node.inputs[slotIdx].link = null;
+          if (node.inputs[0]?.link != null) {
+            const busLink = GetInputLink(node, 0);
+            if (!busLink || !GetNodeById(node, busLink.origin_id)) {
+              node.inputs[0].link = null;
             }
           }
-        }
-        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          const hasInput = node.inputs[slotIdx]?.link != null;
-          const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-          const hasOutput = outputLinkIds.some((linkId) => GetLink(node, linkId) != null);
-          if (!hasInput && !hasOutput) {
-            if (node.inputs[slotIdx]) {
-              node.inputs[slotIdx].type = ANY_TYPE;
-            }
-            if (node.outputs[slotIdx]) {
-              node.outputs[slotIdx].type = ANY_TYPE;
+          if (node.outputs.length === 0) {
+            node.addOutput?.("bus", BUS_TYPE);
+          } else {
+            node.outputs[0].name = "bus";
+            node.outputs[0].label = "bus";
+            node.outputs[0].type = BUS_TYPE;
+          }
+          let maxNeededSlot = 0;
+          const maxLen = Math.max(
+            node.inputs.length,
+            node.outputs.length,
+            serializedInfo?.inputs?.length ?? 0,
+            serializedInfo?.outputs?.length ?? 0
+          );
+          for (let slotIdx = 1; slotIdx < maxLen; slotIdx++) {
+            const hasInput = node.inputs[slotIdx]?.link != null;
+            const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+            const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
+            const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
+            if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput) {
+              maxNeededSlot = Math.max(maxNeededSlot, slotIdx);
             }
           }
-        }
-        if (!serializedInfo) {
-          for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--) {
+          const targetCount = maxNeededSlot + 2;
+          while (node.inputs.length > targetCount) {
+            const lastIdx = node.inputs.length - 1;
+            const hasLiveLink = node.inputs[lastIdx]?.link != null;
+            const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
+            if (hasLiveLink || hasSerializedLink) {
+              break;
+            }
+            node.removeInput?.(lastIdx);
+          }
+          while (node.outputs.length > targetCount) {
+            const lastIdx = node.outputs.length - 1;
+            const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+            const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
+            if (hasLiveLinks || hasSerializedLinks) {
+              break;
+            }
+            node.removeOutput?.(lastIdx);
+          }
+          while (node.inputs.length < targetCount) {
+            const slotIdx = node.inputs.length;
+            node.addInput?.("input", ANY_TYPE);
+            node.inputs[slotIdx].name = `input_${slotIdx}`;
+          }
+          while (node.outputs.length < targetCount) {
+            const slotIdx = node.outputs.length;
+            node.addOutput?.("output", ANY_TYPE);
+            node.outputs[slotIdx].name = `output_${slotIdx}`;
+          }
+          for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+            if (node.inputs[slotIdx]?.link != null) {
+              const link = GetInputLink(node, slotIdx);
+              if (!link || !GetNodeById(node, link.origin_id)) {
+                node.inputs[slotIdx].link = null;
+              }
+            }
+          }
+          for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
             const hasInput = node.inputs[slotIdx]?.link != null;
             const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-            const hasOutput = outputLinkIds.some((linkId) => {
-              const link = GetLink(node, linkId);
-              if (!link) {
-                return false;
+            const hasOutput = outputLinkIds.some((linkId) => GetLink(node, linkId) != null);
+            if (!hasInput && !hasOutput) {
+              if (node.inputs[slotIdx]) {
+                node.inputs[slotIdx].type = ANY_TYPE;
               }
-              const targetNode = GetNodeById(node, link.target_id);
-              if (!targetNode) {
-                return false;
+              if (node.outputs[slotIdx]) {
+                node.outputs[slotIdx].type = ANY_TYPE;
               }
-              return targetNode.inputs?.[link.target_slot]?.link === linkId;
-            });
-            if (hasInput || hasOutput) {
-              continue;
             }
-            let hasConnectionsAfter = false;
-            for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
-              const laterInput = node.inputs[i]?.link != null;
-              const laterOutputIds = node.outputs[i]?.links ?? [];
-              const laterOutput = laterOutputIds.some((id) => {
-                const link = GetLink(node, id);
+          }
+          if (!serializedInfo) {
+            for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--) {
+              const hasInput = node.inputs[slotIdx]?.link != null;
+              const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
+              const hasOutput = outputLinkIds.some((linkId) => {
+                const link = GetLink(node, linkId);
                 if (!link) {
                   return false;
                 }
-                const target = GetNodeById(node, link.target_id);
-                if (!target) {
+                const targetNode = GetNodeById(node, link.target_id);
+                if (!targetNode) {
                   return false;
                 }
-                return target.inputs?.[link.target_slot]?.link === id;
+                return targetNode.inputs?.[link.target_slot]?.link === linkId;
               });
-              if (laterInput || laterOutput) {
-                hasConnectionsAfter = true;
-                break;
+              if (hasInput || hasOutput) {
+                continue;
+              }
+              let hasConnectionsAfter = false;
+              for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
+                const laterInput = node.inputs[i]?.link != null;
+                const laterOutputIds = node.outputs[i]?.links ?? [];
+                const laterOutput = laterOutputIds.some((id) => {
+                  const link = GetLink(node, id);
+                  if (!link) {
+                    return false;
+                  }
+                  const target = GetNodeById(node, link.target_id);
+                  if (!target) {
+                    return false;
+                  }
+                  return target.inputs?.[link.target_slot]?.link === id;
+                });
+                if (laterInput || laterOutput) {
+                  hasConnectionsAfter = true;
+                  break;
+                }
+              }
+              if (hasConnectionsAfter) {
+                node.removeInput?.(slotIdx);
+                node.removeOutput?.(slotIdx);
               }
             }
-            if (hasConnectionsAfter) {
-              node.removeInput?.(slotIdx);
-              node.removeOutput?.(slotIdx);
-            }
           }
-        }
-        if (serializedInfo?.outputs) {
-          for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
-            const serializedOut = serializedInfo.outputs[slotIdx];
-            if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1) {
-              if (node.outputs[slotIdx]) {
-                node.outputs[slotIdx].type = serializedOut.type;
-              }
-              if (node.inputs[slotIdx]) {
-                node.inputs[slotIdx].type = serializedOut.type;
+          if (serializedInfo?.outputs) {
+            for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
+              const serializedOut = serializedInfo.outputs[slotIdx];
+              if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1) {
+                if (node.outputs[slotIdx]) {
+                  node.outputs[slotIdx].type = serializedOut.type;
+                }
+                if (node.inputs[slotIdx]) {
+                  node.inputs[slotIdx].type = serializedOut.type;
+                }
               }
             }
           }
-        }
-        const slotTypes = {};
-        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          const type = getSlotType(node, slotIdx);
-          if (type !== ANY_TYPE) {
-            slotTypes[slotIdx] = type;
-          }
-        }
-        const labels = generateLabels(slotTypes);
-        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          const type = slotTypes[slotIdx] || ANY_TYPE;
-          if (node.inputs[slotIdx]) {
-            node.inputs[slotIdx].name = `input_${slotIdx}`;
-            node.inputs[slotIdx].label = labels[slotIdx] || "input";
-            node.inputs[slotIdx].type = type;
-          }
-          if (node.outputs[slotIdx]) {
-            node.outputs[slotIdx].name = `output_${slotIdx}`;
-            node.outputs[slotIdx].label = labels[slotIdx] || "output";
-            node.outputs[slotIdx].type = type;
-          }
-          const inLink = GetInputLink(node, slotIdx);
-          if (inLink && type !== ANY_TYPE) {
-            inLink.type = type;
-          }
-          for (const linkId of node.outputs[slotIdx]?.links ?? []) {
-            const link = GetLink(node, linkId);
-            if (link && type !== ANY_TYPE) {
-              link.type = type;
+          const slotTypes = {};
+          for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+            const type = getSlotType(node, slotIdx);
+            if (type !== ANY_TYPE) {
+              slotTypes[slotIdx] = type;
             }
           }
-        }
-        if (!node.properties) {
-          node.properties = {};
-        }
-        const isOverwriteEnabled = getBusOverwriteMode();
-        log$2.debug("Overwrite is set to: ", isOverwriteEnabled);
-        const combinedTypes = { ...upstreamTypes };
-        let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
-        const usedUpstreamIndices = /* @__PURE__ */ new Set();
-        for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-          if (node.inputs[slotIdx]?.link == null) {
-            continue;
+          const labels = generateLabels(slotTypes);
+          for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+            const type = slotTypes[slotIdx] || ANY_TYPE;
+            if (node.inputs[slotIdx]) {
+              node.inputs[slotIdx].name = `input_${slotIdx}`;
+              node.inputs[slotIdx].label = labels[slotIdx] || "input";
+              node.inputs[slotIdx].type = type;
+            }
+            if (node.outputs[slotIdx]) {
+              node.outputs[slotIdx].name = `output_${slotIdx}`;
+              node.outputs[slotIdx].label = labels[slotIdx] || "output";
+              node.outputs[slotIdx].type = type;
+            }
+            const inLink = GetInputLink(node, slotIdx);
+            if (inLink && type !== ANY_TYPE) {
+              inLink.type = type;
+            }
+            for (const linkId of node.outputs[slotIdx]?.links ?? []) {
+              const link = GetLink(node, linkId);
+              if (link && type !== ANY_TYPE) {
+                link.type = type;
+              }
+            }
           }
-          const localType = slotTypes[slotIdx] || ANY_TYPE;
-          if (isOverwriteEnabled && localType !== ANY_TYPE) {
-            const matchIdx = Object.keys(combinedTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
-            if (matchIdx !== void 0) {
-              usedUpstreamIndices.add(matchIdx);
+          if (!node.properties) {
+            node.properties = {};
+          }
+          const isOverwriteEnabled = getBusOverwriteMode();
+          log$2.debug("Overwrite is set to: ", isOverwriteEnabled);
+          const combinedTypes = { ...upstreamTypes };
+          let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
+          const usedUpstreamIndices = /* @__PURE__ */ new Set();
+          for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
+            if (node.inputs[slotIdx]?.link == null) {
               continue;
             }
+            const localType = slotTypes[slotIdx] || ANY_TYPE;
+            if (isOverwriteEnabled && localType !== ANY_TYPE) {
+              const matchIdx = Object.keys(combinedTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+              if (matchIdx !== void 0) {
+                usedUpstreamIndices.add(matchIdx);
+                continue;
+              }
+            }
+            combinedTypes[nextIdx] = localType;
+            nextIdx++;
           }
-          combinedTypes[nextIdx] = localType;
-          nextIdx++;
-        }
-        node.properties._busTypes = combinedTypes;
-        const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
-        slotTypesWidget.value = buildSlotTypes(node);
-        const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
-        outputHintsWidget.value = buildOutputHints(node);
-        const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
-        overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
-        const busOutLinks = node.outputs?.[0]?.links;
-        if (busOutLinks?.length) {
-          for (const linkId of busOutLinks) {
-            const link = GetLink(node, linkId);
-            if (link) {
-              const targetNode = GetNodeById(node, link.target_id);
-              if (targetNode && targetNode.onBusChanged) {
-                DeferMicrotask(() => targetNode.onBusChanged());
+          node.properties._busTypes = combinedTypes;
+          const slotTypesWidget = findOrCreateWidget(node, "_slot_types");
+          slotTypesWidget.value = buildSlotTypes(node);
+          const outputHintsWidget = findOrCreateWidget(node, "_output_hints");
+          outputHintsWidget.value = buildOutputHints(node);
+          const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
+          overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
+          const busOutLinks = node.outputs?.[0]?.links;
+          if (busOutLinks?.length) {
+            for (const linkId of busOutLinks) {
+              const link = GetLink(node, linkId);
+              if (link) {
+                const targetNode = GetNodeById(node, link.target_id);
+                if (targetNode && targetNode.onBusChanged && !targetNode._busChangeScheduled) {
+                  targetNode._busChangeScheduled = true;
+                  DeferMicrotask(() => {
+                    targetNode._busChangeScheduled = false;
+                    targetNode.onBusChanged();
+                  });
+                }
               }
             }
           }
+          GetGraph(node)?.setDirtyCanvas?.(true, true);
+          UpdateNodeSize(node);
+        } finally {
+          node._syncing = false;
         }
-        GetGraph(node)?.setDirtyCanvas?.(true, true);
-        UpdateNodeSize(node);
       }
       nodeType.prototype.onBusChanged = function() {
         synchronize(this);
