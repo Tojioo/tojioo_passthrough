@@ -1,3 +1,7 @@
+> **On Hold**
+> 
+> This project is not actively being worked on at the moment. While it is fully functional, I am not currently reviewing pull requests or responding to issues. I plan to pick this back up in the future.
+
 # Tojioo Passthrough Nodes for ComfyUI
 
 Typed passthrough nodes to reduce wire clutter in subgraphs. Includes a multi-type dynamic passthrough, and utility nodes for batch switching among other various quality-of-life improvements.
