@@ -1,9 +1,12 @@
 ﻿import {getLiteGraph} from '../utils';
 import {IsGraphLoading} from './lifecycle';
+import {app} from 'scripts/app.js';
 
 const _displayNameReverseMap = new Map<string, string>();
 let _createNodePatched = false;
 let _pollingStarted = false;
+const _slotRegistrations: Array<[types: string[], nodeType: string, displayName: string]> = [];
+let _slotDefaultsHooked = false;
 
 type SlotMenuEntry = [nodeType: string, displayName: string];
 
@@ -231,8 +234,7 @@ export function configureSlotMenu(types: string | string[], entriesOrNodeType: S
 
 	if (typeof entriesOrNodeType === "string")
 	{
-		registerSlotEntries(typeList, entriesOrNodeType);
-		registerDisplayName(entriesOrNodeType, displayName!);
+		addSlotRegistration(typeList, entriesOrNodeType, displayName!);
 		return;
 	}
 
@@ -242,9 +244,43 @@ export function configureSlotMenu(types: string | string[], entriesOrNodeType: S
 
 	for (const [nodeType, name] of entryList)
 	{
-		registerSlotEntries(typeList, nodeType);
-		registerDisplayName(nodeType, name);
+		addSlotRegistration(typeList, nodeType, name);
 	}
+}
+
+function addSlotRegistration(types: string[], nodeType: string, displayName: string): void
+{
+	_slotRegistrations.push([types, nodeType, displayName]);
+	hookCoreSlotDefaults();
+	registerSlotEntries(types, nodeType);
+	registerDisplayName(nodeType, displayName);
+}
+
+// Because core Comfy.SlotDefaults replaces both registries whenever it rebuilds them, the pack's entries are added back afterwards.
+function hookCoreSlotDefaults(): void
+{
+	if (_slotDefaultsHooked)
+	{
+		return;
+	}
+	const core = (app as any)?.extensions?.find?.((ext: any) => ext?.name === "Comfy.SlotDefaults");
+	const original = core?.setDefaults;
+	if (typeof original !== "function")
+	{
+		return;
+	}
+	_slotDefaultsHooked = true;
+
+	core.setDefaults = function(this: any, ...args: any[])
+	{
+		const result = original.apply(this, args);
+		for (const [types, nodeType, displayName] of _slotRegistrations)
+		{
+			registerSlotEntries(types, nodeType);
+			registerDisplayName(nodeType, displayName);
+		}
+		return result;
+	};
 }
 
 function registerSlotEntries(types: string[], nodeType: string): void
