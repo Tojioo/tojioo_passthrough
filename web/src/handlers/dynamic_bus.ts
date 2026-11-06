@@ -7,6 +7,9 @@ import {loggerInstance} from '@/logger_internal';
 // Scoped log
 const log = loggerInstance("DynamicBus");
 
+// Invariant: LiteGraph gives a subgraph's input node this fixed id, and getNodeById never returns it.
+const SUBGRAPH_INPUT_ID = -10;
+
 export function configureDynamicBus(): ComfyExtension
 {
 	return {
@@ -18,6 +21,15 @@ export function configureDynamicBus(): ComfyExtension
 				return;
 			}
 
+			function isStaleInputLink(node: any, link: any): boolean
+			{
+				if (!link)
+				{
+					return true;
+				}
+				return Number(link.origin_id) !== SUBGRAPH_INPUT_ID && !GetNodeById(node, link.origin_id);
+			}
+
 			function getUpstreamBusTypes(node: any): Record<number, string>
 			{
 				const busInput = node.inputs?.[0];
@@ -27,20 +39,14 @@ export function configureDynamicBus(): ComfyExtension
 				}
 
 				const link = GetInputLink(node, 0);
-				if (!link)
+				if (isStaleInputLink(node, link))
 				{
 					busInput.link = null;
 					return {};
 				}
 
-				const sourceNode = GetNodeById(node, link.origin_id);
-				if (!sourceNode)
-				{
-					busInput.link = null;
-					return {};
-				}
-
-				return (sourceNode.properties as any)?._busTypes ?? {};
+				const sourceNode = GetNodeById(node, link!.origin_id);
+				return (sourceNode?.properties as any)?._busTypes ?? {};
 			}
 
 			function getSlotType(node: any, slotIdx: number): string
@@ -262,7 +268,7 @@ export function configureDynamicBus(): ComfyExtension
 					if (node.inputs[0]?.link != null)
 					{
 						const busLink = GetInputLink(node, 0);
-						if (!busLink || !GetNodeById(node, busLink.origin_id))
+						if (isStaleInputLink(node, busLink))
 						{
 							node.inputs[0].link = null;
 						}
@@ -347,7 +353,7 @@ export function configureDynamicBus(): ComfyExtension
 						if (node.inputs[slotIdx]?.link != null)
 						{
 							const link = GetInputLink(node, slotIdx);
-							if (!link || !GetNodeById(node, link.origin_id))
+							if (isStaleInputLink(node, link))
 							{
 								node.inputs[slotIdx].link = null;
 							}
@@ -726,7 +732,7 @@ export function configureDynamicBus(): ComfyExtension
 					if (node.inputs[i]?.link != null)
 					{
 						const link = GetInputLink(node, i);
-						if (!link || !GetNodeById(node, link.origin_id))
+						if (isStaleInputLink(node, link))
 						{
 							node.inputs[i].link = null;
 						}
