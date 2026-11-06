@@ -129,6 +129,7 @@ class SwitchController:
 
 		prep_fn, merge_fn = handler
 		base_input = f"{input_prefix}_1"
+		resize_note = "" if type_name == "CONDITIONING" else " Inputs of a different size are resized to the first input's size."
 
 
 		class DynamicOptional(dict):
@@ -166,7 +167,7 @@ class SwitchController:
 			class_name,
 			(),
 			{
-				"DESCRIPTION": f"Returns the first connected {type_name} input, or merges multiple inputs into a batch.",
+				"DESCRIPTION": f"Returns the first connected {type_name} input, or merges multiple inputs into a batch." + resize_note,
 				"NODE_NAME": display_name,
 				"INPUT_TYPES": classmethod(
 					lambda cls: {
