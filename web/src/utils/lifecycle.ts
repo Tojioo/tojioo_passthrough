@@ -3,7 +3,7 @@ import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
 let _graphLoading = false;
 let _pendingCanvasUpdate: number | null = null;
-let _pendingSizeUpdates = new Set<any>();
+let _pendingSizeUpdates = new Map<any, boolean>();
 let _sizeUpdateTimer: number | null = null;
 
 export function InstallGraphLoadingHook(app: any): void
@@ -126,9 +126,10 @@ export function ScheduleCanvasUpdate(node: any): void
 	});
 }
 
-export function ScheduleSizeUpdate(node: any): void
+export function ScheduleSizeUpdate(node: any, expandOnly?: boolean): void
 {
-	_pendingSizeUpdates.add(node);
+	// Because several callers may resize one node in the same frame, a single request to keep its size wins.
+	_pendingSizeUpdates.set(node, (_pendingSizeUpdates.get(node) ?? false) || expandOnly === true);
 
 	if (_sizeUpdateTimer !== null)
 	{
@@ -141,9 +142,9 @@ export function ScheduleSizeUpdate(node: any): void
 		const nodes = Array.from(_pendingSizeUpdates);
 		_pendingSizeUpdates.clear();
 
-		for (const n of nodes)
+		for (const [n, expandOnly] of nodes)
 		{
-			UpdateNodeSizeImmediate(n);
+			UpdateNodeSizeImmediate(n, expandOnly || undefined);
 		}
 	});
 }
@@ -240,7 +241,7 @@ export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 	}
 
 	ScheduleCanvasUpdate(node);
-	ScheduleSizeUpdate(node);
+	ScheduleSizeUpdate(node, true);
 }
 
 export function UpdateNodeSize(node: any, expandOnly?: boolean, force?: boolean): void
@@ -249,7 +250,7 @@ export function UpdateNodeSize(node: any, expandOnly?: boolean, force?: boolean)
 	{
 		return;
 	}
-	ScheduleSizeUpdate(node);
+	ScheduleSizeUpdate(node, expandOnly);
 }
 
 export function UpdatePreviewNodeSize(node: any): void
@@ -291,5 +292,5 @@ export function NormalizeInputs(node: any): void
 		}
 	}
 
-	ScheduleSizeUpdate(node);
+	ScheduleSizeUpdate(node, true);
 }
