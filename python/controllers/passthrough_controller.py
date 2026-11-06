@@ -5,6 +5,13 @@ from ..config.types import TYPE_SPECS, FORCE_INPUT_TYPES
 from ..handlers.type_handler import TypeHandler
 
 
+_LABEL_OVERRIDES = {"PT_SAMModel": "SAM Model"}
+
+
+def _label(class_name: str) -> str:
+	return _LABEL_OVERRIDES.get(class_name, class_name.replace("PT_", ""))
+
+
 class PassthroughController:
 
 	@staticmethod
@@ -12,22 +19,16 @@ class PassthroughController:
 		nodes = {}
 
 		for class_name, type_name, socket_name in TYPE_SPECS:
-			display_name = (
-				class_name.replace("PT_", "") + " Passthrough"
-			)
 			nodes[class_name] = PassthroughController._make_node(
-				class_name, type_name, socket_name, display_name,
+				class_name, type_name, socket_name, _label(class_name), " Passthrough",
 				use_force_input = True, category = CATEGORIES["simple"]
 			)
 
 		for class_name, type_name, socket_name in TYPE_SPECS:
 			if type_name in FORCE_INPUT_TYPES:
 				widget_class = f"{class_name}Widget"
-				display_name = (
-					class_name.replace("PT_", "") + " Passthrough (Widget)"
-				)
 				nodes[widget_class] = PassthroughController._make_node(
-					widget_class, type_name, socket_name, display_name,
+					widget_class, type_name, socket_name, _label(class_name), " Passthrough (Widget)",
 					use_force_input = False, category = CATEGORIES["widgets"]
 				)
 
@@ -37,7 +38,7 @@ class PassthroughController:
 	@staticmethod
 	def _make_node(
 		class_name: str, type_name: str, socket_name: str,
-		display_name: str, use_force_input: bool, category: str):
+		label: str, display_suffix: str, use_force_input: bool, category: str):
 
 		def _input_types(_cls):
 			spec = TypeHandler.create_input_spec(type_name, use_force_input)
@@ -56,8 +57,8 @@ class PassthroughController:
 			(),
 			{
 				"__doc__": f"Pass {type_name} through unchanged.",
-				"DESCRIPTION": f"{type_name.lower().capitalize()} passthrough.",
-				"NODE_NAME": display_name,
+				"DESCRIPTION": f"{label} passthrough.",
+				"NODE_NAME": label + display_suffix,
 				"INPUT_TYPES": classmethod(_input_types),
 				"RETURN_TYPES": (type_name,),
 				"RETURN_NAMES": (socket_name,),
