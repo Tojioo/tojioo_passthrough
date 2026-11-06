@@ -13,18 +13,66 @@ All notable changes are listed here.
 - **Dynamic Preview**:
 	- Added ability for preview node to unpack bus connections into individual outputs.
 	- CONDITIONING inputs now display the original prompt text traced from upstream text encode nodes (CLIPTextEncode, Flux, SDXL, HunyuanDiT, Dual CLIP Encode).
+	- The prompt trace follows the input that matches the traced output, and shows no prompt when several prompts remain.
+- **String Passthrough / Multi-Passthrough**:
+	- The STRING input is now named `string`; workflows saved with the old `text` input still pass their value.
+- **Dual CLIP Encode**:
+	- Returns empty conditioning when no CLIP is connected and logs a warning.
+- **Batch Switch nodes**:
+	- Inputs of a different size are resized to the first input's size, like ComfyUI's batch nodes, instead of being dropped. Latents with different channel counts now raise an error.
+	- Inputs are merged in socket order.
+- **Switch nodes**:
+	- Switch and batch switch nodes keep manual resizes and only grow.
+- **General**:
+	- Logs go through ComfyUI's logging and follow its `--verbose` level.
+	- "SAMModel Passthrough" is now "SAM Model Passthrough", and node descriptions read naturally.
 
 ### Fixed
 - **Dynamic Bus**:
 	- Fixed stale link references surviving workflow save/restore, which caused `InvalidLinkError` on queue.
+	- Fixed overwrite mode merging two local inputs of the same type when the upstream bus has none.
+	- Fixed union types such as `IMAGE,MASK` being split apart.
+	- Fixed inputs from a subgraph's input node being cut and outputs to its output node being removed.
+	- Fixed loading a node with a stale typed slot cutting its links.
+	- Changing the overwrite setting now re-syncs every bus node, including those inside subgraphs.
+	- Removed debug logging.
 - **Dynamic Nodes**:
 	- Fixed new, pasted or loaded dynamic nodes auto-connecting to the last dragged wire's source (#3).
+	- Load-time sync now runs when the workflow has finished loading instead of after a fixed 100 ms delay.
+	- No longer triggers the slot link deprecation warnings of frontend 1.58.5.
+	- Slot menu entries no longer disappear when ComfyUI rebuilds its slot defaults.
+- **Dynamic Any**:
+	- Fixed returning None once connected to a typed source.
+- **Dynamic Passthrough**:
+	- Fixed removing a slot that still has output links.
+	- Keeps manual resizes when connections change.
 - **Dynamic Preview**:
 	- Tab button clicks no longer trigger node selection.
+	- Fixed a crash on 1-channel images.
+	- Fixed a batch of 3 or 4 masks showing as one RGB image.
+	- Fixed rejecting connections from subgraph inputs.
+	- Preview PNGs respect `--disable-metadata`.
+	- Preview image URLs respect the API base path.
+	- Removed a debug print.
+- **Switch nodes**:
+	- Typed switch slots keep their declared type when nothing is connected.
+- **Conditioning Passthrough**:
+	- No longer marked as an output node.
+- **General**:
+	- Restored ComfyUI's min/max and combo validation for typed nodes.
+	- Nodes feeding dynamic inputs are now validated before a run.
+	- The safetensors WSL patch now applies only under WSL.
+	- The pack no longer adds its folder to `sys.path` or registers a global `python` module.
 
 ### Internal
 - Added centralized settings infrastructure under `web/src/settings/`.
-- Added 8 new Python tests for bus overwrite mode behavior.
+- Added Python tests for bus overwrite mode behavior.
+- Fixed order-dependent Python test failures under pytest 9.2.
+- CI typechecks the web sources, checks the committed bundle, runs on Node 24 and gates registry publishing on the tests.
+- Removed the Codecov upload; coverage stays in the CI log.
+- The bundle version is read from `pyproject.toml`; the `VERSION` file is removed.
+- Added the missing Vitest coverage provider and a `.comfyignore` for the registry package.
+- Removed import cycles, dead code and the duplicated batch switch handler in the frontend.
 
 ## [1.7.1] - 2026-02-23
 ### Improved
