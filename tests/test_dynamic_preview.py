@@ -30,3 +30,8 @@ def test_preview_single_channel_image(temp_output, shape):
 def test_preview_mask_batch_of_three_or_four_shows_each_mask(temp_output, batch):
 	result = PT_DynamicPreview().preview_images(input_1 = torch.rand(batch, 8, 8))
 	assert len(result["ui"]["preview_data"]) == batch
+
+
+def test_preview_does_not_print_to_console(capfd):
+	PT_DynamicPreview().preview_images(input_1 = "hello")
+	assert capfd.readouterr().out == ""

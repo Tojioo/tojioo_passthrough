@@ -59,8 +59,6 @@ class PT_DynamicPreview:
 		from PIL import Image
 		from PIL.PngImagePlugin import PngInfo
 
-		print("PT_DynamicPreview executing", list(kwargs.keys()))
-
 		try:
 			import torch
 		except Exception:
