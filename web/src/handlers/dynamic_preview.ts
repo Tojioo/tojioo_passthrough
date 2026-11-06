@@ -358,7 +358,6 @@ export function configureDynamicPreview(): ComfyExtension
 				_sourceSlot: number
 			): boolean
 			{
-				logger_internal.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
 				return true;
 			};
 
@@ -371,7 +370,6 @@ export function configureDynamicPreview(): ComfyExtension
 				doNotUseOccupied?: boolean
 			): any
 			{
-				logger_internal.debug("findInputSlotByType called", type);
 				if (this.inputs)
 				{
 					for (let i = 0; i < this.inputs.length; i++)
