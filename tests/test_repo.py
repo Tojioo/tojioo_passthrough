@@ -1,3 +1,5 @@
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -75,3 +77,27 @@ def test_publish_runs_only_after_tests_pass():
 		if any("node publish" in step.get("run", "") for step in job.get("steps", [])):
 			needs = job.get("needs", [])
 			assert test_jobs & set([needs] if isinstance(needs, str) else needs)
+
+
+DEV_ONLY_PREFIXES = (".github/", ".run/", "tests/", "web/src/", "web/tests/")
+DEV_ONLY_FILES = {"web/package.json", "web/package-lock.json", "web/tsconfig.json", "web/vite.config.mts"}
+RUNTIME_FILES = {"__init__.py", "pyproject.toml", "LICENSE", "README.md", "web/js/extension.js"}
+
+
+def _git_files(*args):
+	result = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", *args], capture_output = True, text = True, check = True)
+	return set(result.stdout.splitlines())
+
+
+@pytest.mark.skipif(shutil.which("git") is None or not (REPO_ROOT / ".git").exists(), reason = "needs a git checkout")
+def test_registry_package_ships_only_runtime_files():
+	ignore_file = REPO_ROOT / ".comfyignore"
+	assert ignore_file.is_file()
+
+	# Needed because comfy node publish zips the git-tracked files minus .comfyignore (gitwildmatch) matches.
+	tracked = _git_files()
+	shipped = tracked - _git_files("--cached", "--ignored", f"--exclude-from={ignore_file}")
+
+	assert RUNTIME_FILES <= shipped
+	assert {f for f in tracked if f.startswith("python/") and f.endswith(".py")} <= shipped
+	assert not {f for f in shipped if f.startswith(DEV_ONLY_PREFIXES) or f in DEV_ONLY_FILES}

@@ -1,0 +1,14 @@
+# Development-only files, kept out of the Comfy registry package.
+/.github/
+/.run/
+/tests/
+/web/src/
+/web/tests/
+/web/package.json
+/web/package-lock.json
+/web/tsconfig.json
+/web/vite.config.mts
+/.editorconfig
+/.gitattributes
+/.gitignore
+/.comfyignore
