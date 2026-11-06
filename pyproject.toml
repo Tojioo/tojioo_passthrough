@@ -13,6 +13,7 @@ test = [
 	"torch",
 	"numpy",
 	"Pillow",
+	"pyyaml",
 ]
 
 [project.urls]
