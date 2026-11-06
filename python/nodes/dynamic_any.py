@@ -32,4 +32,7 @@ class PT_DynamicAny(BaseNode):
 		val = kwargs.get("input_1")
 		if val is None:
 			val = kwargs.get("input")
+		if val is None:
+			# Because the frontend renames the input to the connected type, the key can be anything.
+			val = next((v for v in kwargs.values() if v is not None), None)
 		return (val,)
