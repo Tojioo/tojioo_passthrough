@@ -1,4 +1,4 @@
-﻿import {ApplySwitchDynamicTypes, DeferMicrotask, DeriveDynamicPrefixFromNodeData, IsGraphLoading, NormalizeInputs, ResolveInputType, GetLgInput} from '@/utils';
+﻿import {ApplySwitchDynamicTypes, DeferMicrotask, DeriveDynamicPrefixFromNodeData, DeriveSwitchTypeFromNodeData, IsGraphLoading, NormalizeInputs, ResolveInputType, GetLgInput} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
 
@@ -25,6 +25,8 @@ export function configureBatchSwitchNodes(): ComfyExtension
 				return;
 			}
 
+			const declaredType = DeriveSwitchTypeFromNodeData(nodeData);
+
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
@@ -49,14 +51,14 @@ export function configureBatchSwitchNodes(): ComfyExtension
 						if (!node.inputs?.length || index < 0 || index >= node.inputs.length)
 						{
 							NormalizeInputs(node);
-							ApplySwitchDynamicTypes(node, inputPrefix);
+							ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 							return;
 						}
 
 						if (node.inputs[index]?.link != null)
 						{
 							NormalizeInputs(node);
-							ApplySwitchDynamicTypes(node, inputPrefix);
+							ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 							return;
 						}
 
@@ -67,13 +69,13 @@ export function configureBatchSwitchNodes(): ComfyExtension
 						}
 
 						NormalizeInputs(node);
-						ApplySwitchDynamicTypes(node, inputPrefix);
+						ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 					});
 					return;
 				}
 
 				NormalizeInputs(node);
-				ApplySwitchDynamicTypes(node, inputPrefix);
+				ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 
 				const lastIndex = node.inputs.length - 1;
 				if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function")
@@ -84,7 +86,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 						: (node.inputs[0]?.type ?? ANY_TYPE);
 					node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType as ISlotType);
 					NormalizeInputs(node);
-					ApplySwitchDynamicTypes(node, inputPrefix);
+					ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 				}
 			};
 
@@ -97,7 +99,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 					return;
 				}
 				NormalizeInputs(this);
-				ApplySwitchDynamicTypes(this, inputPrefix);
+				ApplySwitchDynamicTypes(this, inputPrefix, declaredType);
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;
@@ -105,7 +107,7 @@ export function configureBatchSwitchNodes(): ComfyExtension
 			{
 				prevOnAdded?.apply(this, arguments as any);
 				NormalizeInputs(this);
-				ApplySwitchDynamicTypes(this, inputPrefix);
+				ApplySwitchDynamicTypes(this, inputPrefix, declaredType);
 			};
 		}
 	};

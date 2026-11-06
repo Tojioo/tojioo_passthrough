@@ -74,6 +74,12 @@ export function DeriveDynamicPrefixFromNodeData(nodeData: ComfyNodeDef): string 
 	return baseName.replace(/_\d+$/, "").replace(/\d+$/, "");
 }
 
+export function DeriveSwitchTypeFromNodeData(nodeData: ComfyNodeDef): string
+{
+	const declared = nodeData?.output?.[0];
+	return typeof declared === "string" && declared !== "" ? declared : ANY_TYPE;
+}
+
 export function ResolveInputType(node: any, inputIndex: number): string
 {
 	const inp = node.inputs?.[inputIndex];
@@ -174,7 +180,7 @@ export function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
 	}
 }
 
-export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): void
+export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null, declaredType: string = ANY_TYPE): void
 {
 	if (!node.inputs || node.inputs.length === 0)
 	{
@@ -200,7 +206,7 @@ export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 		const currentType = inputTypes[i];
 		const effectiveType = (currentType !== ANY_TYPE) ? currentType : resolvedType;
 
-		inp.type = effectiveType;
+		inp.type = effectiveType !== ANY_TYPE ? effectiveType : declaredType;
 
 		const label = (effectiveType !== ANY_TYPE)
 			? (i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}`)
@@ -221,7 +227,7 @@ export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null): 
 		for (let i = 0; i < node.outputs.length; i++)
 		{
 			const out = node.outputs[i];
-			out.type = resolvedType;
+			out.type = resolvedType !== ANY_TYPE ? resolvedType : declaredType;
 
 			if (resolvedType !== ANY_TYPE)
 			{
