@@ -523,10 +523,10 @@ export function configureDynamicBus(): ComfyExtension
 
 						if (isOverwriteEnabled && localType !== ANY_TYPE)
 						{
-							const matchIdx = Object.keys(combinedTypes)
+							const matchIdx = Object.keys(upstreamTypes)
 								.map(Number)
 								.sort((a, b) => a - b)
-								.find(idx => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+								.find(idx => !usedUpstreamIndices.has(idx) && upstreamTypes[idx] === localType);
 
 							if (matchIdx !== undefined)
 							{
