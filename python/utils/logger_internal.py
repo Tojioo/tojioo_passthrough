@@ -10,67 +10,26 @@ Integrates with ComfyUI's logging system for consistent log output.
 """
 
 import logging
-import sys
 from typing import Optional
 
 
 _MODULE_NAME = "TojiooPassthrough"
-
-_LEVEL_STYLES = {
-	logging.DEBUG: ("\033[95m", "[Tojioo Passthrough]"),  # Purple
-	logging.INFO: ("\033[94m", "ℹ [Tojioo Passthrough]"),  # Deep blue
-	logging.WARNING: ("\033[93m", "⚠ [Tojioo Passthrough]"),  # Yellow-orange
-	logging.ERROR: ("\033[91m", "✖ [Tojioo Passthrough]"),  # Red
-	logging.CRITICAL: ("\033[91m", "✖ [Tojioo Passthrough]"),  # Red
-}
-
-_RESET = "\033[0m"
-_DIM = "\033[2m"
+_PREFIX = "[Tojioo Passthrough]"
 
 
-class _TojiooFormatter(logging.Formatter):
+class _PrefixFilter(logging.Filter):
 
-	def format(self, record: logging.LogRecord) -> str:
-		color, prefix = _LEVEL_STYLES.get(record.levelno, ("\033[96m", "[Tojioo Passthrough]"))
-		message = record.getMessage()
-		base = f"{color}{prefix}{_RESET} {_DIM}{message}{_RESET}"
-
-		if record.exc_info and record.exc_info[1] is not None:
-			base += "\n" + self.formatException(record.exc_info)
-
-		return base
-
-
-class _SafeStreamHandler(logging.StreamHandler):
-	"""Survives pytest/IDE output capture swapping/closing stdout."""
-
-
-	def emit(self, record):
-		try:
-			if self.stream is None or getattr(self.stream, "closed", False):
-				self.setStream(getattr(sys, "__stdout__", sys.stdout))
-			super().emit(record)
-		except ValueError:
-			try:
-				self.setStream(getattr(sys, "__stderr__", sys.stderr))
-				super().emit(record)
-			except Exception:
-				pass
+	def filter(self, record: logging.LogRecord) -> bool:
+		record.msg = f"{_PREFIX} {record.msg}"
+		return True
 
 
 def _get_logger(name: str) -> logging.Logger:
 	logger = logging.getLogger(f"{_MODULE_NAME}.{name}")
 
-	if not logger.handlers:
-		logger.setLevel(logging.DEBUG)
-
-		stream = getattr(sys, "__stdout__", sys.stdout)
-		handler = _SafeStreamHandler(stream)
-		handler.setLevel(logging.DEBUG)
-		handler.setFormatter(_TojiooFormatter())
-
-		logger.addHandler(handler)
-		logger.propagate = False
+	# Invariant: no own handler or level, so records reach ComfyUI's root handlers and follow its --verbose level.
+	if not any(isinstance(f, _PrefixFilter) for f in logger.filters):
+		logger.addFilter(_PrefixFilter())
 
 	return logger
 
