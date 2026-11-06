@@ -1,5 +1,6 @@
 ﻿import {getLiteGraph} from '../utils';
 import {IsGraphLoading} from './lifecycle';
+import {GetInputLinkId, IsInputLinked, IsOutputLinked} from './compat';
 import {app} from 'scripts/app.js';
 
 const _displayNameReverseMap = new Map<string, string>();
@@ -67,13 +68,14 @@ export function connectPending(
 	const links = graph.links;
 	if (links)
 	{
-		for (const inp of node.inputs)
+		for (let i = 0; i < node.inputs.length; i++)
 		{
-			if (inp?.link == null)
+			const linkId = GetInputLinkId(node, i);
+			if (linkId == null)
 			{
 				continue;
 			}
-			const lnk = links[inp.link];
+			const lnk = links[linkId];
 			if (lnk?.origin_id === pending.sourceNode.id && lnk?.origin_slot === pending.sourceSlot)
 			{
 				return;
@@ -88,7 +90,7 @@ export function connectPending(
 		{
 			continue;
 		}
-		if (node.inputs[i]?.link == null)
+		if (!IsInputLinked(node, i))
 		{
 			pending.sourceNode.connect(pending.sourceSlot, node, i);
 			return;
@@ -109,7 +111,8 @@ function connectPendingToInput(
 		return;
 	}
 
-	const existing = targetInput.link != null ? node.graph.links?.[targetInput.link] : null;
+	const targetLinkId = GetInputLinkId(target, pending.sourceSlot);
+	const existing = targetLinkId != null ? node.graph.links?.[targetLinkId] : null;
 	if (existing && (existing.origin_id !== node.id || !slotFilter || slotFilter(existing.origin_slot, pending.type)))
 	{
 		return;
@@ -123,7 +126,7 @@ function connectPendingToInput(
 		{
 			continue;
 		}
-		if (!node.outputs[i]?.links?.length)
+		if (!IsOutputLinked(node, i))
 		{
 			node.connect(i, target, pending.sourceSlot);
 			return;

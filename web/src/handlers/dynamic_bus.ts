@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {AfterGraphLoaded, ClearInputLink, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetInputLinkId, GetLgInput, GetLgOutput, GetLink, GetNodeById, GetOutputLinkIds, IsGraphLoading, IsInputLinked, IsOutputLinked, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {getBusOverwriteMode} from '@/settings';
@@ -43,13 +43,12 @@ export function configureDynamicBus(): ComfyExtension
 					return true;
 				}
 				const targetNode = GetNodeById(node, link.target_id);
-				return targetNode?.inputs?.[link.target_slot]?.link === linkId;
+				return GetInputLinkId(targetNode, link.target_slot) === linkId;
 			}
 
 			function getUpstreamBusTypes(node: any): Record<number, string>
 			{
-				const busInput = node.inputs?.[0];
-				if (!busInput || busInput.link == null)
+				if (!IsInputLinked(node, 0))
 				{
 					return {};
 				}
@@ -57,7 +56,7 @@ export function configureDynamicBus(): ComfyExtension
 				const link = GetInputLink(node, 0);
 				if (isStaleInputLink(node, link))
 				{
-					busInput.link = null;
+					ClearInputLink(node, 0);
 					return {};
 				}
 
@@ -111,7 +110,7 @@ export function configureDynamicBus(): ComfyExtension
 				for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 				{
 					const input = node.inputs[slotIdx];
-					if (input?.link != null)
+					if (IsInputLinked(node, slotIdx))
 					{
 						const type = input.type && input.type !== ANY_TYPE && input.type !== -1
 							? input.type
@@ -129,20 +128,20 @@ export function configureDynamicBus(): ComfyExtension
 
 				for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
 				{
-					const out = node.outputs[slotIdx];
-					const hasOutputLink = (out?.links?.length ?? 0) > 0;
+					const outLinkIds = GetOutputLinkIds(node, slotIdx);
+					const hasOutputLink = outLinkIds.length > 0;
 
 					if (!hasOutputLink)
 					{
 						continue;
 					}
 
-					const hasInputLink = node.inputs[slotIdx]?.link != null;
+					const hasInputLink = IsInputLinked(node, slotIdx);
 					let expectedType = ANY_TYPE;
 
 					if (!hasInputLink)
 					{
-						const linkId = out.links[0];
+						const linkId = outLinkIds[0];
 						const link = GetLink(node, linkId);
 						if (link)
 						{
@@ -281,12 +280,12 @@ export function configureDynamicBus(): ComfyExtension
 					}
 
 					// Stale link references can survive workflow serialization
-					if (node.inputs[0]?.link != null)
+					if (IsInputLinked(node, 0))
 					{
 						const busLink = GetInputLink(node, 0);
 						if (isStaleInputLink(node, busLink))
 						{
-							node.inputs[0].link = null;
+							ClearInputLink(node, 0);
 						}
 					}
 
@@ -312,8 +311,8 @@ export function configureDynamicBus(): ComfyExtension
 
 					for (let slotIdx = 1; slotIdx < maxLen; slotIdx++)
 					{
-						const hasInput = node.inputs[slotIdx]?.link != null;
-						const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+						const hasInput = IsInputLinked(node, slotIdx);
+						const hasOutput = IsOutputLinked(node, slotIdx);
 						const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
 						const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
 
@@ -328,7 +327,7 @@ export function configureDynamicBus(): ComfyExtension
 					while (node.inputs.length > targetCount)
 					{
 						const lastIdx = node.inputs.length - 1;
-						const hasLiveLink = node.inputs[lastIdx]?.link != null;
+						const hasLiveLink = IsInputLinked(node, lastIdx);
 						const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
 						if (hasLiveLink || hasSerializedLink)
 						{
@@ -340,7 +339,7 @@ export function configureDynamicBus(): ComfyExtension
 					while (node.outputs.length > targetCount)
 					{
 						const lastIdx = node.outputs.length - 1;
-						const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+						const hasLiveLinks = IsOutputLinked(node, lastIdx);
 						const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
 						if (hasLiveLinks || hasSerializedLinks)
 						{
@@ -366,12 +365,12 @@ export function configureDynamicBus(): ComfyExtension
 					// Clear stale link references from data slots
 					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
-						if (node.inputs[slotIdx]?.link != null)
+						if (IsInputLinked(node, slotIdx))
 						{
 							const link = GetInputLink(node, slotIdx);
 							if (isStaleInputLink(node, link))
 							{
-								node.inputs[slotIdx].link = null;
+								ClearInputLink(node, slotIdx);
 							}
 						}
 					}
@@ -379,9 +378,8 @@ export function configureDynamicBus(): ComfyExtension
 					// Clear stale types from slots with no live connections
 					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
-						const hasInput = node.inputs[slotIdx]?.link != null;
-						const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-						const hasOutput = outputLinkIds.some((linkId: number) => GetLink(node, linkId) != null);
+						const hasInput = IsInputLinked(node, slotIdx);
+						const hasOutput = GetOutputLinkIds(node, slotIdx).some((linkId: number) => GetLink(node, linkId) != null);
 
 						if (!hasInput && !hasOutput)
 						{
@@ -401,9 +399,8 @@ export function configureDynamicBus(): ComfyExtension
 					{
 						for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--)
 						{
-							const hasInput = node.inputs[slotIdx]?.link != null;
-							const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-							const hasOutput = outputLinkIds.some((linkId: number) => isLiveOutputLink(node, linkId));
+							const hasInput = IsInputLinked(node, slotIdx);
+							const hasOutput = GetOutputLinkIds(node, slotIdx).some((linkId: number) => isLiveOutputLink(node, linkId));
 
 							if (hasInput || hasOutput)
 							{
@@ -413,9 +410,8 @@ export function configureDynamicBus(): ComfyExtension
 							let hasConnectionsAfter = false;
 							for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
 							{
-								const laterInput = node.inputs[i]?.link != null;
-								const laterOutputIds = node.outputs[i]?.links ?? [];
-								const laterOutput = laterOutputIds.some((id: number) => isLiveOutputLink(node, id));
+								const laterInput = IsInputLinked(node, i);
+								const laterOutput = GetOutputLinkIds(node, i).some((id: number) => isLiveOutputLink(node, id));
 
 								if (laterInput || laterOutput)
 								{
@@ -438,7 +434,7 @@ export function configureDynamicBus(): ComfyExtension
 						for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
 						{
 							const serializedOut = serializedInfo.outputs[slotIdx];
-							const hasOutputLinks = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+							const hasOutputLinks = IsOutputLinked(node, slotIdx);
 							if (hasOutputLinks && serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
 							{
 								if (node.outputs[slotIdx])
@@ -490,7 +486,7 @@ export function configureDynamicBus(): ComfyExtension
 							inLink.type = type;
 						}
 
-						for (const linkId of node.outputs[slotIdx]?.links ?? [])
+						for (const linkId of GetOutputLinkIds(node, slotIdx))
 						{
 							const link = GetLink(node, linkId);
 							if (link && type !== ANY_TYPE)
@@ -514,7 +510,7 @@ export function configureDynamicBus(): ComfyExtension
 
 					for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++)
 					{
-						if (node.inputs[slotIdx]?.link == null)
+						if (!IsInputLinked(node, slotIdx))
 						{
 							continue;
 						}
@@ -550,8 +546,8 @@ export function configureDynamicBus(): ComfyExtension
 					const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
 					overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
 
-					const busOutLinks = node.outputs?.[0]?.links;
-					if (busOutLinks?.length)
+					const busOutLinks = GetOutputLinkIds(node, 0);
+					if (busOutLinks.length)
 					{
 						for (const linkId of busOutLinks)
 						{
@@ -612,7 +608,7 @@ export function configureDynamicBus(): ComfyExtension
 				{
 					if (String(type) === BUS_TYPE)
 					{
-						if (this.inputs[0]?.link == null)
+						if (!IsInputLinked(this, 0))
 						{
 							return returnObj ? this.inputs[0] : 0;
 						}
@@ -621,7 +617,7 @@ export function configureDynamicBus(): ComfyExtension
 					{
 						for (let i = 1; i < this.inputs.length; i++)
 						{
-							if (this.inputs[i]?.link == null)
+							if (!IsInputLinked(this, i))
 							{
 								return returnObj ? this.inputs[i] : i;
 							}
@@ -720,12 +716,12 @@ export function configureDynamicBus(): ComfyExtension
 				// Stale link cleanup — deferred so subgraph links are fully registered
 				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
 				{
-					if (node.inputs[i]?.link != null)
+					if (IsInputLinked(node, i))
 					{
 						const link = GetInputLink(node, i);
 						if (isStaleInputLink(node, link))
 						{
-							node.inputs[i].link = null;
+							ClearInputLink(node, i);
 						}
 					}
 				}

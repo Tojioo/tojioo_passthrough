@@ -1,5 +1,6 @@
 ﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType, ANY_TYPE} from '../utils';
 import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
+import {GetInputLinkId, GetOutputLinkIds, IsInputLinked} from './compat';
 
 let _graphLoadDepth = 0;
 let _afterLoadCallbacks: Array<() => void> = [];
@@ -45,7 +46,6 @@ export function IsGraphLoading(): boolean
 	return _graphLoadDepth > 0;
 }
 
-/** Runs fn once the graph load in progress has finished; does nothing when no load is running. */
 export function AfterGraphLoaded(fn: () => void): void
 {
 	// Assumption: outside a load (paste, subgraph conversion) links are wired synchronously, so the caller's microtask resync already sees them.
@@ -119,7 +119,7 @@ export function ResolveInputType(node: any, inputIndex: number): string
 		return ANY_TYPE;
 	}
 
-	const linkId = inp.link;
+	const linkId = GetInputLinkId(node, inputIndex);
 	if (linkId == null)
 	{
 		return ANY_TYPE;
@@ -246,7 +246,7 @@ export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null, d
 		inp.name = `input_${i + 1}`;
 		inp.label = label;
 
-		const linkId = inp.link;
+		const linkId = GetInputLinkId(node, i);
 		if (linkId != null && effectiveType !== ANY_TYPE)
 		{
 			SetLinkType(node, linkId, effectiveType);
@@ -266,7 +266,7 @@ export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null, d
 				out.label = resolvedType.toLowerCase();
 			}
 
-			const outLinks = out.links ?? [];
+			const outLinks = GetOutputLinkIds(node, i);
 			for (const linkId of outLinks)
 			{
 				if (linkId != null && resolvedType !== ANY_TYPE)
@@ -309,7 +309,7 @@ export function NormalizeInputs(node: any): void
 	let lastConnectedIndex = -1;
 	for (let i = node.inputs.length - 1; i >= 0; i--)
 	{
-		if (node.inputs[i]?.link != null)
+		if (IsInputLinked(node, i))
 		{
 			lastConnectedIndex = i;
 			break;

@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {AfterGraphLoaded, ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetInputLinkId, GetLinkTypeFromEndpoints, IsGraphLoading, IsInputLinked, IsOutputLinked, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -31,7 +31,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 				let lastConnectedInput = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
 				{
-					if (node.inputs[i]?.link != null)
+					if (IsInputLinked(node, i))
 					{
 						lastConnectedInput = i;
 						break;
@@ -41,8 +41,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 				let lastConnectedOutput = -1;
 				for (let i = node.outputs.length - 1; i >= 0; i--)
 				{
-					const links = node.outputs[i]?.links;
-					if (links && links.length > 0)
+					if (IsOutputLinked(node, i))
 					{
 						lastConnectedOutput = i;
 						break;
@@ -101,7 +100,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 				{
 					for (let i = 0; i < this.inputs.length; i++)
 					{
-						if (this.inputs[i]?.link == null)
+						if (!IsInputLinked(this, i))
 						{
 							return returnObj ? this.inputs[i] : i;
 						}
@@ -127,7 +126,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 					try
 					{
 						const g = GetGraph(node);
-						const linkId = link_info?.id ?? node.inputs?.[index]?.link;
+						const linkId = link_info?.id ?? GetInputLinkId(node, index);
 						const linkObj = link_info ?? GetLink(node, linkId);
 						const inferredType = GetLinkTypeFromEndpoints(node, linkObj);
 
@@ -178,7 +177,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 							return;
 						}
 
-						if (node.inputs[disconnectedIndex]?.link != null || (node.outputs?.[disconnectedIndex]?.links?.length ?? 0) > 0)
+						if (IsInputLinked(node, disconnectedIndex) || IsOutputLinked(node, disconnectedIndex))
 						{
 							normalizeIO(this);
 							ApplyDynamicTypes(this);
@@ -188,7 +187,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 						let hasConnectionsAfter = false;
 						for (let i = disconnectedIndex + 1; i < Math.max(node.inputs.length, node.outputs.length); i++)
 						{
-							if (node.inputs?.[i]?.link != null || (node.outputs?.[i]?.links?.length ?? 0) > 0)
+							if (IsInputLinked(node, i) || IsOutputLinked(node, i))
 							{
 								hasConnectionsAfter = true;
 								break;

@@ -1,4 +1,4 @@
-﻿import {ApplySwitchDynamicTypes, DeferMicrotask, DeriveDynamicPrefixFromNodeData, DeriveSwitchTypeFromNodeData, IsGraphLoading, NormalizeInputs, ResolveInputType, GetLgInput} from '@/utils';
+﻿import {ApplySwitchDynamicTypes, DeferMicrotask, DeriveDynamicPrefixFromNodeData, DeriveSwitchTypeFromNodeData, IsGraphLoading, NormalizeInputs, ResolveInputType, GetLgInput, IsInputLinked} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
 
@@ -55,14 +55,14 @@ export function configureSwitchNodes(): ComfyExtension
 							return;
 						}
 
-						if (node.inputs[index]?.link != null)
+						if (IsInputLinked(node, index))
 						{
 							NormalizeInputs(node);
 							ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 							return;
 						}
 
-						const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
+						const hasConnectionsAfter = node.inputs.some((_: any, i: number) => i > index && IsInputLinked(node, i));
 						if (hasConnectionsAfter && typeof node.removeInput === "function")
 						{
 							node.removeInput(index);
@@ -78,7 +78,7 @@ export function configureSwitchNodes(): ComfyExtension
 				ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
 
 				const lastIndex = node.inputs.length - 1;
-				if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function")
+				if (index === lastIndex && IsInputLinked(node, lastIndex) && typeof node.addInput === "function")
 				{
 					const resolvedType = ResolveInputType(node, lastIndex);
 					const socketType = resolvedType !== ANY_TYPE

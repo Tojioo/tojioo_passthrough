@@ -1,21 +1,19 @@
 ﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType, UpdateNodeSize} from '../utils';
+import {GetInputLinkId, GetOutputLinkIds, IsInputLinked, IsOutputLinked} from './compat';
 
 export const ANY_TYPE: string = "*";
 
 export function ResolvePairType(node: any, zeroBasedIndex: number): string
 {
-	const out = node.outputs?.[zeroBasedIndex];
-	const inp = node.inputs?.[zeroBasedIndex];
-
-	const hasOutputLink = (out?.links?.length ?? 0) > 0;
-	const hasInputLink = inp?.link != null;
+	const hasOutputLink = IsOutputLinked(node, zeroBasedIndex);
+	const hasInputLink = IsInputLinked(node, zeroBasedIndex);
 
 	if (!hasOutputLink && !hasInputLink)
 	{
 		return ANY_TYPE;
 	}
 
-	const outLinkId = out?.links?.[0];
+	const outLinkId = GetOutputLinkIds(node, zeroBasedIndex)[0];
 	const outLink = GetLink(node, outLinkId ?? null);
 	if (outLink)
 	{
@@ -37,7 +35,7 @@ export function ResolvePairType(node: any, zeroBasedIndex: number): string
 		}
 	}
 
-	const inLinkId = inp?.link;
+	const inLinkId = GetInputLinkId(node, zeroBasedIndex);
 	const inLink = GetLink(node, inLinkId ?? null);
 	if (inLink)
 	{
@@ -64,13 +62,13 @@ export function ResolvePairType(node: any, zeroBasedIndex: number): string
 
 export function UpdateLinkTypesForSlot(node: any, zeroBasedIndex: number, type: string): void
 {
-	const inLinkId = node.inputs?.[zeroBasedIndex]?.link;
+	const inLinkId = GetInputLinkId(node, zeroBasedIndex);
 	if (inLinkId != null)
 	{
 		SetLinkType(node, inLinkId, type);
 	}
 
-	const outLinks = node.outputs?.[zeroBasedIndex]?.links ?? [];
+	const outLinks = GetOutputLinkIds(node, zeroBasedIndex);
 	for (const linkId of outLinks)
 	{
 		if (linkId != null)
@@ -84,8 +82,10 @@ export function ResolveConnectedType(node: any, inp: any | undefined, out: any |
 {
 	const isConcrete = (t: unknown): t is string => t != null && t !== ANY_TYPE && t !== -1;
 
-	const hasInputLink = inp?.link != null;
-	const hasOutputLink = (out?.links?.length ?? 0) > 0;
+	const inIndex = node.inputs?.indexOf(inp) ?? -1;
+	const outIndex = node.outputs?.indexOf(out) ?? -1;
+	const hasInputLink = IsInputLinked(node, inIndex);
+	const hasOutputLink = IsOutputLinked(node, outIndex);
 
 	if (!hasInputLink && !hasOutputLink)
 	{
@@ -123,13 +123,13 @@ export function ResolveConnectedType(node: any, inp: any | undefined, out: any |
 		return isConcrete(peerSlot?.type) ? (peerSlot.type as string) : undefined;
 	};
 
-	const inType = tryFromLink(inp?.link, "origin");
+	const inType = tryFromLink(GetInputLinkId(node, inIndex), "origin");
 	if (inType)
 	{
 		return inType;
 	}
 
-	const outType = tryFromLink(out?.links?.[0], "target");
+	const outType = tryFromLink(GetOutputLinkIds(node, outIndex)[0], "target");
 	if (outType)
 	{
 		return outType;

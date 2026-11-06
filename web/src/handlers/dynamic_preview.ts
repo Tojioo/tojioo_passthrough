@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils';
+﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetInputLinkId, GetLinkTypeFromEndpoints, IsGraphLoading, IsInputLinked, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import logger_internal, {loggerInstance} from '@/logger_internal';
@@ -35,7 +35,7 @@ export function configureDynamicPreview(): ComfyExtension
 				if (!(node as any).__tojioo_dynamic_io_rebuilt)
 				{
 					(node as any).__tojioo_dynamic_io_rebuilt = true;
-					const hasAnyLinks = node.inputs?.some((i: any) => i?.link != null);
+					const hasAnyLinks = node.inputs?.some((_: any, i: number) => IsInputLinked(node, i));
 					if (!hasAnyLinks && typeof node.removeInput === "function")
 					{
 						while (node.inputs.length)
@@ -48,7 +48,7 @@ export function configureDynamicPreview(): ComfyExtension
 				let lastConnectedIndex = -1;
 				for (let i = node.inputs.length - 1; i >= 0; i--)
 				{
-					if (node.inputs[i]?.link != null)
+					if (IsInputLinked(node, i))
 					{
 						lastConnectedIndex = i;
 						break;
@@ -375,7 +375,7 @@ export function configureDynamicPreview(): ComfyExtension
 				{
 					for (let i = 0; i < this.inputs.length; i++)
 					{
-						if (this.inputs[i]?.link == null)
+						if (!IsInputLinked(this, i))
 						{
 							return returnObj ? this.inputs[i] : i;
 						}
@@ -462,7 +462,7 @@ export function configureDynamicPreview(): ComfyExtension
 						if (link)
 						{
 							const inferredType = GetLinkTypeFromEndpoints(node, link);
-							const linkId = (link_info as any)?.id ?? node.inputs?.[index]?.link;
+							const linkId = (link_info as any)?.id ?? GetInputLinkId(node, index);
 							const linkObj = GetLink(node, linkId);
 							if (linkObj && inferredType !== ANY_TYPE)
 							{
@@ -495,20 +495,20 @@ export function configureDynamicPreview(): ComfyExtension
 						return;
 					}
 
-					if (node.inputs[index]?.link != null)
+					if (IsInputLinked(node, index))
 					{
 						normalizeInputs(node);
 						applyDynamicTypes(node);
 						return;
 					}
 
-					const hasConnectionsAfter = node.inputs.slice(index + 1).some((i: any) => i?.link != null);
+					const hasConnectionsAfter = node.inputs.some((_: any, i: number) => i > index && IsInputLinked(node, i));
 					if (hasConnectionsAfter && typeof node.removeInput === "function")
 					{
 						node.removeInput(index);
 					}
 
-					const hasAny = node.inputs?.some((inp: any) => inp?.link != null);
+					const hasAny = node.inputs?.some((_: any, i: number) => IsInputLinked(node, i));
 					if (!hasAny)
 					{
 						resetPreviewState(node as any);

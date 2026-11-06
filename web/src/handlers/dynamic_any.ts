@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLink, IsGraphLoading, ResolveConnectedType} from '@/utils';
+﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLink, GetOutputLinkIds, IsGraphLoading, IsInputLinked, ResolveConnectedType} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -45,7 +45,7 @@ export function configureDynamicAny(): ComfyExtension
 					inLink.type = slotType;
 				}
 
-				for (const linkId of node.outputs?.[0]?.links ?? [])
+				for (const linkId of GetOutputLinkIds(node, 0))
 				{
 					const link = GetLink(node, linkId);
 					if (link && slotType !== ANY_TYPE)
@@ -78,7 +78,7 @@ export function configureDynamicAny(): ComfyExtension
 				doNotUseOccupied?: boolean
 			): any
 			{
-				if (this.inputs?.[0]?.link == null)
+				if (!IsInputLinked(this, 0))
 				{
 					return returnObj ? this.inputs[0] : 0;
 				}

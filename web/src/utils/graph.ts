@@ -1,9 +1,10 @@
 ﻿import {ANY_TYPE} from '../utils'
+import {GetInputLinkId, GetOutputLinkIds} from './compat';
 
 export function GetGraph(node: any): LGraph | null
 {
-	// return node.graph || (window as any).app?.graph;
-	return (node.rootGraph ?? node.graph) || (window as any).app?.graph;
+	// Needed: inside a subgraph only node.graph holds the subgraph's links.
+	return (node.graph ?? node.rootGraph) || (window as any).app?.graph;
 }
 
 export function GetLink(node: any, linkId: number | null): LLink | null
@@ -26,7 +27,7 @@ export function GetInputLink(node: any, slotIndex: number): LLink | null
 	{
 		return null;
 	}
-	return GetLink(node, node.inputs[slotIndex].link);
+	return GetLink(node, GetInputLinkId(node, slotIndex));
 }
 
 export function GetOutputLinks(node: any, slotIndex: number): LLink[]
@@ -35,7 +36,7 @@ export function GetOutputLinks(node: any, slotIndex: number): LLink[]
 	{
 		return [];
 	}
-	const linkIds = node.outputs[slotIndex].links || [];
+	const linkIds = GetOutputLinkIds(node, slotIndex);
 	const links: LLink[] = [];
 	for (const id of linkIds)
 	{
