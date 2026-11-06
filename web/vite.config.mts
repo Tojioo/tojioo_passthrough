@@ -61,5 +61,8 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: "node",
+		alias: {
+			'scripts/app.js': resolvePath('tests/helpers/app_stub.ts'),
+		},
 	},
 });
