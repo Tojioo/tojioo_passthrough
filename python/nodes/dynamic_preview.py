@@ -70,6 +70,7 @@ class PT_DynamicPreview:
 		prefix = "preview_"
 
 		conditioning_texts = self._resolve_all_conditioning_texts(prompt, unique_id, kwargs)
+		metadata_disabled = self._metadata_disabled()
 
 
 		def save_tensor_as_image(img_t, slot_idx):
@@ -81,12 +82,14 @@ class PT_DynamicPreview:
 			i = 255.0 * img_t.detach().cpu().numpy()
 			img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
-			metadata = PngInfo()
-			if prompt is not None:
-				metadata.add_text("prompt", json.dumps(prompt))
-			if extra_pnginfo is not None:
-				for k, v in extra_pnginfo.items():
-					metadata.add_text(k, json.dumps(v))
+			metadata = None
+			if not metadata_disabled:
+				metadata = PngInfo()
+				if prompt is not None:
+					metadata.add_text("prompt", json.dumps(prompt))
+				if extra_pnginfo is not None:
+					for k, v in extra_pnginfo.items():
+						metadata.add_text(k, json.dumps(v))
 
 			full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
 				prefix, output_dir, img.width, img.height
@@ -178,6 +181,15 @@ class PT_DynamicPreview:
 		elif v.dim() == 3:
 			for i in range(v.shape[0]):
 				yield v[i].unsqueeze(-1).expand(-1, -1, 3)
+
+
+	@staticmethod
+	def _metadata_disabled():
+		try:
+			from comfy.cli_args import args
+		except ImportError:
+			return False
+		return getattr(args, "disable_metadata", False) is True
 
 
 	@staticmethod
