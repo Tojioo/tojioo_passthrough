@@ -178,7 +178,7 @@ export function configureDynamicPassthrough(): ComfyExtension
 							return;
 						}
 
-						if (node.inputs[disconnectedIndex]?.link != null)
+						if (node.inputs[disconnectedIndex]?.link != null || (node.outputs?.[disconnectedIndex]?.links?.length ?? 0) > 0)
 						{
 							normalizeIO(this);
 							ApplyDynamicTypes(this);
