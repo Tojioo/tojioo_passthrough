@@ -1,7 +1,7 @@
-﻿import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType, UpdateNodeSize} from '../utils';
+﻿import {ANY_TYPE} from '../types/tojioo';
+import {GetGraph, GetLink, GetLinkTypeFromEndpoints, GetNodeById, SetLinkType} from './graph';
+import {UpdateNodeSize} from './lifecycle';
 import {GetInputLinkId, GetOutputLinkIds, IsInputLinked, IsOutputLinked} from './compat';
-
-export const ANY_TYPE: string = "*";
 
 export function ResolvePairType(node: any, zeroBasedIndex: number): string
 {

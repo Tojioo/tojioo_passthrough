@@ -1,4 +1,4 @@
-﻿import {ANY_TYPE} from '../utils'
+﻿import {ANY_TYPE} from '../types/tojioo';
 import {GetInputLinkId, GetOutputLinkIds} from './compat';
 
 export function GetGraph(node: any): LGraph | null

@@ -1,4 +1,5 @@
-﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType, ANY_TYPE} from '../utils';
+﻿import {ANY_TYPE} from '../types/tojioo';
+import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType} from './graph';
 import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {GetInputLinkId, GetOutputLinkIds, IsInputLinked} from './compat';
 

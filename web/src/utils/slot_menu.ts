@@ -1,6 +1,5 @@
-﻿import {getLiteGraph} from '../utils';
+﻿import {getLiteGraph, GetInputLinkId, IsInputLinked, IsOutputLinked} from './compat';
 import {IsGraphLoading} from './lifecycle';
-import {GetInputLinkId, IsInputLinked, IsOutputLinked} from './compat';
 import {app} from 'scripts/app.js';
 
 const _displayNameReverseMap = new Map<string, string>();
