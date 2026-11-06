@@ -1,4 +1,4 @@
-﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, IsNodes2Mode, UpdatePreviewNodeSize} from '@/utils';
+﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdatePreviewNodeSize} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import logger_internal, {loggerInstance} from '@/logger_internal';
@@ -382,16 +382,6 @@ export function configureDynamicPreview(): ComfyExtension
 					}
 				}
 				return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
-			};
-
-			const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
-			nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement)
-			{
-				prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-				if (!ctx || IsNodes2Mode())
-				{
-					return;
-				}
 			};
 
 			const prevOnExecuted = (nodeType.prototype as any).onExecuted;

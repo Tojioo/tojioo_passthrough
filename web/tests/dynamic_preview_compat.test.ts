@@ -2,6 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {app} from 'scripts/app.js';
 import {configureDynamicPreview} from '../src/handlers';
+import {IsNodes2Mode} from '../src/utils';
 import {installTestGlobals} from './helpers/factories';
 import {makeHarness} from './helpers/handler_harness';
 
@@ -11,6 +12,7 @@ afterEach(() =>
 {
 	vi.restoreAllMocks();
 	delete app.api;
+	delete (globalThis as any).window;
 });
 
 describe("dynamic preview compatibility", () =>
@@ -37,5 +39,20 @@ describe("dynamic preview compatibility", () =>
 		h.nodeType.prototype.onExecuted.call(h.node, {preview_data: [{filename: "a b.png", subfolder: "", type: "temp", slot: 0}]});
 
 		expect(h.node._previewItems[0].element.src).toBe("/comfy/api/view?filename=a%20b.png&subfolder=&type=temp");
+	});
+
+	it("detects Nodes 2.0 from the Vue nodes setting", () =>
+	{
+		const settings: Record<string, any> = {"Comfy.VueNodes.Enabled": true};
+		(globalThis as any).window = {app: {extensionManager: {setting: {get: (id: string) => settings[id]}}}};
+
+		expect(IsNodes2Mode()).toBe(true);
+	});
+
+	it("leaves onDrawForeground to the node type", async () =>
+	{
+		const h = await makeHarness(configureDynamicPreview, {name: "PT_DynamicPreview"}, {in: 1, out: 0});
+
+		expect(h.nodeType.prototype.onDrawForeground).toBeUndefined();
 	});
 });

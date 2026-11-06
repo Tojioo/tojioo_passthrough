@@ -40,7 +40,7 @@ export function IsNodes2Mode(): boolean
 		const app = (window as any).app;
 		if (app?.extensionManager?.setting?.get)
 		{
-			const nodes2 = app.extensionManager.setting.get("Comfy.NodeDesign.Modern");
+			const nodes2 = app.extensionManager.setting.get("Comfy.VueNodes.Enabled");
 			if (nodes2 === true)
 			{
 				return true;
