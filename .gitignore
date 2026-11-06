@@ -20,3 +20,10 @@ __pycache__/
 
 # Node.js Dependencies
 node_modules/
+
+# Coverage reports
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+web/coverage/

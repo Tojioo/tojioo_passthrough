@@ -101,3 +101,10 @@ def test_registry_package_ships_only_runtime_files():
 	assert RUNTIME_FILES <= shipped
 	assert {f for f in tracked if f.startswith("python/") and f.endswith(".py")} <= shipped
 	assert not {f for f in shipped if f.startswith(DEV_ONLY_PREFIXES) or f in DEV_ONLY_FILES}
+
+
+@pytest.mark.skipif(shutil.which("git") is None or not (REPO_ROOT / ".git").exists(), reason = "needs a git checkout")
+@pytest.mark.parametrize("artifact", [".coverage", "coverage.xml", "htmlcov/index.html", "web/coverage/index.html"])
+def test_coverage_artifacts_are_gitignored(artifact):
+	result = subprocess.run(["git", "-C", str(REPO_ROOT), "check-ignore", "--no-index", "-q", artifact])
+	assert result.returncode == 0
