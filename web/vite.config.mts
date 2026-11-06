@@ -16,7 +16,18 @@ const __dirname = dirname(__filename);
  */
 const resolvePath = (filePath: string): string => resolve(__dirname, filePath);
 
-const version = readFileSync(resolve(__dirname, '../VERSION'), 'utf-8').trim();
+const readProjectVersion = (): string =>
+{
+	const pyproject = readFileSync(resolve(__dirname, '../pyproject.toml'), 'utf-8');
+	const version = pyproject.match(/^\[project\]\r?\n(?:(?!\[).*\r?\n)*?version\s*=\s*"([^"]+)"/m)?.[1];
+	if (!version)
+	{
+		throw new Error('No [project] version found in pyproject.toml');
+	}
+	return version;
+};
+
+const version = readProjectVersion();
 
 export default defineConfig({
 	define: {
