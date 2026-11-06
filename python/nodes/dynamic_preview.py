@@ -283,12 +283,15 @@ class PT_DynamicPreview:
 
 
 	@classmethod
-	def _extract_prompt_text(cls, prompt, node_id, output_index, visited = None):
+	def _extract_prompt_text(cls, prompt, node_id, output_index, visited = None, memo = None):
 		if visited is None:
 			visited = set()
+		if memo is None:
+			memo = {}
 		if node_id in visited or not prompt:
 			return None
-		visited.add(node_id)
+		if (node_id, output_index) in memo:
+			return memo[(node_id, output_index)]
 
 		node = prompt.get(node_id)
 		if not node:
@@ -301,15 +304,36 @@ class PT_DynamicPreview:
 		if text:
 			return text
 
-		for key, val in inputs.items():
-			if key.startswith("_"):
-				continue
-			if isinstance(val, list) and len(val) >= 2:
-				found = cls._extract_prompt_text(prompt, str(val[0]), val[1], visited)
-				if found:
-					return found
+		links = [
+			(key, val) for key, val in inputs.items()
+			if not key.startswith("_") and isinstance(val, list) and len(val) >= 2
+		]
+		output_name = cls._get_output_name(class_type, output_index)
+		if any(key == output_name for key, _ in links):
+			links = [(key, val) for key, val in links if key == output_name]
 
-		return None
+		visited.add(node_id)
+		found = []
+		for _, val in links:
+			text = cls._extract_prompt_text(prompt, str(val[0]), val[1], visited, memo)
+			if text and text not in found:
+				found.append(text)
+		visited.discard(node_id)
+
+		# Because the trace cannot tell which of several prompts feeds this output, showing none beats showing the wrong one.
+		result = found[0] if len(found) == 1 else None
+		memo[(node_id, output_index)] = result
+		return result
+
+
+	@staticmethod
+	def _get_output_name(class_type, output_index):
+		try:
+			import nodes
+			names = nodes.NODE_CLASS_MAPPINGS[class_type].RETURN_NAMES
+			return names[output_index]
+		except Exception:
+			return None
 
 
 	@staticmethod
