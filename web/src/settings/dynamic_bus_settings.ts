@@ -27,7 +27,8 @@ export const dynamicBusOverwrite: any = {
 		}*/
 
 		const value = newVal ? "1" : "0";
-		for (const node of graph._nodes ?? [])
+		const subgraphNodes = [...(graph.subgraphs?.values() ?? [])].flatMap((sg: any) => sg._nodes ?? []);
+		for (const node of [...(graph._nodes ?? []), ...subgraphNodes])
 		{
 			if (node.type !== "PT_DynamicBus")
 			{
@@ -38,6 +39,8 @@ export const dynamicBusOverwrite: any = {
 			{
 				widget.value = value;
 			}
+			// Needed: the bus type map depends on the mode, and the setting store already holds the new value here.
+			node.onBusChanged?.();
 		}
 	},
 };
