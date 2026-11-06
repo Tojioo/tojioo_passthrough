@@ -37,9 +37,10 @@ Restart ComfyUI.
 * `Tojioo Passthrough`: Multi-Passthrough hub
 * `Tojioo Passthrough/Simple Passthrough`: All typed passthroughs, Conditioning Passthrough
 * `Tojioo Passthrough/Simple Passthrough/Widget Variants`: Widget-based versions of primitive passthroughs
-* `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Dynamic Any
+* `Tojioo Passthrough/Dynamic Nodes`: Dynamic Passthrough, Dynamic Bus, Dynamic Any, Dynamic Preview
 * `Tojioo Passthrough/Dynamic Nodes/Batch Switch Nodes`: Batch switching nodes
 * `Tojioo Passthrough/Dynamic Nodes/Switch Nodes`: First-valid switching nodes
+* `Tojioo Passthrough/Other`: Dual CLIP Text Encode, Tiled VAE Settings
 
 ---
 
@@ -138,6 +139,31 @@ https://github.com/user-attachments/assets/6ca45029-c8a9-4b75-8250-ad577a09ddd8
 https://github.com/user-attachments/assets/1536665b-328c-4d78-821e-d5ff6191e438
 
 
+
+---
+
+### Development
+
+The frontend lives in `web/src` (TypeScript). Vite bundles it into `web/js/extension.js`, which is committed because ComfyUI loads it directly.
+
+```
+cd web
+npm ci
+npm run typecheck
+npx vitest run
+npm run build
+```
+
+Commit the rebuilt `web/js/extension.js` with every change in `web/src`. CI fails when it differs from a fresh build.
+
+Python tests run from the repository root:
+
+```
+pip install -e ".[test]"
+pytest
+```
+
+To release, bump `version` in `pyproject.toml` (the only version source, the bundle reads it at build time), rebuild the bundle, update `CHANGELOG.md` and merge into `main`. The publish workflow runs the tests and then publishes to the Comfy registry.
 
 ---
 

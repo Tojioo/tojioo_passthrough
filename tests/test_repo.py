@@ -108,3 +108,38 @@ def test_registry_package_ships_only_runtime_files():
 def test_coverage_artifacts_are_gitignored(artifact):
 	result = subprocess.run(["git", "-C", str(REPO_ROOT), "check-ignore", "--no-index", "-q", artifact])
 	assert result.returncode == 0
+
+
+def _readme_category_lines():
+	lines = {}
+	for line in (REPO_ROOT / "README.md").read_text(encoding = "utf-8-sig").splitlines():
+		if line.startswith("* `Tojioo Passthrough"):
+			category, _, nodes = line[3:].partition("`:")
+			lines[category] = nodes
+	return lines
+
+
+def test_readme_lists_every_category():
+	from python.config.categories import CATEGORIES, MAIN_CATEGORY
+
+	assert {MAIN_CATEGORY, *CATEGORIES.values()} <= _readme_category_lines().keys()
+
+
+@pytest.mark.parametrize("category_key", ["main", "dynamic", "other"])
+def test_readme_category_line_names_all_its_nodes(category_key):
+	from python import NODE_CLASS_MAPPINGS
+	from python.config.categories import CATEGORIES, MAIN_CATEGORY
+
+	category = MAIN_CATEGORY if category_key == "main" else CATEGORIES[category_key]
+	line = _readme_category_lines().get(category, "")
+	names = {cls.NODE_NAME for cls in NODE_CLASS_MAPPINGS.values() if cls.CATEGORY == category}
+	assert names
+	assert {name for name in names if name not in line} == set()
+
+
+def test_readme_has_development_section():
+	readme = (REPO_ROOT / "README.md").read_text(encoding = "utf-8-sig")
+	_, heading, section = readme.partition("### Development")
+	assert heading
+	for command in ("npm run build", "npm run typecheck", "npx vitest run", "pytest"):
+		assert command in section.split("\n### ")[0]
