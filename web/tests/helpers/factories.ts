@@ -281,8 +281,6 @@ export function disconnectInput(node: any, index: number): void
 	}
 }
 
-// Todo: Add to tests -> disconnecting output when no input is connected behavior
-// noinspection JSUnusedGlobalSymbols -> Todo above.
 export function disconnectOutput(node: any, index: number, linkId: number): void
 {
 	const links = node.outputs?.[index]?.links ?? [];
