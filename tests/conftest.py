@@ -1,5 +1,6 @@
 import sys
 import tempfile
+import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -21,18 +22,23 @@ def mock_if_missing(mod_names):
 				sys.modules[mod_name] = MagicMock()
 
 
-mock_if_missing(["folder_paths", "comfy", "comfy.utils"])
+def stub_folder_paths_if_missing():
+	try:
+		__import__("folder_paths")
+	except ImportError:
+		# Because pytest 9.2 monkeypatch only restores attributes found in the target's __dict__, this must be a real module, not a MagicMock.
+		temp_dir = tempfile.gettempdir()
+		stub = types.ModuleType("folder_paths")
+		stub.get_temp_directory = lambda: temp_dir
+		stub.get_save_image_path = lambda *args, **kwargs: (temp_dir, "preview", 0, "", "")
+		sys.modules["folder_paths"] = stub
+
+
+stub_folder_paths_if_missing()
+mock_if_missing(["comfy", "comfy.utils"])
 mock_if_missing(
 	["torch", "numpy", "PIL", "PIL.Image", "PIL.PngImagePlugin", "safetensors", "safetensors.torch"]
 )
-
-import folder_paths
-
-
-if isinstance(folder_paths, MagicMock):
-	temp_dir = tempfile.gettempdir()
-	folder_paths.get_temp_directory.return_value = temp_dir
-	folder_paths.get_save_image_path.return_value = (temp_dir, "preview", 0, "", "")
 
 import torch
 
