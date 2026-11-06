@@ -107,10 +107,15 @@ def torch_stub():
 	return torch
 
 
-def pytest_ignore_collect(collection_path, config):
-	try:
-		candidate = Path(str(collection_path))
-	except Exception:
-		return False
-	root_init = Path(str(config.rootpath)) / "__init__.py"
-	return candidate.resolve() == root_init.resolve()
+class PackRootAsPlainDirectory:
+
+	@pytest.hookimpl(tryfirst = True)
+	def pytest_collect_directory(self, path, parent):
+		if path.resolve() == python_dir.resolve():
+			return pytest.Dir.from_parent(parent, path = path)
+		return None
+
+
+def pytest_configure(config):
+	# Because a Package node would import the pack root __init__.py outside a parent package, and this conftest's own hooks do not reach that directory.
+	config.pluginmanager.register(PackRootAsPlainDirectory())
