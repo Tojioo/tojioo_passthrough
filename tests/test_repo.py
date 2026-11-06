@@ -58,3 +58,20 @@ def test_web_ci_fails_when_committed_bundle_is_stale():
 	commands = _web_job_commands()
 	build = next(i for i, run in enumerate(commands) if "npm run build" in run)
 	assert any("git status --porcelain" in run and "web/js" in run for run in commands[build:])
+
+
+def _triggers(workflow):
+	# Because YAML 1.1 reads the bare key "on" as boolean True.
+	return workflow.get("on", workflow.get(True))
+
+
+def test_publish_runs_only_after_tests_pass():
+	jobs = load_workflow("publish_action.yml")["jobs"]
+	test_jobs = {name for name, job in jobs.items() if job.get("uses") == "./.github/workflows/tests.yml"}
+	assert test_jobs
+	assert "workflow_call" in _triggers(load_workflow("tests.yml"))
+
+	for job in jobs.values():
+		if any("node publish" in step.get("run", "") for step in job.get("steps", [])):
+			needs = job.get("needs", [])
+			assert test_jobs & set([needs] if isinstance(needs, str) else needs)
