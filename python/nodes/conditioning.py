@@ -17,7 +17,6 @@ class PT_Conditioning(BaseNode):
 		}
 
 
-	OUTPUT_NODE = True
 	CATEGORY = CATEGORIES["simple"]
 
 	RETURN_TYPES = ("CONDITIONING", "CONDITIONING")
