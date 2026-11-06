@@ -11,7 +11,7 @@ def test_comfy_types_contains_expected_entries():
 		"vae": "VAE",
 		"control_net": "CONTROL_NET",
 		"sam_model": "SAM_MODEL",
-		"text": "STRING",
+		"string": "STRING",
 		"int": "INT",
 		"float": "FLOAT",
 		"boolean": "BOOLEAN",

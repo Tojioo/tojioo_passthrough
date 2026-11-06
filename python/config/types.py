@@ -34,5 +34,8 @@ TYPE_SPECS: Tuple[Tuple[str, str, str], ...] = (
 	("PT_Bool", "BOOLEAN", "boolean")
 )
 
+# Needed so workflows saved before a socket was renamed still pass their value: new name -> old name.
+LEGACY_SOCKET_NAMES = {"string": "text"}
+
 FORCE_INPUT_TYPES = {"INT", "FLOAT", "BOOLEAN", "STRING"}
 BATCHABLE_TYPES = {"IMAGE", "MASK", "LATENT", "CONDITIONING"}

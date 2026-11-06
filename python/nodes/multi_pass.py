@@ -1,4 +1,5 @@
 ﻿from .base import BaseNode
+from ..config.types import LEGACY_SOCKET_NAMES
 
 
 class PT_MultiPass(BaseNode):
@@ -67,4 +68,7 @@ class PT_MultiPass(BaseNode):
 
 
 	def run(self, **kwargs):
+		for name, legacy_name in LEGACY_SOCKET_NAMES.items():
+			if kwargs.get(name) is None:
+				kwargs[name] = kwargs.get(legacy_name)
 		return tuple(kwargs.get(k) for k in self.RETURN_NAMES)

@@ -49,7 +49,7 @@ def test_flexible_optional_input_type():
 	[
 		{},
 		{"image": "img"},
-		{"text": "hello", "float": 1.25},
+		{"string": "hello", "float": 1.25},
 		{"image": "img", "mask": "msk", "latent": "lat", "positive": "pos", "negative": "neg"},
 	],
 )

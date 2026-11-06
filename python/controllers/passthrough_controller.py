@@ -1,7 +1,7 @@
 ﻿from typing import Dict
 
 from ..config.categories import CATEGORIES
-from ..config.types import TYPE_SPECS, FORCE_INPUT_TYPES
+from ..config.types import TYPE_SPECS, FORCE_INPUT_TYPES, LEGACY_SOCKET_NAMES
 from ..handlers.type_handler import TypeHandler
 
 
@@ -48,8 +48,14 @@ class PassthroughController:
 			}
 
 
+		legacy_name = LEGACY_SOCKET_NAMES.get(socket_name)
+
+
 		def _run(_self, **kwargs):
-			return (kwargs.get(socket_name),)
+			value = kwargs.get(socket_name)
+			if value is None and legacy_name:
+				value = kwargs.get(legacy_name)
+			return (value,)
 
 
 		return type(
