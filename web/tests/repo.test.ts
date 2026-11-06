@@ -1,4 +1,5 @@
 import {existsSync, readFileSync} from 'fs';
+import {createRequire} from 'module';
 import {resolve} from 'path';
 import {describe, expect, it} from 'vitest';
 
@@ -17,5 +18,15 @@ describe("repository tooling", () =>
 		expect(version).toBeTruthy();
 		expect((viteConfig as any).define.__VERSION__).toBe(JSON.stringify(version));
 		expect(existsSync(resolve(repoDir, 'VERSION'))).toBe(false);
+	});
+
+	it("test:coverage has its coverage provider installed at the vitest version", () =>
+	{
+		const pkg = JSON.parse(readFileSync(resolve(webDir, 'package.json'), 'utf-8'));
+		const require = createRequire(resolve(webDir, 'package.json'));
+
+		expect(pkg.scripts["test:coverage"]).toContain("--coverage");
+		expect(pkg.devDependencies["@vitest/coverage-v8"]).toBe(pkg.devDependencies.vitest);
+		expect(require('@vitest/coverage-v8/package.json').version).toBe(require('vitest/package.json').version);
 	});
 });
