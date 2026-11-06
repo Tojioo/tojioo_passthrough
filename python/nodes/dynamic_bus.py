@@ -72,6 +72,8 @@ class PT_DynamicBus(BaseNode):
 						continue
 
 				bus_dict[next_bus_idx] = {"data": value, "type": slot_type}
+				# Because overwrite may only replace entries from the upstream bus, not ones this node just added.
+				used_bus_indices.add(next_bus_idx)
 				direct_inputs[slot_idx] = value
 				next_bus_idx += 1
 
