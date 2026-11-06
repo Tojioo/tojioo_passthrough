@@ -3,6 +3,7 @@
 from ..config.categories import CATEGORIES
 from ..config.types import COMFY_TYPES, FORCE_INPUT_TYPES
 from ..handlers.batch_handler import BatchHandler
+from ..nodes.base import iter_dynamic_input_names
 
 
 class SwitchController:
@@ -66,6 +67,11 @@ class SwitchController:
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return input_spec
 				return dict.__getitem__(self, key)
+
+
+			# Because ComfyUI validates, and walks upstream of, only the names it gets by iterating; keys() stays static so /object_info adds no sockets.
+			def __iter__(self):
+				return iter_dynamic_input_names(dict.keys(self), input_prefix)
 
 
 		def _idx_from_name(n: str) -> int:
@@ -139,6 +145,11 @@ class SwitchController:
 				if isinstance(key, str) and key.startswith(input_prefix):
 					return (type_name,)
 				return dict.__getitem__(self, key)
+
+
+			# Because ComfyUI validates, and walks upstream of, only the names it gets by iterating; keys() stays static so /object_info adds no sockets.
+			def __iter__(self):
+				return iter_dynamic_input_names(dict.keys(self), input_prefix)
 
 
 		def _run(self, **kwargs):

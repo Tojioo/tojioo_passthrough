@@ -1,4 +1,5 @@
 import inspect
+import json
 
 import pytest
 
@@ -57,3 +58,42 @@ def test_validation_bypass_only_on_any_type_nodes(class_name):
 	if validate is None or inspect.getfullargspec(validate).varkw is None:
 		return
 	assert _has_any_type_input(node_cls)
+
+
+def _comfy_validated_input_names(node_cls):
+	# Needed to mirror ComfyUI execution.validate_inputs, which only checks and walks upstream of the input names it gets by iterating INPUT_TYPES.
+	input_types = node_cls.INPUT_TYPES()
+	return set(input_types.get("required", {})).union(set(input_types.get("optional", {})))
+
+
+@pytest.mark.parametrize(
+	"class_name,input_names",
+	[
+		("PT_DynamicPreview", ["input_1", "input_2", "input_32"]),
+		("PT_DynamicPassthrough", ["input_1", "input_2", "input_32"]),
+		("PT_DynamicBus", ["bus", "input_1", "input_31"]),
+		("PT_AnyImageSwitch", ["image_1", "image_2", "image_32"]),
+		("PT_AnyStringSwitch", ["string_1", "string_2"]),
+		("PT_AnyLatentBatchSwitch", ["latent_1", "latent_2", "latent_32"]),
+	],
+)
+def test_comfy_validates_dynamic_inputs(class_name, input_names):
+	validated = _comfy_validated_input_names(NODE_CLASS_MAPPINGS[class_name])
+	assert set(input_names) <= validated
+
+
+@pytest.mark.parametrize(
+	"class_name,expected_optional",
+	[
+		("PT_DynamicPreview", []),
+		("PT_DynamicPassthrough", []),
+		("PT_DynamicBus", ["bus"]),
+		("PT_AnyImageSwitch", ["image_1"]),
+		("PT_AnyConditioningBatchSwitch", ["conditioning_1"]),
+	],
+)
+def test_object_info_lists_only_static_inputs(class_name, expected_optional):
+	# Because ComfyUI's /object_info serialises INPUT_TYPES with json and keys(), extra names there would make the frontend create sockets.
+	optional = NODE_CLASS_MAPPINGS[class_name].INPUT_TYPES()["optional"]
+	assert list(optional.keys()) == expected_optional
+	assert list(json.loads(json.dumps(optional, default = str))) == expected_optional
