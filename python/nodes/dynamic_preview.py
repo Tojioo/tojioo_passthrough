@@ -151,8 +151,6 @@ class PT_DynamicPreview:
 			return True
 		if v.dim() == 4 and v.shape[1] in (1, 3, 4):
 			return True
-		if v.dim() == 3 and v.shape[0] in (3, 4):
-			return True
 		return False
 
 
@@ -160,7 +158,8 @@ class PT_DynamicPreview:
 	def _is_mask_tensor(v):
 		if v.dim() == 2:
 			return True
-		if v.dim() == 3 and v.shape[0] not in (3, 4):
+		# Assumption: a 3D tensor without a channel last is a ComfyUI MASK batch [B, H, W], not a CHW image.
+		if v.dim() == 3:
 			return True
 		return False
 
