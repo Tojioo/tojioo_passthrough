@@ -187,44 +187,17 @@ export function ProcessTypeNames(
 export function AssignTypeAndName(types: string[], i: number, node: any, inputNames: string[], outputNames: string[]): string
 {
 	const currentType = types[i];
-	const isBusNode = node.type === "PT_DynamicBus";
 
 	if (node.inputs?.[i])
 	{
 		node.inputs[i].type = currentType;
-		if (isBusNode && i === 0)
-		{
-			node.inputs[i].name = "bus";
-		}
-		else
-		{
-			let idx = isBusNode ? i : i + 1;
-			if (isBusNode && node.inputs[i].name)
-			{
-				const m = node.inputs[i].name.match(/input_(\d+)/);
-				if (m) idx = parseInt(m[1]);
-			}
-			node.inputs[i].name = `input_${idx}`;
-		}
+		node.inputs[i].name = `input_${i + 1}`;
 		node.inputs[i].label = inputNames[i];
 	}
 	if (node.outputs?.[i])
 	{
 		node.outputs[i].type = currentType;
-		if (isBusNode && i === 0)
-		{
-			node.outputs[i].name = "bus";
-		}
-		else
-		{
-			let idx = isBusNode ? i : i + 1;
-			if (isBusNode && node.outputs[i].name)
-			{
-				const m = node.outputs[i].name.match(/output_(\d+)/);
-				if (m) idx = parseInt(m[1]);
-			}
-			node.outputs[i].name = `output_${idx}`;
-		}
+		node.outputs[i].name = `output_${i + 1}`;
 		node.outputs[i].label = outputNames[i];
 	}
 	return currentType;

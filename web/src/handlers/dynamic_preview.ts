@@ -21,10 +21,6 @@ export function configureDynamicPreview(): ComfyExtension
 				return;
 			}
 
-			(nodeType.prototype as any)._currentImageIndex = 0;
-			(nodeType.prototype as any)._previewItems = [] as PreviewItem[];
-			(nodeType.prototype as any)._totalImages = 0;
-
 			function normalizeInputs(node: any): void
 			{
 				if (!node.inputs)
@@ -177,7 +173,8 @@ export function configureDynamicPreview(): ComfyExtension
 					});
 				}
 
-				new ResizeObserver(() => updateTabBarOverflow(node)).observe(tabBar);
+				node._previewResizeObserver = new ResizeObserver(() => updateTabBarOverflow(node));
+				node._previewResizeObserver.observe(tabBar);
 			}
 
 			function updateTabBarOverflow(node: any): void
@@ -342,7 +339,7 @@ export function configureDynamicPreview(): ComfyExtension
 
 			(nodeType.prototype as any).selectImage = function(this: any, index: number): void
 			{
-				if (index < 0 || index >= this._totalImages)
+				if (index < 0 || index >= (this._totalImages ?? 0))
 				{
 					return;
 				}
@@ -566,6 +563,9 @@ export function configureDynamicPreview(): ComfyExtension
 				}
 				(this as any).imgs = null;
 
+				(this as any)._currentImageIndex ??= 0;
+				(this as any)._previewItems ??= [] as PreviewItem[];
+				(this as any)._totalImages ??= 0;
 				createPreviewWidget(this);
 
 				const pending = consumePendingConnection();
@@ -593,6 +593,13 @@ export function configureDynamicPreview(): ComfyExtension
 
 					connectPending(this, pending);
 				});
+			};
+
+			const prevOnRemoved = nodeType.prototype.onRemoved;
+			nodeType.prototype.onRemoved = function()
+			{
+				prevOnRemoved?.apply(this, arguments as any);
+				(this as any)._previewResizeObserver?.disconnect();
 			};
 		}
 	};

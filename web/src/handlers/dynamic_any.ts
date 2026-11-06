@@ -101,13 +101,8 @@ export function configureDynamicAny(): ComfyExtension
 			nodeType.prototype.configure = function(this, info)
 			{
 				prevConfigure?.call(this, info);
-				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading)
-					{
-						(this as any).__tojioo_skip_resize = true;
-					}
 					try
 					{
 						applyType(this);
@@ -115,10 +110,6 @@ export function configureDynamicAny(): ComfyExtension
 					catch (e)
 					{
 						log.error("error in configure", e);
-					}
-					finally
-					{
-						(this as any).__tojioo_skip_resize = false;
 					}
 				});
 				AfterGraphLoaded(() => applyType(this));
@@ -131,13 +122,8 @@ export function configureDynamicAny(): ComfyExtension
 
 				const pending = consumePendingConnection();
 
-				const loading = IsGraphLoading();
 				DeferMicrotask(() =>
 				{
-					if (loading)
-					{
-						(this as any).__tojioo_skip_resize = true;
-					}
 					try
 					{
 						applyType(this);
@@ -145,10 +131,6 @@ export function configureDynamicAny(): ComfyExtension
 					catch (e)
 					{
 						log.error("error in onAdded", e);
-					}
-					finally
-					{
-						(this as any).__tojioo_skip_resize = false;
 					}
 
 					connectPending(this, pending);

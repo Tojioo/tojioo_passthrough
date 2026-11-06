@@ -692,12 +692,6 @@ export function configureDynamicBus(): ComfyExtension
 					}
 				}
 
-				if (!isConnected && index > 0)
-				{
-					DeferMicrotask(() => synchronize(node));
-					return;
-				}
-
 				DeferMicrotask(() => synchronize(node));
 			};
 
@@ -708,12 +702,7 @@ export function configureDynamicBus(): ComfyExtension
 
 				const node = this;
 
-				// Todo: Move from down ther up here
-				/*DeferMicrotask(() =>
-				{
-					try
-					{*/
-				// Stale link cleanup — deferred so subgraph links are fully registered
+				// Stale link references can survive workflow serialization
 				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
 				{
 					if (IsInputLinked(node, i))
@@ -726,7 +715,6 @@ export function configureDynamicBus(): ComfyExtension
 					}
 				}
 
-				// Todo: Move this up there
 				DeferMicrotask(() =>
 				{
 					try

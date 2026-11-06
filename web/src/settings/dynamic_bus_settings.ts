@@ -19,13 +19,6 @@ export const dynamicBusOverwrite: any = {
 			return;
 		}
 
-		// Todo: You know...
-		/*try { graph = app.rootGraph ?? app.graph; } catch { return; }
-		if (!graph?._nodes)
-		{
-			return;
-		}*/
-
 		const value = newVal ? "1" : "0";
 		const subgraphNodes = [...(graph.subgraphs?.values() ?? [])].flatMap((sg: any) => sg._nodes ?? []);
 		for (const node of [...(graph._nodes ?? []), ...subgraphNodes])

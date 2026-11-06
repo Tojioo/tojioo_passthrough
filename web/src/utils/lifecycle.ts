@@ -133,20 +133,7 @@ export function ResolveInputType(node: any, inputIndex: number): string
 		return ANY_TYPE;
 	}
 
-	const inferredType = GetLinkTypeFromEndpoints(node, link);
-	if (inferredType && inferredType !== ANY_TYPE)
-	{
-		return inferredType;
-	}
-
-	const sourceNode = g?.getNodeById?.(link.origin_id);
-	const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
-	if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE && sourceSlot.type !== -1)
-	{
-		return sourceSlot.type as string;
-	}
-
-	return ANY_TYPE;
+	return GetLinkTypeFromEndpoints(node, link);
 }
 
 export function ScheduleCanvasUpdate(node: any): void

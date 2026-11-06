@@ -40,10 +40,10 @@ const createLoggerMethod = (method: ConsoleMethod, scope?: string): Function =>
 };
 
 const loggerInstance = (scope?: string) => ({
-	log: createLoggerMethod('log'),
-	warn: createLoggerMethod('warn'),
+	log: createLoggerMethod('log', scope),
+	warn: createLoggerMethod('warn', scope),
 	error: createLoggerMethod('error', scope),
-	info: createLoggerMethod('info'),
+	info: createLoggerMethod('info', scope),
 	debug: createLoggerMethod('debug', scope),
 });
 

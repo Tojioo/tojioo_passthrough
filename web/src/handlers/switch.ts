@@ -8,13 +8,29 @@ function isSwitch(nodeData: ComfyNodeDef): boolean
 	return n.startsWith("PT_Any") && n.endsWith("Switch") && !n.endsWith("BatchSwitch");
 }
 
+function isBatchSwitch(nodeData: ComfyNodeDef): boolean
+{
+	const n = nodeData?.name ?? "";
+	return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
+}
+
 export function configureSwitchNodes(): ComfyExtension
 {
+	return configureSwitchFamily("Tojioo.Passthrough.Dynamic.SwitchNodes", isSwitch);
+}
+
+export function configureBatchSwitchNodes(): ComfyExtension
+{
+	return configureSwitchFamily("Tojioo.Passthrough.Dynamic.BatchSwitchNodes", isBatchSwitch);
+}
+
+function configureSwitchFamily(name: string, matches: (nodeData: ComfyNodeDef) => boolean): ComfyExtension
+{
 	return {
-		name: "Tojioo.Passthrough.Dynamic.SwitchNodes",
+		name,
 		beforeRegisterNodeDef: async (nodeType, nodeData: ComfyNodeDef, _app: ComfyApp): Promise<void> =>
 		{
-			if (!isSwitch(nodeData))
+			if (!matches(nodeData))
 			{
 				return;
 			}

@@ -99,17 +99,15 @@ describe("types utilities", () =>
 		expect(outputNames).toEqual(["text", "output", "text_2", "image", "output_2"]);
 	});
 
-	it("AssignTypeAndName applies types, names, and bus slot naming", () =>
+	it("AssignTypeAndName applies types and names", () =>
 	{
-		const nodeBus: any = {type: "PT_DynamicBus", inputs: [{}, {}], outputs: [{}, {}]};
 		const nodeOther: any = {type: "PT_DynamicAny", inputs: [{}, {}], outputs: [{}, {}]};
 		const types = ["TEXT", "IMAGE"];
 		const inputNames = ["text", "image"];
 		const outputNames = ["text", "image"];
 
-		const t0 = AssignTypeAndName(types, 0, nodeBus, inputNames, outputNames);
-		expect(nodeBus.inputs[0]).toMatchObject({type: "TEXT", name: "bus", label: "text"});
-		expect(nodeBus.outputs[0]).toMatchObject({type: "TEXT", name: "bus", label: "text"});
+		const t0 = AssignTypeAndName(types, 0, nodeOther, inputNames, outputNames);
+		expect(nodeOther.inputs[0]).toMatchObject({type: "TEXT", name: "input_1", label: "text"});
 		expect(t0).toBe("TEXT");
 
 		const t1 = AssignTypeAndName(types, 1, nodeOther, inputNames, outputNames);
