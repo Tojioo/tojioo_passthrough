@@ -17,6 +17,8 @@ All notable changes are listed here.
 ### Fixed
 - **Dynamic Bus**:
 	- Fixed stale link references surviving workflow save/restore, which caused `InvalidLinkError` on queue.
+- **Dynamic Nodes**:
+	- Fixed new, pasted or loaded dynamic nodes auto-connecting to the last dragged wire's source (#3).
 - **Dynamic Preview**:
 	- Tab button clicks no longer trigger node selection.
 

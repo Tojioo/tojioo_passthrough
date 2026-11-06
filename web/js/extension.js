@@ -279,16 +279,34 @@ const _displayNameReverseMap = /* @__PURE__ */ new Map();
 let _createNodePatched = false;
 let _pollingStarted = false;
 let _pendingConnection = null;
+let _dragActive = false;
+let _releaseMenuOpen = false;
+const _hookedResetEvents = /* @__PURE__ */ new WeakSet();
 function consumePendingConnection() {
-  const pending = _pendingConnection;
-  _pendingConnection = null;
+  const pending = _releaseMenuOpen ? _pendingConnection : null;
+  clearPendingConnection();
+  if (!pending || IsGraphLoading()) {
+    return null;
+  }
   return pending;
 }
+function clearPendingConnection() {
+  _pendingConnection = null;
+  _releaseMenuOpen = false;
+}
 function connectPending(node, pending, slotFilter) {
-  if (!pending?.sourceNode || !node.inputs?.length) {
+  const graph = node.graph;
+  if (!pending?.sourceNode || !graph || graph.getNodeById?.(pending.sourceNode.id) !== pending.sourceNode) {
     return;
   }
-  const links = node.graph?.links;
+  if (pending.fromInput) {
+    connectPendingToInput(node, pending, slotFilter);
+    return;
+  }
+  if (!node.inputs?.length) {
+    return;
+  }
+  const links = graph.links;
   if (links) {
     for (const inp of node.inputs) {
       if (inp?.link == null) {
@@ -311,6 +329,54 @@ function connectPending(node, pending, slotFilter) {
     }
   }
 }
+function connectPendingToInput(node, pending, slotFilter) {
+  const target = pending.sourceNode;
+  const targetInput = target.inputs?.[pending.sourceSlot];
+  if (!targetInput || !node.outputs?.length) {
+    return;
+  }
+  const existing = targetInput.link != null ? node.graph.links?.[targetInput.link] : null;
+  if (existing && (existing.origin_id !== node.id || !slotFilter || slotFilter(existing.origin_slot, pending.type))) {
+    return;
+  }
+  for (let i = 0; i < node.outputs.length; i++) {
+    if (slotFilter && !slotFilter(i, pending.type)) {
+      continue;
+    }
+    if (!node.outputs[i]?.links?.length) {
+      node.connect(i, target, pending.sourceSlot);
+      return;
+    }
+  }
+}
+function readDragSource(link) {
+  const fromInput = link.input != null && link.output == null;
+  const slot = fromInput ? link.input : link.output;
+  return {
+    sourceNode: link.node,
+    sourceSlot: link.slot ?? slot?.slot_index ?? 0,
+    type: slot?.type ?? link.type ?? "*",
+    fromInput
+  };
+}
+function hookLinkConnectorReset(events) {
+  if (_hookedResetEvents.has(events)) {
+    return;
+  }
+  _hookedResetEvents.add(events);
+  events.addEventListener("reset", (e) => {
+    queueMicrotask(() => {
+      if (e.defaultPrevented && _pendingConnection) {
+        _releaseMenuOpen = true;
+      } else if (!e.defaultPrevented) {
+        clearPendingConnection();
+      }
+    });
+  });
+}
+function isLegacyReleaseMenuOpen() {
+  return !!globalThis.document?.querySelector?.(".litecontextmenu, .litesearchbox");
+}
 function startConnectionPolling() {
   if (_pollingStarted) {
     return;
@@ -318,14 +384,27 @@ function startConnectionPolling() {
   _pollingStarted = true;
   function poll() {
     const canvas = window.app?.canvas;
+    const events = canvas?.linkConnector?.events;
+    if (events) {
+      hookLinkConnectorReset(events);
+    }
     const links = canvas?.connecting_links;
     if (links?.length) {
-      const link = links[0];
-      _pendingConnection = {
-        sourceNode: link.node,
-        sourceSlot: link.slot ?? link.output?.slot_index ?? 0,
-        type: link.output?.type ?? link.type ?? "*"
-      };
+      if (!_dragActive) {
+        _dragActive = true;
+        _releaseMenuOpen = false;
+        _pendingConnection = readDragSource(links[0]);
+      }
+    } else if (_dragActive) {
+      _dragActive = false;
+      if (!events) {
+        _releaseMenuOpen = isLegacyReleaseMenuOpen();
+        if (!_releaseMenuOpen) {
+          clearPendingConnection();
+        }
+      }
+    } else if (!events && _releaseMenuOpen && !isLegacyReleaseMenuOpen()) {
+      clearPendingConnection();
     }
     requestAnimationFrame(poll);
   }

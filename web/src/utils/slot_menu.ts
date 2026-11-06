@@ -1,4 +1,5 @@
 ﻿import {getLiteGraph} from '../utils';
+import {IsGraphLoading} from './lifecycle';
 
 const _displayNameReverseMap = new Map<string, string>();
 let _createNodePatched = false;
@@ -11,15 +12,30 @@ export interface PendingConnection
 	sourceNode: any;
 	sourceSlot: number;
 	type: string;
+	fromInput: boolean;
 }
 
 let _pendingConnection: PendingConnection | null = null;
+let _dragActive = false;
+// Invariant: true only while a link-release menu opened by the captured drag is still open.
+let _releaseMenuOpen = false;
+const _hookedResetEvents = new WeakSet<object>();
 
 export function consumePendingConnection(): PendingConnection | null
 {
-	const pending = _pendingConnection;
-	_pendingConnection = null;
+	const pending = _releaseMenuOpen ? _pendingConnection : null;
+	clearPendingConnection();
+	if (!pending || IsGraphLoading())
+	{
+		return null;
+	}
 	return pending;
+}
+
+function clearPendingConnection(): void
+{
+	_pendingConnection = null;
+	_releaseMenuOpen = false;
 }
 
 export function connectPending(
@@ -28,12 +44,24 @@ export function connectPending(
 	slotFilter?: (index: number, pendingType: string) => boolean
 ): void
 {
-	if (!pending?.sourceNode || !node.inputs?.length)
+	const graph = node.graph;
+	if (!pending?.sourceNode || !graph || graph.getNodeById?.(pending.sourceNode.id) !== pending.sourceNode)
 	{
 		return;
 	}
 
-	const links = node.graph?.links;
+	if (pending.fromInput)
+	{
+		connectPendingToInput(node, pending, slotFilter);
+		return;
+	}
+
+	if (!node.inputs?.length)
+	{
+		return;
+	}
+
+	const links = graph.links;
 	if (links)
 	{
 		for (const inp of node.inputs)
@@ -65,6 +93,86 @@ export function connectPending(
 	}
 }
 
+function connectPendingToInput(
+	node: any,
+	pending: PendingConnection,
+	slotFilter?: (index: number, pendingType: string) => boolean
+): void
+{
+	const target = pending.sourceNode;
+	const targetInput = target.inputs?.[pending.sourceSlot];
+	if (!targetInput || !node.outputs?.length)
+	{
+		return;
+	}
+
+	const existing = targetInput.link != null ? node.graph.links?.[targetInput.link] : null;
+	if (existing && (existing.origin_id !== node.id || !slotFilter || slotFilter(existing.origin_slot, pending.type)))
+	{
+		return;
+	}
+
+	// Because the frontend may already have fed the input from an output the filter rejects (e.g. the bus output),
+	// connecting a fitting output here replaces that link.
+	for (let i = 0; i < node.outputs.length; i++)
+	{
+		if (slotFilter && !slotFilter(i, pending.type))
+		{
+			continue;
+		}
+		if (!node.outputs[i]?.links?.length)
+		{
+			node.connect(i, target, pending.sourceSlot);
+			return;
+		}
+	}
+}
+
+function readDragSource(link: any): PendingConnection
+{
+	const fromInput = link.input != null && link.output == null;
+	const slot = fromInput ? link.input : link.output;
+	return {
+		sourceNode: link.node,
+		sourceSlot: link.slot ?? slot?.slot_index ?? 0,
+		type: slot?.type ?? link.type ?? "*",
+		fromInput
+	};
+}
+
+// Because frontends with a LinkConnector cancel exactly one 'reset' when they hold a drop on the canvas open for their
+// search box or context menu, and send an uncancelled one when that menu closes or the drag ends any other way.
+function hookLinkConnectorReset(events: any): void
+{
+	if (_hookedResetEvents.has(events))
+	{
+		return;
+	}
+	_hookedResetEvents.add(events);
+
+	events.addEventListener("reset", (e: Event) =>
+	{
+		// Needed: the frontend's own listener that cancels the reset may run after this one.
+		queueMicrotask(() =>
+		{
+			if (e.defaultPrevented && _pendingConnection)
+			{
+				_releaseMenuOpen = true;
+			}
+			else if (!e.defaultPrevented)
+			{
+				clearPendingConnection();
+			}
+		});
+	});
+}
+
+// Assumption: frontends without LinkConnector events open their litegraph menu synchronously on mouse up.
+function isLegacyReleaseMenuOpen(): boolean
+{
+	return !!(globalThis as any).document?.querySelector?.(".litecontextmenu, .litesearchbox");
+}
+
 function startConnectionPolling(): void
 {
 	if (_pollingStarted)
@@ -77,15 +185,37 @@ function startConnectionPolling(): void
 	function poll(): void
 	{
 		const canvas = (window as any).app?.canvas;
+		const events = canvas?.linkConnector?.events;
+		if (events)
+		{
+			hookLinkConnectorReset(events);
+		}
+
 		const links = canvas?.connecting_links;
 		if (links?.length)
 		{
-			const link = links[0];
-			_pendingConnection = {
-				sourceNode: link.node,
-				sourceSlot: link.slot ?? link.output?.slot_index ?? 0,
-				type: link.output?.type ?? link.type ?? "*"
-			};
+			if (!_dragActive)
+			{
+				_dragActive = true;
+				_releaseMenuOpen = false;
+				_pendingConnection = readDragSource(links[0]);
+			}
+		}
+		else if (_dragActive)
+		{
+			_dragActive = false;
+			if (!events)
+			{
+				_releaseMenuOpen = isLegacyReleaseMenuOpen();
+				if (!_releaseMenuOpen)
+				{
+					clearPendingConnection();
+				}
+			}
+		}
+		else if (!events && _releaseMenuOpen && !isLegacyReleaseMenuOpen())
+		{
+			clearPendingConnection();
 		}
 		requestAnimationFrame(poll);
 	}
