@@ -98,7 +98,6 @@ class SwitchController:
 						"optional": DynamicOptional({base_input: input_spec})
 					}
 				),
-				"VALIDATE_INPUTS": classmethod(lambda cls, **kwargs: True),
 				"RETURN_TYPES": (type_name,),
 				"RETURN_NAMES": (output_name,),
 				"FUNCTION": "run",
@@ -164,7 +163,6 @@ class SwitchController:
 						"optional": DynamicOptional({base_input: (type_name,)})
 					}
 				),
-				"VALIDATE_INPUTS": classmethod(lambda cls, **kwargs: True),
 				"RETURN_TYPES": (type_name,),
 				"RETURN_NAMES": (output_name,),
 				"FUNCTION": "run",

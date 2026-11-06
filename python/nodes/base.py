@@ -20,12 +20,6 @@ class BaseNode:
 		raise NotImplementedError
 
 
-	@classmethod
-	def VALIDATE_INPUTS(cls, **kwargs) -> bool:
-		"""Bypass validation for AnyType inputs."""
-		return True
-
-
 class AnyType(str):
 	"""A type that matches any other type for dynamic node connections."""
 
