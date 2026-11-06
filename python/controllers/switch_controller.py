@@ -6,6 +6,16 @@ from ..handlers.batch_handler import BatchHandler
 from ..nodes.base import iter_dynamic_input_names
 
 
+def _idx_from_name(n: str) -> int:
+	i = len(n) - 1
+	while i >= 0 and n[i].isdigit():
+		i -= 1
+	try:
+		return int(n[i + 1:]) if i + 1 < len(n) else 10 ** 9
+	except Exception:
+		return 10 ** 9
+
+
 class SwitchController:
 	SWITCH_SPECS = [
 		("PT_AnyImageSwitch", "image", "image", "image", "Any Image Switch"),
@@ -72,16 +82,6 @@ class SwitchController:
 			# Because ComfyUI validates, and walks upstream of, only the names it gets by iterating; keys() stays static so /object_info adds no sockets.
 			def __iter__(self):
 				return iter_dynamic_input_names(dict.keys(self), input_prefix)
-
-
-		def _idx_from_name(n: str) -> int:
-			i = len(n) - 1
-			while i >= 0 and n[i].isdigit():
-				i -= 1
-			try:
-				return int(n[i + 1:]) if i + 1 < len(n) else 10 ** 9
-			except Exception:
-				return 10 ** 9
 
 
 		def _run(self, **kwargs):
@@ -153,7 +153,7 @@ class SwitchController:
 
 
 		def _run(self, **kwargs):
-			values = [v for v in kwargs.values() if v is not None]
+			values = [v for _, v in sorted(kwargs.items(), key = lambda kv: _idx_from_name(kv[0])) if v is not None]
 			if not values:
 				raise ValueError(f"{display_name}: no {type_name} inputs connected.")
 			if len(values) == 1:
