@@ -322,10 +322,23 @@ def test_dual_clip_encode_round_trip():
 	assert result == ("cond:tokens:pos", "cond:tokens:neg")
 
 
-def test_dual_clip_encode_requires_clip():
-	node = PT_DualCLIPEncode()
-	with pytest.raises(RuntimeError):
-		node.run(None, "pos", "neg")
+def test_dual_clip_encode_without_clip_returns_empty_conditioning_and_warns():
+	import logging
+	from python.nodes import dual_clip_encode
+	from python.utils.logger_internal import get_logger
+
+	records = []
+	handler = logging.Handler(level = logging.WARNING)
+	handler.emit = records.append
+	logger = get_logger(dual_clip_encode.__name__)
+	logger.addHandler(handler)
+	try:
+		result = PT_DualCLIPEncode().run(None, "pos", "neg")
+	finally:
+		logger.removeHandler(handler)
+
+	assert result == ([], [])
+	assert len(records) == 1
 
 
 class TestConditioningTextExtraction:

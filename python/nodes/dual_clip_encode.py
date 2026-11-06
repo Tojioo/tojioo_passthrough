@@ -1,6 +1,10 @@
 ﻿from .base import BaseNode
 from ..config.categories import CATEGORIES
 from ..config.types import COMFY_TYPES
+from ..utils.logger_internal import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class PT_DualCLIPEncode(BaseNode):
@@ -29,6 +33,7 @@ class PT_DualCLIPEncode(BaseNode):
 	def run(clip, positive, negative):
 		"""Encodes positive and negative prompts into conditioning"""
 		if clip is None:
+			logger.warning("Dual CLIP Text Encode: no CLIP connected, returning empty conditioning.")
 			return ([], [])
 
 		positive_tokens = clip.tokenize(positive)
