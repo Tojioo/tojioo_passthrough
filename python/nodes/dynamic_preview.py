@@ -77,6 +77,9 @@ class PT_DynamicPreview:
 		def save_tensor_as_image(img_t, slot_idx):
 			if img_t.shape[-1] not in (1, 3, 4) and img_t.shape[0] in (1, 3, 4):
 				img_t = img_t.permute(1, 2, 0)
+			if img_t.shape[-1] == 1:
+				# Because PIL cannot build an image from an (H, W, 1) array.
+				img_t = img_t.expand(-1, -1, 3)
 			i = 255.0 * img_t.detach().cpu().numpy()
 			img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
