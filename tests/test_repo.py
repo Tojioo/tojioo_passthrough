@@ -43,3 +43,18 @@ def test_workflows_use_supported_node_version(workflow_name):
 	for step in iter_steps(load_workflow(workflow_name)):
 		if step.get("uses", "").startswith("actions/setup-node@"):
 			assert int(str(step["with"]["node-version"]).split(".")[0]) >= 22
+
+
+def _web_job_commands():
+	steps = load_workflow("tests.yml")["jobs"]["web-tests"]["steps"]
+	return [step.get("run", "") for step in steps]
+
+
+def test_web_ci_typechecks():
+	assert any("npm run typecheck" in run for run in _web_job_commands())
+
+
+def test_web_ci_fails_when_committed_bundle_is_stale():
+	commands = _web_job_commands()
+	build = next(i for i, run in enumerate(commands) if "npm run build" in run)
+	assert any("git status --porcelain" in run and "web/js" in run for run in commands[build:])

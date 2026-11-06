@@ -47,7 +47,26 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
 
+      - name: Typecheck
+        working-directory: web
+        run: |
+          npm run typecheck
+
       - name: Run web tests (Vitest)
         working-directory: web
         run: |
           npm run test:run
+
+      - name: Build bundle
+        working-directory: web
+        run: |
+          npm run build
+
+      - name: Check committed bundle matches the build
+        run: |
+          if [ -n "$(git status --porcelain -- web/js)" ]; then
+            git status --porcelain -- web/js
+            git --no-pager diff --stat -- web/js
+            echo "web/js/extension.js is stale. Run 'npm run build' in web/ and commit the result."
+            exit 1
+          fi
