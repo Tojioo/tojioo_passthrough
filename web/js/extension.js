@@ -18,21 +18,72 @@ function GetLgOutput() {
   const lg = getLiteGraph();
   return lg?.OUTPUT ?? LG_OUTPUT;
 }
-function IsNodes2Mode() {
-  try {
-    const app2 = window.app;
-    if (app2?.extensionManager?.setting?.get) {
-      const nodes2 = app2.extensionManager.setting.get("Comfy.NodeDesign.Modern");
-      if (nodes2 === true) {
-        return true;
-      }
-    }
-  } catch {
-  }
-  return false;
+function storesLinksOnSlot(slot, key) {
+  const desc = Object.getOwnPropertyDescriptor(slot, key);
+  return desc !== void 0 && "value" in desc;
 }
+function linkValues(links) {
+  return typeof links?.values === "function" ? links.values() : Object.values(links ?? {});
+}
+function GetInputLinkId(node, index) {
+  const slot = node?.inputs?.[index];
+  if (!slot) {
+    return null;
+  }
+  if (storesLinksOnSlot(slot, "link") || typeof node.isInputConnected !== "function") {
+    return slot.link ?? null;
+  }
+  if (!node.graph || !node.isInputConnected(index)) {
+    return null;
+  }
+  for (const link of linkValues(node.graph.links)) {
+    if (link && link.target_id === node.id && link.target_slot === index) {
+      return link.id;
+    }
+  }
+  return null;
+}
+function GetOutputLinkIds(node, index) {
+  const slot = node?.outputs?.[index];
+  if (!slot) {
+    return [];
+  }
+  if (storesLinksOnSlot(slot, "links") || typeof node.isOutputConnected !== "function") {
+    return slot.links ?? [];
+  }
+  const ids = [];
+  if (!node.graph || !node.isOutputConnected(index)) {
+    return ids;
+  }
+  for (const link of linkValues(node.graph.links)) {
+    if (link && link.origin_id === node.id && link.origin_slot === index) {
+      ids.push(link.id);
+    }
+  }
+  return ids;
+}
+function IsInputLinked(node, index) {
+  return GetInputLinkId(node, index) != null;
+}
+function IsOutputLinked(node, index) {
+  return GetOutputLinkIds(node, index).length > 0;
+}
+function ClearInputLink(node, index) {
+  const slot = node?.inputs?.[index];
+  if (!slot) {
+    return;
+  }
+  if (storesLinksOnSlot(slot, "link") || typeof node.disconnectInput !== "function") {
+    slot.link = null;
+    return;
+  }
+  node.disconnectInput(index);
+}
+const ANY_TYPE = "*";
+const BUS_TYPE = "BUS";
+const MAX_SOCKETS = 32;
 function GetGraph(node) {
-  return (node.rootGraph ?? node.graph) || window.app?.graph;
+  return (node.graph ?? node.rootGraph) || window.app?.graph;
 }
 function GetLink(node, linkId) {
   if (linkId == null) {
@@ -48,7 +99,7 @@ function GetInputLink(node, slotIndex) {
   if (!node.inputs || !node.inputs[slotIndex]) {
     return null;
   }
-  return GetLink(node, node.inputs[slotIndex].link);
+  return GetLink(node, GetInputLinkId(node, slotIndex));
 }
 function GetNodeById(node, id) {
   const g = GetGraph(node);
@@ -64,27 +115,28 @@ function SetLinkType(node, linkId, type) {
 }
 function GetLinkTypeFromEndpoints(node, link) {
   if (!link) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
   const origin = GetNodeById(node, link.origin_id);
   const oSlot = origin?.outputs?.[link.origin_slot];
-  if (oSlot?.type && oSlot.type !== ANY_TYPE$1 && oSlot.type !== -1) {
+  if (oSlot?.type && oSlot.type !== ANY_TYPE && oSlot.type !== -1) {
     return oSlot.type;
   }
   const target = GetNodeById(node, link.target_id);
   const tSlot = target?.inputs?.[link.target_slot];
-  if (tSlot?.type && tSlot.type !== ANY_TYPE$1 && tSlot.type !== -1) {
+  if (tSlot?.type && tSlot.type !== ANY_TYPE && tSlot.type !== -1) {
     return tSlot.type;
   }
   const linkType = link.type;
-  if (linkType && linkType !== ANY_TYPE$1 && linkType !== -1) {
+  if (linkType && linkType !== ANY_TYPE && linkType !== -1) {
     return linkType;
   }
-  return ANY_TYPE$1;
+  return ANY_TYPE;
 }
-let _graphLoading = false;
+let _graphLoadDepth = 0;
+let _afterLoadCallbacks = [];
 let _pendingCanvasUpdate = null;
-let _pendingSizeUpdates = /* @__PURE__ */ new Set();
+let _pendingSizeUpdates = /* @__PURE__ */ new Map();
 let _sizeUpdateTimer = null;
 function InstallGraphLoadingHook(app2) {
   const original = app2?.loadGraphData;
@@ -95,18 +147,36 @@ function InstallGraphLoadingHook(app2) {
     return;
   }
   const wrapped = async function(...args) {
-    _graphLoading = true;
+    _graphLoadDepth++;
     try {
       return await original.apply(this, args);
     } finally {
-      _graphLoading = false;
+      _graphLoadDepth--;
+      if (_graphLoadDepth === 0) {
+        runAfterLoadCallbacks();
+      }
     }
   };
   wrapped.__tojioo_wrapped = true;
   app2.loadGraphData = wrapped;
 }
 function IsGraphLoading() {
-  return _graphLoading;
+  return _graphLoadDepth > 0;
+}
+function AfterGraphLoaded(fn) {
+  if (IsGraphLoading()) {
+    _afterLoadCallbacks.push(fn);
+  }
+}
+function runAfterLoadCallbacks() {
+  const callbacks = _afterLoadCallbacks;
+  _afterLoadCallbacks = [];
+  for (const fn of callbacks) {
+    try {
+      fn();
+    } catch {
+    }
+  }
 }
 function DeferMicrotask(fn) {
   if (typeof queueMicrotask === "function") {
@@ -132,30 +202,25 @@ function DeriveDynamicPrefixFromNodeData(nodeData) {
   const baseName = keys[0];
   return baseName.replace(/_\d+$/, "").replace(/\d+$/, "");
 }
+function DeriveSwitchTypeFromNodeData(nodeData) {
+  const declared = nodeData?.output?.[0];
+  return typeof declared === "string" && declared !== "" ? declared : ANY_TYPE;
+}
 function ResolveInputType(node, inputIndex) {
   const inp = node.inputs?.[inputIndex];
   if (!inp) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
-  const linkId = inp.link;
+  const linkId = GetInputLinkId(node, inputIndex);
   if (linkId == null) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
   const g = GetGraph(node);
   const link = g?.links?.[linkId];
   if (!link) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
-  const inferredType = GetLinkTypeFromEndpoints(node, link);
-  if (inferredType && inferredType !== ANY_TYPE$1) {
-    return inferredType;
-  }
-  const sourceNode = g?.getNodeById?.(link.origin_id);
-  const sourceSlot = sourceNode?.outputs?.[link.origin_slot];
-  if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
-    return sourceSlot.type;
-  }
-  return ANY_TYPE$1;
+  return GetLinkTypeFromEndpoints(node, link);
 }
 function ScheduleCanvasUpdate(node) {
   if (_pendingCanvasUpdate !== null) {
@@ -167,8 +232,8 @@ function ScheduleCanvasUpdate(node) {
     g?.setDirtyCanvas?.(true, true);
   });
 }
-function ScheduleSizeUpdate(node) {
-  _pendingSizeUpdates.add(node);
+function ScheduleSizeUpdate(node, expandOnly) {
+  _pendingSizeUpdates.set(node, (_pendingSizeUpdates.get(node) ?? false) || expandOnly === true);
   if (_sizeUpdateTimer !== null) {
     return;
   }
@@ -176,8 +241,8 @@ function ScheduleSizeUpdate(node) {
     _sizeUpdateTimer = null;
     const nodes = Array.from(_pendingSizeUpdates);
     _pendingSizeUpdates.clear();
-    for (const n of nodes) {
-      UpdateNodeSizeImmediate(n);
+    for (const [n, expandOnly2] of nodes) {
+      UpdateNodeSizeImmediate(n, expandOnly2 || void 0);
     }
   });
 }
@@ -197,56 +262,56 @@ function UpdateNodeSizeImmediate(node, expandOnly) {
   } catch {
   }
 }
-function ApplySwitchDynamicTypes(node, inputPrefix) {
+function ApplySwitchDynamicTypes(node, inputPrefix, declaredType = ANY_TYPE) {
   if (!node.inputs || node.inputs.length === 0) {
     return;
   }
-  let resolvedType = ANY_TYPE$1;
+  let resolvedType = ANY_TYPE;
   const inputTypes = [];
   for (let i = 0; i < node.inputs.length; i++) {
     const t = ResolveInputType(node, i);
     inputTypes.push(t);
-    if (t && t !== ANY_TYPE$1 && resolvedType === ANY_TYPE$1) {
+    if (t && t !== ANY_TYPE && resolvedType === ANY_TYPE) {
       resolvedType = t;
     }
   }
   for (let i = 0; i < node.inputs.length; i++) {
     const inp = node.inputs[i];
     const currentType = inputTypes[i];
-    const effectiveType = currentType !== ANY_TYPE$1 ? currentType : resolvedType;
-    inp.type = effectiveType;
-    const label = effectiveType !== ANY_TYPE$1 ? i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}` : i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`;
+    const effectiveType = currentType !== ANY_TYPE ? currentType : resolvedType;
+    inp.type = effectiveType !== ANY_TYPE ? effectiveType : declaredType;
+    const label = effectiveType !== ANY_TYPE ? i === 0 ? effectiveType.toLowerCase() : `${effectiveType.toLowerCase()}_${i + 1}` : i === 0 ? `${inputPrefix}` : `${inputPrefix}_${i + 1}`;
     inp.name = `input_${i + 1}`;
     inp.label = label;
-    const linkId = inp.link;
-    if (linkId != null && effectiveType !== ANY_TYPE$1) {
+    const linkId = GetInputLinkId(node, i);
+    if (linkId != null && effectiveType !== ANY_TYPE) {
       SetLinkType(node, linkId, effectiveType);
     }
   }
   if (node.outputs && node.outputs.length > 0) {
     for (let i = 0; i < node.outputs.length; i++) {
       const out = node.outputs[i];
-      out.type = resolvedType;
-      if (resolvedType !== ANY_TYPE$1) {
+      out.type = resolvedType !== ANY_TYPE ? resolvedType : declaredType;
+      if (resolvedType !== ANY_TYPE) {
         out.name = "output_1";
         out.label = resolvedType.toLowerCase();
       }
-      const outLinks = out.links ?? [];
+      const outLinks = GetOutputLinkIds(node, i);
       for (const linkId of outLinks) {
-        if (linkId != null && resolvedType !== ANY_TYPE$1) {
+        if (linkId != null && resolvedType !== ANY_TYPE) {
           SetLinkType(node, linkId, resolvedType);
         }
       }
     }
   }
   ScheduleCanvasUpdate(node);
-  ScheduleSizeUpdate(node);
+  ScheduleSizeUpdate(node, true);
 }
 function UpdateNodeSize(node, expandOnly, force) {
   if (IsGraphLoading()) {
     return;
   }
-  ScheduleSizeUpdate(node);
+  ScheduleSizeUpdate(node, expandOnly);
 }
 function UpdatePreviewNodeSize(node) {
   if (IsGraphLoading() || node.__tojioo_skip_resize) {
@@ -260,7 +325,7 @@ function NormalizeInputs(node) {
   }
   let lastConnectedIndex = -1;
   for (let i = node.inputs.length - 1; i >= 0; i--) {
-    if (node.inputs[i]?.link != null) {
+    if (IsInputLinked(node, i)) {
       lastConnectedIndex = i;
       break;
     }
@@ -273,11 +338,13 @@ function NormalizeInputs(node) {
       break;
     }
   }
-  ScheduleSizeUpdate(node);
+  ScheduleSizeUpdate(node, true);
 }
 const _displayNameReverseMap = /* @__PURE__ */ new Map();
 let _createNodePatched = false;
 let _pollingStarted = false;
+const _slotRegistrations = [];
+let _slotDefaultsHooked = false;
 let _pendingConnection = null;
 let _dragActive = false;
 let _releaseMenuOpen = false;
@@ -308,11 +375,12 @@ function connectPending(node, pending, slotFilter) {
   }
   const links = graph.links;
   if (links) {
-    for (const inp of node.inputs) {
-      if (inp?.link == null) {
+    for (let i = 0; i < node.inputs.length; i++) {
+      const linkId = GetInputLinkId(node, i);
+      if (linkId == null) {
         continue;
       }
-      const lnk = links[inp.link];
+      const lnk = links[linkId];
       if (lnk?.origin_id === pending.sourceNode.id && lnk?.origin_slot === pending.sourceSlot) {
         return;
       }
@@ -323,7 +391,7 @@ function connectPending(node, pending, slotFilter) {
     if (slotFilter && !slotFilter(i, type)) {
       continue;
     }
-    if (node.inputs[i]?.link == null) {
+    if (!IsInputLinked(node, i)) {
       pending.sourceNode.connect(pending.sourceSlot, node, i);
       return;
     }
@@ -335,7 +403,8 @@ function connectPendingToInput(node, pending, slotFilter) {
   if (!targetInput || !node.outputs?.length) {
     return;
   }
-  const existing = targetInput.link != null ? node.graph.links?.[targetInput.link] : null;
+  const targetLinkId = GetInputLinkId(target, pending.sourceSlot);
+  const existing = targetLinkId != null ? node.graph.links?.[targetLinkId] : null;
   if (existing && (existing.origin_id !== node.id || !slotFilter || slotFilter(existing.origin_slot, pending.type))) {
     return;
   }
@@ -343,7 +412,7 @@ function connectPendingToInput(node, pending, slotFilter) {
     if (slotFilter && !slotFilter(i, pending.type)) {
       continue;
     }
-    if (!node.outputs[i]?.links?.length) {
+    if (!IsOutputLinked(node, i)) {
       node.connect(i, target, pending.sourceSlot);
       return;
     }
@@ -413,15 +482,38 @@ function startConnectionPolling() {
 function configureSlotMenu(types, entriesOrNodeType, displayName) {
   const typeList = Array.isArray(types) ? types : [types];
   if (typeof entriesOrNodeType === "string") {
-    registerSlotEntries(typeList, entriesOrNodeType);
-    registerDisplayName(entriesOrNodeType, displayName);
+    addSlotRegistration(typeList, entriesOrNodeType, displayName);
     return;
   }
   const entryList = Array.isArray(entriesOrNodeType[0]) ? entriesOrNodeType : [entriesOrNodeType];
   for (const [nodeType, name] of entryList) {
-    registerSlotEntries(typeList, nodeType);
-    registerDisplayName(nodeType, name);
+    addSlotRegistration(typeList, nodeType, name);
   }
+}
+function addSlotRegistration(types, nodeType, displayName) {
+  _slotRegistrations.push([types, nodeType, displayName]);
+  hookCoreSlotDefaults();
+  registerSlotEntries(types, nodeType);
+  registerDisplayName(nodeType, displayName);
+}
+function hookCoreSlotDefaults() {
+  if (_slotDefaultsHooked) {
+    return;
+  }
+  const core = app?.extensions?.find?.((ext) => ext?.name === "Comfy.SlotDefaults");
+  const original = core?.setDefaults;
+  if (typeof original !== "function") {
+    return;
+  }
+  _slotDefaultsHooked = true;
+  core.setDefaults = function(...args) {
+    const result = original.apply(this, args);
+    for (const [types, nodeType, displayName] of _slotRegistrations) {
+      registerSlotEntries(types, nodeType);
+      registerDisplayName(nodeType, displayName);
+    }
+    return result;
+  };
 }
 function registerSlotEntries(types, nodeType) {
   const lg = getLiteGraph();
@@ -471,53 +563,50 @@ function registerDisplayName(nodeType, displayName) {
     return originalCreateNode.call(this, resolved, ...args);
   };
 }
-const ANY_TYPE$1 = "*";
 function ResolvePairType(node, zeroBasedIndex) {
-  const out = node.outputs?.[zeroBasedIndex];
-  const inp = node.inputs?.[zeroBasedIndex];
-  const hasOutputLink = (out?.links?.length ?? 0) > 0;
-  const hasInputLink = inp?.link != null;
+  const hasOutputLink = IsOutputLinked(node, zeroBasedIndex);
+  const hasInputLink = IsInputLinked(node, zeroBasedIndex);
   if (!hasOutputLink && !hasInputLink) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
-  const outLinkId = out?.links?.[0];
+  const outLinkId = GetOutputLinkIds(node, zeroBasedIndex)[0];
   const outLink = GetLink(node, outLinkId ?? null);
   if (outLink) {
     let outType = GetLinkTypeFromEndpoints(node, outLink);
-    if (outType === ANY_TYPE$1) {
+    if (outType === ANY_TYPE) {
       const targetNode = GetNodeById(node, outLink.target_id);
       const targetSlot = targetNode?.inputs?.[outLink.target_slot];
-      if (targetSlot?.type && targetSlot.type !== ANY_TYPE$1 && targetSlot.type !== -1) {
+      if (targetSlot?.type && targetSlot.type !== ANY_TYPE && targetSlot.type !== -1) {
         outType = targetSlot.type;
       }
     }
-    if (outType && outType !== ANY_TYPE$1) {
+    if (outType && outType !== ANY_TYPE) {
       return outType;
     }
   }
-  const inLinkId = inp?.link;
+  const inLinkId = GetInputLinkId(node, zeroBasedIndex);
   const inLink = GetLink(node, inLinkId ?? null);
   if (inLink) {
     let inType = GetLinkTypeFromEndpoints(node, inLink);
-    if (inType === ANY_TYPE$1) {
+    if (inType === ANY_TYPE) {
       const sourceNode = GetNodeById(node, inLink.origin_id);
       const sourceSlot = sourceNode?.outputs?.[inLink.origin_slot];
-      if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE$1 && sourceSlot.type !== -1) {
+      if (sourceSlot?.type && sourceSlot.type !== ANY_TYPE && sourceSlot.type !== -1) {
         inType = sourceSlot.type;
       }
     }
-    if (inType && inType !== ANY_TYPE$1) {
+    if (inType && inType !== ANY_TYPE) {
       return inType;
     }
   }
-  return ANY_TYPE$1;
+  return ANY_TYPE;
 }
 function UpdateLinkTypesForSlot(node, zeroBasedIndex, type) {
-  const inLinkId = node.inputs?.[zeroBasedIndex]?.link;
+  const inLinkId = GetInputLinkId(node, zeroBasedIndex);
   if (inLinkId != null) {
     SetLinkType(node, inLinkId, type);
   }
-  const outLinks = node.outputs?.[zeroBasedIndex]?.links ?? [];
+  const outLinks = GetOutputLinkIds(node, zeroBasedIndex);
   for (const linkId of outLinks) {
     if (linkId != null) {
       SetLinkType(node, linkId, type);
@@ -525,11 +614,13 @@ function UpdateLinkTypesForSlot(node, zeroBasedIndex, type) {
   }
 }
 function ResolveConnectedType(node, inp, out) {
-  const isConcrete = (t) => t != null && t !== ANY_TYPE$1 && t !== -1;
-  const hasInputLink = inp?.link != null;
-  const hasOutputLink = (out?.links?.length ?? 0) > 0;
+  const isConcrete = (t) => t != null && t !== ANY_TYPE && t !== -1;
+  const inIndex = node.inputs?.indexOf(inp) ?? -1;
+  const outIndex = node.outputs?.indexOf(out) ?? -1;
+  const hasInputLink = IsInputLinked(node, inIndex);
+  const hasOutputLink = IsOutputLinked(node, outIndex);
   if (!hasInputLink && !hasOutputLink) {
-    return ANY_TYPE$1;
+    return ANY_TYPE;
   }
   const tryFromLink = (linkId, peer) => {
     if (linkId == null) {
@@ -552,11 +643,11 @@ function ResolveConnectedType(node, inp, out) {
     const peerSlot = peerNode?.inputs?.[link.target_slot];
     return isConcrete(peerSlot?.type) ? peerSlot.type : void 0;
   };
-  const inType = tryFromLink(inp?.link, "origin");
+  const inType = tryFromLink(GetInputLinkId(node, inIndex), "origin");
   if (inType) {
     return inType;
   }
-  const outType = tryFromLink(out?.links?.[0], "target");
+  const outType = tryFromLink(GetOutputLinkIds(node, outIndex)[0], "target");
   if (outType) {
     return outType;
   }
@@ -566,11 +657,11 @@ function ResolveConnectedType(node, inp, out) {
   if (hasOutputLink && isConcrete(out?.type)) {
     return out.type;
   }
-  return ANY_TYPE$1;
+  return ANY_TYPE;
 }
 function ProcessTypeNames(types, i, typeCounters, inputNames, outputNames) {
   const t = types[i];
-  const isTyped = t && t !== ANY_TYPE$1;
+  const isTyped = t && t !== ANY_TYPE;
   if (isTyped) {
     const baseLabel = t.toLowerCase();
     if (typeCounters[t] === void 0) {
@@ -593,33 +684,14 @@ function ProcessTypeNames(types, i, typeCounters, inputNames, outputNames) {
 }
 function AssignTypeAndName(types, i, node, inputNames, outputNames) {
   const currentType = types[i];
-  const isBusNode = node.type === "PT_DynamicBus";
   if (node.inputs?.[i]) {
     node.inputs[i].type = currentType;
-    if (isBusNode && i === 0) {
-      node.inputs[i].name = "bus";
-    } else {
-      let idx = isBusNode ? i : i + 1;
-      if (isBusNode && node.inputs[i].name) {
-        const m = node.inputs[i].name.match(/input_(\d+)/);
-        if (m) idx = parseInt(m[1]);
-      }
-      node.inputs[i].name = `input_${idx}`;
-    }
+    node.inputs[i].name = `input_${i + 1}`;
     node.inputs[i].label = inputNames[i];
   }
   if (node.outputs?.[i]) {
     node.outputs[i].type = currentType;
-    if (isBusNode && i === 0) {
-      node.outputs[i].name = "bus";
-    } else {
-      let idx = isBusNode ? i : i + 1;
-      if (isBusNode && node.outputs[i].name) {
-        const m = node.outputs[i].name.match(/output_(\d+)/);
-        if (m) idx = parseInt(m[1]);
-      }
-      node.outputs[i].name = `output_${idx}`;
-    }
+    node.outputs[i].name = `output_${i + 1}`;
     node.outputs[i].label = outputNames[i];
   }
   return currentType;
@@ -638,92 +710,14 @@ function ApplyDynamicTypes(node) {
   }
   for (let i = 0; i < count; i++) {
     const currentType = AssignTypeAndName(types, i, node, inputNames, outputNames);
-    if (currentType && currentType !== ANY_TYPE$1) {
+    if (currentType && currentType !== ANY_TYPE) {
       UpdateLinkTypesForSlot(node, i, currentType);
     }
   }
   const g = GetGraph(node);
   g?.setDirtyCanvas?.(true, true);
-  node.type === "PT_DynamicPreview";
-  UpdateNodeSize(node);
-}
-const ANY_TYPE = "*";
-const BUS_TYPE = "BUS";
-const MAX_SOCKETS = 32;
-function isBatchSwitch(nodeData) {
-  const n = nodeData?.name ?? "";
-  return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
-}
-function configureBatchSwitchNodes() {
-  return {
-    name: "Tojioo.Passthrough.Dynamic.BatchSwitchNodes",
-    beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
-      if (!isBatchSwitch(nodeData)) {
-        return;
-      }
-      const inputPrefix = DeriveDynamicPrefixFromNodeData(nodeData);
-      if (!inputPrefix) {
-        return;
-      }
-      const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
-      nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
-        if (IsGraphLoading()) {
-          return;
-        }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
-        if (!link_info || type !== GetLgInput()) {
-          return;
-        }
-        const node = this;
-        if (!isConnected) {
-          DeferMicrotask(() => {
-            if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
-              NormalizeInputs(node);
-              ApplySwitchDynamicTypes(node, inputPrefix);
-              return;
-            }
-            if (node.inputs[index]?.link != null) {
-              NormalizeInputs(node);
-              ApplySwitchDynamicTypes(node, inputPrefix);
-              return;
-            }
-            const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
-            if (hasConnectionsAfter && typeof node.removeInput === "function") {
-              node.removeInput(index);
-            }
-            NormalizeInputs(node);
-            ApplySwitchDynamicTypes(node, inputPrefix);
-          });
-          return;
-        }
-        NormalizeInputs(node);
-        ApplySwitchDynamicTypes(node, inputPrefix);
-        const lastIndex = node.inputs.length - 1;
-        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
-          const resolvedType = ResolveInputType(node, lastIndex);
-          const socketType = resolvedType !== ANY_TYPE ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE;
-          node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
-          NormalizeInputs(node);
-          ApplySwitchDynamicTypes(node, inputPrefix);
-        }
-      };
-      const prevConfigure = nodeType.prototype.configure;
-      nodeType.prototype.configure = function(info) {
-        prevConfigure?.call(this, info);
-        if (!this.inputs?.length) {
-          return;
-        }
-        NormalizeInputs(this);
-        ApplySwitchDynamicTypes(this, inputPrefix);
-      };
-      const prevOnAdded = nodeType.prototype.onAdded;
-      nodeType.prototype.onAdded = function() {
-        prevOnAdded?.apply(this, arguments);
-        NormalizeInputs(this);
-        ApplySwitchDynamicTypes(this, inputPrefix);
-      };
-    }
-  };
+  const isPreview = node.type === "PT_DynamicPreview";
+  UpdateNodeSize(node, isPreview);
 }
 const METHOD_STYLES = {
   log: { color: "#00d4ff", prefix: "[Tojioo Passthrough]" },
@@ -756,10 +750,10 @@ const createLoggerMethod = (method, scope) => {
   }
 };
 const loggerInstance = (scope) => ({
-  log: createLoggerMethod("log"),
-  warn: createLoggerMethod("warn"),
+  log: createLoggerMethod("log", scope),
+  warn: createLoggerMethod("warn", scope),
   error: createLoggerMethod("error", scope),
-  info: createLoggerMethod("info"),
+  info: createLoggerMethod("info", scope),
   debug: createLoggerMethod("debug", scope)
 });
 const logger_internal = loggerInstance();
@@ -791,7 +785,7 @@ function configureDynamicAny() {
         if (inLink && slotType !== ANY_TYPE) {
           inLink.type = slotType;
         }
-        for (const linkId of node.outputs?.[0]?.links ?? []) {
+        for (const linkId of GetOutputLinkIds(node, 0)) {
           const link = GetLink(node, linkId);
           if (link && slotType !== ANY_TYPE) {
             link.type = slotType;
@@ -804,57 +798,40 @@ function configureDynamicAny() {
       };
       const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
       nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
-        if (this.inputs?.[0]?.link == null) {
+        if (!IsInputLinked(this, 0)) {
           return returnObj ? this.inputs[0] : 0;
         }
         return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (IsGraphLoading()) {
           return;
         }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         DeferMicrotask(() => applyType(this));
       };
       const prevConfigure = nodeType.prototype.configure;
       nodeType.prototype.configure = function(info) {
         prevConfigure?.call(this, info);
-        const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) {
-            this.__tojioo_skip_resize = true;
-          }
           try {
             applyType(this);
           } catch (e) {
             log$3.error("error in configure", e);
-          } finally {
-            this.__tojioo_skip_resize = false;
           }
         });
-        setTimeout(() => {
-          try {
-            applyType(this);
-          } catch {
-          }
-        }, 100);
+        AfterGraphLoaded(() => applyType(this));
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
         const pending = consumePendingConnection();
-        const loading = IsGraphLoading();
         DeferMicrotask(() => {
-          if (loading) {
-            this.__tojioo_skip_resize = true;
-          }
           try {
             applyType(this);
           } catch (e) {
             log$3.error("error in onAdded", e);
-          } finally {
-            this.__tojioo_skip_resize = false;
           }
           connectPending(this, pending);
         });
@@ -878,7 +855,8 @@ const dynamicBusOverwrite = {
       return;
     }
     const value = newVal ? "1" : "0";
-    for (const node of graph._nodes ?? []) {
+    const subgraphNodes = [...graph.subgraphs?.values() ?? []].flatMap((sg) => sg._nodes ?? []);
+    for (const node of [...graph._nodes ?? [], ...subgraphNodes]) {
       if (node.type !== "PT_DynamicBus") {
         continue;
       }
@@ -886,6 +864,7 @@ const dynamicBusOverwrite = {
       if (widget) {
         widget.value = value;
       }
+      node.onBusChanged?.();
     }
   }
 };
@@ -893,6 +872,8 @@ function getBusOverwriteMode() {
   return app.extensionManager?.setting?.get(SETTING_IDS.BUS_OVERWRITE) ?? false;
 }
 const log$2 = loggerInstance("DynamicBus");
+const SUBGRAPH_INPUT_ID = -10;
+const SUBGRAPH_OUTPUT_ID = -20;
 function configureDynamicBus() {
   return {
     name: "Tojioo.Passthrough.Dynamic.DynamicBus",
@@ -900,22 +881,34 @@ function configureDynamicBus() {
       if (nodeData.name !== "PT_DynamicBus") {
         return;
       }
+      function isStaleInputLink(node, link) {
+        if (!link) {
+          return true;
+        }
+        return Number(link.origin_id) !== SUBGRAPH_INPUT_ID && !GetNodeById(node, link.origin_id);
+      }
+      function isLiveOutputLink(node, linkId) {
+        const link = GetLink(node, linkId);
+        if (!link) {
+          return false;
+        }
+        if (Number(link.target_id) === SUBGRAPH_OUTPUT_ID) {
+          return true;
+        }
+        const targetNode = GetNodeById(node, link.target_id);
+        return GetInputLinkId(targetNode, link.target_slot) === linkId;
+      }
       function getUpstreamBusTypes(node) {
-        const busInput = node.inputs?.[0];
-        if (!busInput || busInput.link == null) {
+        if (!IsInputLinked(node, 0)) {
           return {};
         }
         const link = GetInputLink(node, 0);
-        if (!link) {
-          busInput.link = null;
+        if (isStaleInputLink(node, link)) {
+          ClearInputLink(node, 0);
           return {};
         }
         const sourceNode = GetNodeById(node, link.origin_id);
-        if (!sourceNode) {
-          busInput.link = null;
-          return {};
-        }
-        return sourceNode.properties?._busTypes ?? {};
+        return sourceNode?.properties?._busTypes ?? {};
       }
       function getSlotType(node, slotIdx) {
         const input = node.inputs?.[slotIdx];
@@ -945,7 +938,7 @@ function configureDynamicBus() {
         const types = [];
         for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
           const input = node.inputs[slotIdx];
-          if (input?.link != null) {
+          if (IsInputLinked(node, slotIdx)) {
             const type = input.type && input.type !== ANY_TYPE && input.type !== -1 ? input.type : ANY_TYPE;
             types.push(`${slotIdx}:${type}`);
           }
@@ -955,15 +948,15 @@ function configureDynamicBus() {
       function buildOutputHints(node) {
         const hints = [];
         for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
-          const out = node.outputs[slotIdx];
-          const hasOutputLink = (out?.links?.length ?? 0) > 0;
+          const outLinkIds = GetOutputLinkIds(node, slotIdx);
+          const hasOutputLink = outLinkIds.length > 0;
           if (!hasOutputLink) {
             continue;
           }
-          const hasInputLink = node.inputs[slotIdx]?.link != null;
+          const hasInputLink = IsInputLinked(node, slotIdx);
           let expectedType = ANY_TYPE;
           if (!hasInputLink) {
-            const linkId = out.links[0];
+            const linkId = outLinkIds[0];
             const link = GetLink(node, linkId);
             if (link) {
               const targetNode = GetNodeById(node, link.target_id);
@@ -1058,10 +1051,10 @@ function configureDynamicBus() {
             node.inputs[0].label = "bus";
             node.inputs[0].type = BUS_TYPE;
           }
-          if (node.inputs[0]?.link != null) {
+          if (IsInputLinked(node, 0)) {
             const busLink = GetInputLink(node, 0);
-            if (!busLink || !GetNodeById(node, busLink.origin_id)) {
-              node.inputs[0].link = null;
+            if (isStaleInputLink(node, busLink)) {
+              ClearInputLink(node, 0);
             }
           }
           if (node.outputs.length === 0) {
@@ -1079,8 +1072,8 @@ function configureDynamicBus() {
             serializedInfo?.outputs?.length ?? 0
           );
           for (let slotIdx = 1; slotIdx < maxLen; slotIdx++) {
-            const hasInput = node.inputs[slotIdx]?.link != null;
-            const hasOutput = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+            const hasInput = IsInputLinked(node, slotIdx);
+            const hasOutput = IsOutputLinked(node, slotIdx);
             const hadSerializedInput = serializedInfo?.inputs?.[slotIdx]?.link != null;
             const hadSerializedOutput = (serializedInfo?.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
             if (hasInput || hasOutput || hadSerializedInput || hadSerializedOutput) {
@@ -1090,7 +1083,7 @@ function configureDynamicBus() {
           const targetCount = maxNeededSlot + 2;
           while (node.inputs.length > targetCount) {
             const lastIdx = node.inputs.length - 1;
-            const hasLiveLink = node.inputs[lastIdx]?.link != null;
+            const hasLiveLink = IsInputLinked(node, lastIdx);
             const hasSerializedLink = serializedInfo?.inputs?.[lastIdx]?.link != null;
             if (hasLiveLink || hasSerializedLink) {
               break;
@@ -1099,7 +1092,7 @@ function configureDynamicBus() {
           }
           while (node.outputs.length > targetCount) {
             const lastIdx = node.outputs.length - 1;
-            const hasLiveLinks = (node.outputs[lastIdx]?.links?.length ?? 0) > 0;
+            const hasLiveLinks = IsOutputLinked(node, lastIdx);
             const hasSerializedLinks = (serializedInfo?.outputs?.[lastIdx]?.links?.length ?? 0) > 0;
             if (hasLiveLinks || hasSerializedLinks) {
               break;
@@ -1117,17 +1110,16 @@ function configureDynamicBus() {
             node.outputs[slotIdx].name = `output_${slotIdx}`;
           }
           for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-            if (node.inputs[slotIdx]?.link != null) {
+            if (IsInputLinked(node, slotIdx)) {
               const link = GetInputLink(node, slotIdx);
-              if (!link || !GetNodeById(node, link.origin_id)) {
-                node.inputs[slotIdx].link = null;
+              if (isStaleInputLink(node, link)) {
+                ClearInputLink(node, slotIdx);
               }
             }
           }
           for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-            const hasInput = node.inputs[slotIdx]?.link != null;
-            const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-            const hasOutput = outputLinkIds.some((linkId) => GetLink(node, linkId) != null);
+            const hasInput = IsInputLinked(node, slotIdx);
+            const hasOutput = GetOutputLinkIds(node, slotIdx).some((linkId) => GetLink(node, linkId) != null);
             if (!hasInput && !hasOutput) {
               if (node.inputs[slotIdx]) {
                 node.inputs[slotIdx].type = ANY_TYPE;
@@ -1139,37 +1131,15 @@ function configureDynamicBus() {
           }
           if (!serializedInfo) {
             for (let slotIdx = node.inputs.length - 2; slotIdx >= 1; slotIdx--) {
-              const hasInput = node.inputs[slotIdx]?.link != null;
-              const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-              const hasOutput = outputLinkIds.some((linkId) => {
-                const link = GetLink(node, linkId);
-                if (!link) {
-                  return false;
-                }
-                const targetNode = GetNodeById(node, link.target_id);
-                if (!targetNode) {
-                  return false;
-                }
-                return targetNode.inputs?.[link.target_slot]?.link === linkId;
-              });
+              const hasInput = IsInputLinked(node, slotIdx);
+              const hasOutput = GetOutputLinkIds(node, slotIdx).some((linkId) => isLiveOutputLink(node, linkId));
               if (hasInput || hasOutput) {
                 continue;
               }
               let hasConnectionsAfter = false;
               for (let i = slotIdx + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
-                const laterInput = node.inputs[i]?.link != null;
-                const laterOutputIds = node.outputs[i]?.links ?? [];
-                const laterOutput = laterOutputIds.some((id) => {
-                  const link = GetLink(node, id);
-                  if (!link) {
-                    return false;
-                  }
-                  const target = GetNodeById(node, link.target_id);
-                  if (!target) {
-                    return false;
-                  }
-                  return target.inputs?.[link.target_slot]?.link === id;
-                });
+                const laterInput = IsInputLinked(node, i);
+                const laterOutput = GetOutputLinkIds(node, i).some((id) => isLiveOutputLink(node, id));
                 if (laterInput || laterOutput) {
                   hasConnectionsAfter = true;
                   break;
@@ -1184,7 +1154,8 @@ function configureDynamicBus() {
           if (serializedInfo?.outputs) {
             for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++) {
               const serializedOut = serializedInfo.outputs[slotIdx];
-              if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1) {
+              const hasOutputLinks = IsOutputLinked(node, slotIdx);
+              if (hasOutputLinks && serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1) {
                 if (node.outputs[slotIdx]) {
                   node.outputs[slotIdx].type = serializedOut.type;
                 }
@@ -1218,7 +1189,7 @@ function configureDynamicBus() {
             if (inLink && type !== ANY_TYPE) {
               inLink.type = type;
             }
-            for (const linkId of node.outputs[slotIdx]?.links ?? []) {
+            for (const linkId of GetOutputLinkIds(node, slotIdx)) {
               const link = GetLink(node, linkId);
               if (link && type !== ANY_TYPE) {
                 link.type = type;
@@ -1234,12 +1205,12 @@ function configureDynamicBus() {
           let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
           const usedUpstreamIndices = /* @__PURE__ */ new Set();
           for (let slotIdx = 1; slotIdx < node.inputs.length; slotIdx++) {
-            if (node.inputs[slotIdx]?.link == null) {
+            if (!IsInputLinked(node, slotIdx)) {
               continue;
             }
             const localType = slotTypes[slotIdx] || ANY_TYPE;
             if (isOverwriteEnabled && localType !== ANY_TYPE) {
-              const matchIdx = Object.keys(combinedTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && combinedTypes[idx] === localType);
+              const matchIdx = Object.keys(upstreamTypes).map(Number).sort((a, b) => a - b).find((idx) => !usedUpstreamIndices.has(idx) && upstreamTypes[idx] === localType);
               if (matchIdx !== void 0) {
                 usedUpstreamIndices.add(matchIdx);
                 continue;
@@ -1255,8 +1226,8 @@ function configureDynamicBus() {
           outputHintsWidget.value = buildOutputHints(node);
           const overwriteWidget = findOrCreateWidget(node, "_overwrite_mode");
           overwriteWidget.value = isOverwriteEnabled ? "1" : "0";
-          const busOutLinks = node.outputs?.[0]?.links;
-          if (busOutLinks?.length) {
+          const busOutLinks = GetOutputLinkIds(node, 0);
+          if (busOutLinks.length) {
             for (const linkId of busOutLinks) {
               const link = GetLink(node, linkId);
               if (link) {
@@ -1287,12 +1258,12 @@ function configureDynamicBus() {
       nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
         if (this.inputs) {
           if (String(type) === BUS_TYPE) {
-            if (this.inputs[0]?.link == null) {
+            if (!IsInputLinked(this, 0)) {
               return returnObj ? this.inputs[0] : 0;
             }
           } else {
             for (let i = 1; i < this.inputs.length; i++) {
-              if (this.inputs[i]?.link == null) {
+              if (!IsInputLinked(this, i)) {
                 return returnObj ? this.inputs[i] : i;
               }
             }
@@ -1302,10 +1273,10 @@ function configureDynamicBus() {
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (IsGraphLoading()) {
           return;
         }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
         const LG_INPUT2 = GetLgInput();
         const LG_OUTPUT2 = GetLgOutput();
@@ -1344,10 +1315,6 @@ function configureDynamicBus() {
           } catch {
           }
         }
-        if (!isConnected && index > 0) {
-          DeferMicrotask(() => synchronize(node));
-          return;
-        }
         DeferMicrotask(() => synchronize(node));
       };
       const prevConfigure = nodeType.prototype.configure;
@@ -1355,10 +1322,10 @@ function configureDynamicBus() {
         prevConfigure?.call(this, info);
         const node = this;
         for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
-          if (node.inputs[i]?.link != null) {
+          if (IsInputLinked(node, i)) {
             const link = GetInputLink(node, i);
-            if (!link || !GetNodeById(node, link.origin_id)) {
-              node.inputs[i].link = null;
+            if (isStaleInputLink(node, link)) {
+              ClearInputLink(node, i);
             }
           }
         }
@@ -1371,7 +1338,8 @@ function configureDynamicBus() {
               const hasOutputLink = (info.outputs?.[slotIdx]?.links?.length ?? 0) > 0;
               return hasType && !hasInputLink && !hasOutputLink;
             });
-            if (hasTypedUnconnectedSlots) {
+            const hasConnectedSlots = info.inputs?.slice(1).some((inp) => inp.link != null) || info.outputs?.slice(1).some((out) => (out.links?.length ?? 0) > 0);
+            if (hasTypedUnconnectedSlots && !hasConnectedSlots) {
               resetNodeToCleanState(node);
               synchronize(node);
             } else {
@@ -1381,13 +1349,10 @@ function configureDynamicBus() {
             log$2.error("error in configure", e);
           }
         });
-        setTimeout(() => {
-          try {
-            synchronize(this, info);
-            UpdateNodeSizeImmediate(this);
-          } catch {
-          }
-        }, 100);
+        AfterGraphLoaded(() => {
+          synchronize(this, info);
+          UpdateNodeSizeImmediate(this);
+        });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
@@ -1422,15 +1387,14 @@ function configureDynamicPassthrough() {
         }
         let lastConnectedInput = -1;
         for (let i = node.inputs.length - 1; i >= 0; i--) {
-          if (node.inputs[i]?.link != null) {
+          if (IsInputLinked(node, i)) {
             lastConnectedInput = i;
             break;
           }
         }
         let lastConnectedOutput = -1;
         for (let i = node.outputs.length - 1; i >= 0; i--) {
-          const links = node.outputs[i]?.links;
-          if (links && links.length > 0) {
+          if (IsOutputLinked(node, i)) {
             lastConnectedOutput = i;
             break;
           }
@@ -1461,7 +1425,7 @@ function configureDynamicPassthrough() {
       nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
         if (this.inputs) {
           for (let i = 0; i < this.inputs.length; i++) {
-            if (this.inputs[i]?.link == null) {
+            if (!IsInputLinked(this, i)) {
               return returnObj ? this.inputs[i] : i;
             }
           }
@@ -1470,15 +1434,15 @@ function configureDynamicPassthrough() {
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (IsGraphLoading()) {
           return;
         }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         const node = this;
         if (type === GetLgInput() && isConnected) {
           try {
             const g = GetGraph(node);
-            const linkId = link_info?.id ?? node.inputs?.[index]?.link;
+            const linkId = link_info?.id ?? GetInputLinkId(node, index);
             const linkObj = link_info ?? GetLink(node, linkId);
             const inferredType = GetLinkTypeFromEndpoints(node, linkObj);
             if (linkId != null && g?.links?.[linkId] && inferredType && inferredType !== ANY_TYPE) {
@@ -1513,14 +1477,14 @@ function configureDynamicPassthrough() {
             if (disconnectedIndex < 0 || disconnectedIndex >= node.inputs.length) {
               return;
             }
-            if (node.inputs[disconnectedIndex]?.link != null) {
+            if (IsInputLinked(node, disconnectedIndex) || IsOutputLinked(node, disconnectedIndex)) {
               normalizeIO(this);
               ApplyDynamicTypes(this);
               return;
             }
             let hasConnectionsAfter = false;
             for (let i = disconnectedIndex + 1; i < Math.max(node.inputs.length, node.outputs.length); i++) {
-              if (node.inputs?.[i]?.link != null || (node.outputs?.[i]?.links?.length ?? 0) > 0) {
+              if (IsInputLinked(node, i) || IsOutputLinked(node, i)) {
                 hasConnectionsAfter = true;
                 break;
               }
@@ -1555,15 +1519,12 @@ function configureDynamicPassthrough() {
             log$1.error("error in configure", e);
           }
         });
-        setTimeout(() => {
-          try {
-            this.__tojioo_dynamic_io_size_fixed = false;
-            normalizeIO(this);
-            ApplyDynamicTypes(this);
-            UpdateNodeSizeImmediate(this);
-          } catch {
-          }
-        }, 100);
+        AfterGraphLoaded(() => {
+          this.__tojioo_dynamic_io_size_fixed = false;
+          normalizeIO(this);
+          ApplyDynamicTypes(this);
+          UpdateNodeSizeImmediate(this);
+        });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
@@ -1592,16 +1553,13 @@ function configureDynamicPreview() {
       if (nodeData?.name !== "PT_DynamicPreview") {
         return;
       }
-      nodeType.prototype._currentImageIndex = 0;
-      nodeType.prototype._previewItems = [];
-      nodeType.prototype._totalImages = 0;
       function normalizeInputs(node) {
         if (!node.inputs) {
           node.inputs = [];
         }
         if (!node.__tojioo_dynamic_io_rebuilt) {
           node.__tojioo_dynamic_io_rebuilt = true;
-          const hasAnyLinks = node.inputs?.some((i) => i?.link != null);
+          const hasAnyLinks = node.inputs?.some((_, i) => IsInputLinked(node, i));
           if (!hasAnyLinks && typeof node.removeInput === "function") {
             while (node.inputs.length) {
               node.removeInput(node.inputs.length - 1);
@@ -1610,7 +1568,7 @@ function configureDynamicPreview() {
         }
         let lastConnectedIndex = -1;
         for (let i = node.inputs.length - 1; i >= 0; i--) {
-          if (node.inputs[i]?.link != null) {
+          if (IsInputLinked(node, i)) {
             lastConnectedIndex = i;
             break;
           }
@@ -1706,7 +1664,8 @@ function configureDynamicPreview() {
             serialize: false
           });
         }
-        new ResizeObserver(() => updateTabBarOverflow(node)).observe(tabBar);
+        node._previewResizeObserver = new ResizeObserver(() => updateTabBarOverflow(node));
+        node._previewResizeObserver.observe(tabBar);
       }
       function updateTabBarOverflow(node) {
         const tabBar = node._previewTabBar;
@@ -1832,34 +1791,25 @@ function configureDynamicPreview() {
         updatePreviewDisplay(node);
       }
       nodeType.prototype.selectImage = function(index) {
-        if (index < 0 || index >= this._totalImages) {
+        if (index < 0 || index >= (this._totalImages ?? 0)) {
           return;
         }
         this._currentImageIndex = index;
         updatePreviewDisplay(this);
       };
       nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
-        logger_internal.debug(`${_sourceNode.properties["Node name for S&R"]} called onConnectInput with type ${_type}`);
         return true;
       };
       const prevFindInputSlotByType = nodeType.prototype.findInputSlotByType;
       nodeType.prototype.findInputSlotByType = function(type, returnObj, preferFreeSlot, doNotUseOccupied) {
-        logger_internal.debug("findInputSlotByType called", type);
         if (this.inputs) {
           for (let i = 0; i < this.inputs.length; i++) {
-            if (this.inputs[i]?.link == null) {
+            if (!IsInputLinked(this, i)) {
               return returnObj ? this.inputs[i] : i;
             }
           }
         }
         return prevFindInputSlotByType?.call(this, type, returnObj, preferFreeSlot, doNotUseOccupied) ?? -1;
-      };
-      const prevOnDrawForeground = nodeType.prototype.onDrawForeground;
-      nodeType.prototype.onDrawForeground = function(ctx, canvas, canvasElement) {
-        prevOnDrawForeground?.call(this, ctx, canvas, canvasElement);
-        if (!ctx || IsNodes2Mode()) {
-          return;
-        }
       };
       const prevOnExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function(message) {
@@ -1877,9 +1827,10 @@ function configureDynamicPreview() {
             slotContent.set(slot, []);
           }
           const img = new Image();
-          img.src = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
+          const route = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
             imgInfo.subfolder || ""
           )}&type=${encodeURIComponent(imgInfo.type || "output")}`;
+          img.src = app?.api?.apiURL?.(route) ?? route;
           slotContent.get(slot).push({ type: "image", element: img });
         }
         for (const entry of textEntries) {
@@ -1900,10 +1851,10 @@ function configureDynamicPreview() {
       };
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (IsGraphLoading()) {
           return;
         }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (type !== GetLgInput()) {
           return;
         }
@@ -1913,7 +1864,7 @@ function configureDynamicPreview() {
             const link = link_info ?? GetInputLink(node, index);
             if (link) {
               const inferredType = GetLinkTypeFromEndpoints(node, link);
-              const linkId = link_info?.id ?? node.inputs?.[index]?.link;
+              const linkId = link_info?.id ?? GetInputLinkId(node, index);
               const linkObj = GetLink(node, linkId);
               if (linkObj && inferredType !== ANY_TYPE) {
                 linkObj.type = inferredType;
@@ -1936,16 +1887,16 @@ function configureDynamicPreview() {
           if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
             return;
           }
-          if (node.inputs[index]?.link != null) {
+          if (IsInputLinked(node, index)) {
             normalizeInputs(node);
             applyDynamicTypes(node);
             return;
           }
-          const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
+          const hasConnectionsAfter = node.inputs.some((_, i) => i > index && IsInputLinked(node, i));
           if (hasConnectionsAfter && typeof node.removeInput === "function") {
             node.removeInput(index);
           }
-          const hasAny = node.inputs?.some((inp) => inp?.link != null);
+          const hasAny = node.inputs?.some((_, i) => IsInputLinked(node, i));
           if (!hasAny) {
             resetPreviewState(node);
           }
@@ -1970,13 +1921,10 @@ function configureDynamicPreview() {
             this.__tojioo_skip_resize = false;
           }
         });
-        setTimeout(() => {
-          try {
-            normalizeInputs(this);
-            applyDynamicTypes(this);
-          } catch {
-          }
-        }, 100);
+        AfterGraphLoaded(() => {
+          normalizeInputs(this);
+          applyDynamicTypes(this);
+        });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
@@ -1988,6 +1936,9 @@ function configureDynamicPreview() {
           }
         }
         this.imgs = null;
+        this._currentImageIndex ??= 0;
+        this._previewItems ??= [];
+        this._totalImages ??= 0;
         createPreviewWidget(this);
         const pending = consumePendingConnection();
         const loading = IsGraphLoading();
@@ -2006,6 +1957,11 @@ function configureDynamicPreview() {
           connectPending(this, pending);
         });
       };
+      const prevOnRemoved = nodeType.prototype.onRemoved;
+      nodeType.prototype.onRemoved = function() {
+        prevOnRemoved?.apply(this, arguments);
+        this._previewResizeObserver?.disconnect();
+      };
     }
   };
 }
@@ -2013,23 +1969,34 @@ function isSwitch(nodeData) {
   const n = nodeData?.name ?? "";
   return n.startsWith("PT_Any") && n.endsWith("Switch") && !n.endsWith("BatchSwitch");
 }
+function isBatchSwitch(nodeData) {
+  const n = nodeData?.name ?? "";
+  return n.startsWith("PT_Any") && n.endsWith("BatchSwitch");
+}
 function configureSwitchNodes() {
+  return configureSwitchFamily("Tojioo.Passthrough.Dynamic.SwitchNodes", isSwitch);
+}
+function configureBatchSwitchNodes() {
+  return configureSwitchFamily("Tojioo.Passthrough.Dynamic.BatchSwitchNodes", isBatchSwitch);
+}
+function configureSwitchFamily(name, matches) {
   return {
-    name: "Tojioo.Passthrough.Dynamic.SwitchNodes",
+    name,
     beforeRegisterNodeDef: async (nodeType, nodeData, _app) => {
-      if (!isSwitch(nodeData)) {
+      if (!matches(nodeData)) {
         return;
       }
       const inputPrefix = DeriveDynamicPrefixFromNodeData(nodeData);
       if (!inputPrefix) {
         return;
       }
+      const declaredType = DeriveSwitchTypeFromNodeData(nodeData);
       const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
       nodeType.prototype.onConnectionsChange = function(type, index, isConnected, link_info, inputOrOutput) {
+        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (IsGraphLoading()) {
           return;
         }
-        prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
         if (!link_info || type !== GetLgInput()) {
           return;
         }
@@ -2038,32 +2005,32 @@ function configureSwitchNodes() {
           DeferMicrotask(() => {
             if (!node.inputs?.length || index < 0 || index >= node.inputs.length) {
               NormalizeInputs(node);
-              ApplySwitchDynamicTypes(node, inputPrefix);
+              ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
               return;
             }
-            if (node.inputs[index]?.link != null) {
+            if (IsInputLinked(node, index)) {
               NormalizeInputs(node);
-              ApplySwitchDynamicTypes(node, inputPrefix);
+              ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
               return;
             }
-            const hasConnectionsAfter = node.inputs.slice(index + 1).some((i) => i?.link != null);
+            const hasConnectionsAfter = node.inputs.some((_, i) => i > index && IsInputLinked(node, i));
             if (hasConnectionsAfter && typeof node.removeInput === "function") {
               node.removeInput(index);
             }
             NormalizeInputs(node);
-            ApplySwitchDynamicTypes(node, inputPrefix);
+            ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
           });
           return;
         }
         NormalizeInputs(node);
-        ApplySwitchDynamicTypes(node, inputPrefix);
+        ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
         const lastIndex = node.inputs.length - 1;
-        if (index === lastIndex && node.inputs[lastIndex]?.link != null && typeof node.addInput === "function") {
+        if (index === lastIndex && IsInputLinked(node, lastIndex) && typeof node.addInput === "function") {
           const resolvedType = ResolveInputType(node, lastIndex);
           const socketType = resolvedType !== ANY_TYPE ? resolvedType : node.inputs[0]?.type ?? ANY_TYPE;
           node.addInput(`${inputPrefix}_${node.inputs.length + 1}`, socketType);
           NormalizeInputs(node);
-          ApplySwitchDynamicTypes(node, inputPrefix);
+          ApplySwitchDynamicTypes(node, inputPrefix, declaredType);
         }
       };
       const prevConfigure = nodeType.prototype.configure;
@@ -2073,13 +2040,13 @@ function configureSwitchNodes() {
           return;
         }
         NormalizeInputs(this);
-        ApplySwitchDynamicTypes(this, inputPrefix);
+        ApplySwitchDynamicTypes(this, inputPrefix, declaredType);
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
         NormalizeInputs(this);
-        ApplySwitchDynamicTypes(this, inputPrefix);
+        ApplySwitchDynamicTypes(this, inputPrefix, declaredType);
       };
     }
   };
