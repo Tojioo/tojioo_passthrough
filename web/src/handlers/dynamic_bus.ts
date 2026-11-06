@@ -438,7 +438,8 @@ export function configureDynamicBus(): ComfyExtension
 						for (let slotIdx = 1; slotIdx < node.outputs.length; slotIdx++)
 						{
 							const serializedOut = serializedInfo.outputs[slotIdx];
-							if (serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
+							const hasOutputLinks = (node.outputs[slotIdx]?.links?.length ?? 0) > 0;
+							if (hasOutputLinks && serializedOut?.type && serializedOut.type !== ANY_TYPE && serializedOut.type !== -1)
 							{
 								if (node.outputs[slotIdx])
 								{
@@ -743,7 +744,11 @@ export function configureDynamicBus(): ComfyExtension
 							return hasType && !hasInputLink && !hasOutputLink;
 						});
 
-						if (hasTypedUnconnectedSlots)
+						const hasConnectedSlots = info.inputs?.slice(1).some((inp: any) => inp.link != null)
+							|| info.outputs?.slice(1).some((out: any) => (out.links?.length ?? 0) > 0);
+
+						// Needed: a reset removes every data slot, so it would cut live links.
+						if (hasTypedUnconnectedSlots && !hasConnectedSlots)
 						{
 							resetNodeToCleanState(node);
 							synchronize(node);
