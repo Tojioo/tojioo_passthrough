@@ -2,6 +2,7 @@
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import logger_internal, {loggerInstance} from '@/logger_internal';
+import {app} from 'scripts/app.js';
 
 type PreviewItem = | { type: "image"; element: HTMLImageElement } | { type: "text"; text: string };
 const defaultLabel = "input";
@@ -416,8 +417,10 @@ export function configureDynamicPreview(): ComfyExtension
 						slotContent.set(slot, []);
 					}
 					const img = new Image();
-					img.src = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
+					const route = `/view?filename=${encodeURIComponent(imgInfo.filename)}&subfolder=${encodeURIComponent(
 						imgInfo.subfolder || "")}&type=${encodeURIComponent(imgInfo.type || "output")}`;
+					// Because older frontends may not expose app.api, they keep the root-relative route.
+					img.src = (app as any)?.api?.apiURL?.(route) ?? route;
 					slotContent.get(slot)!.push({type: "image", element: img});
 				}
 

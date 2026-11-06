@@ -1,5 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {app} from 'scripts/app.js';
 import {configureDynamicPreview} from '../src/handlers';
 import {installTestGlobals} from './helpers/factories';
 import {makeHarness} from './helpers/handler_harness';
@@ -9,6 +10,7 @@ installTestGlobals();
 afterEach(() =>
 {
 	vi.restoreAllMocks();
+	delete app.api;
 });
 
 describe("dynamic preview compatibility", () =>
@@ -25,5 +27,15 @@ describe("dynamic preview compatibility", () =>
 
 		expect(accepted).toBe(true);
 		expect(debug).not.toHaveBeenCalled();
+	});
+
+	it("builds preview image URLs through the API base path", async () =>
+	{
+		const h = await makeHarness(configureDynamicPreview, {name: "PT_DynamicPreview"}, {in: 1, out: 0});
+		app.api = {apiURL: (route: string) => `/comfy/api${route}`};
+
+		h.nodeType.prototype.onExecuted.call(h.node, {preview_data: [{filename: "a b.png", subfolder: "", type: "temp", slot: 0}]});
+
+		expect(h.node._previewItems[0].element.src).toBe("/comfy/api/view?filename=a%20b.png&subfolder=&type=temp");
 	});
 });
