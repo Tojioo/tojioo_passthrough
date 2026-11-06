@@ -7,8 +7,9 @@ import {loggerInstance} from '@/logger_internal';
 // Scoped log
 const log = loggerInstance("DynamicBus");
 
-// Invariant: LiteGraph gives a subgraph's input node this fixed id, and getNodeById never returns it.
+// Invariant: LiteGraph gives a subgraph's input and output nodes these fixed ids, and getNodeById never returns them.
 const SUBGRAPH_INPUT_ID = -10;
+const SUBGRAPH_OUTPUT_ID = -20;
 
 export function configureDynamicBus(): ComfyExtension
 {
@@ -28,6 +29,21 @@ export function configureDynamicBus(): ComfyExtension
 					return true;
 				}
 				return Number(link.origin_id) !== SUBGRAPH_INPUT_ID && !GetNodeById(node, link.origin_id);
+			}
+
+			function isLiveOutputLink(node: any, linkId: number): boolean
+			{
+				const link = GetLink(node, linkId);
+				if (!link)
+				{
+					return false;
+				}
+				if (Number(link.target_id) === SUBGRAPH_OUTPUT_ID)
+				{
+					return true;
+				}
+				const targetNode = GetNodeById(node, link.target_id);
+				return targetNode?.inputs?.[link.target_slot]?.link === linkId;
 			}
 
 			function getUpstreamBusTypes(node: any): Record<number, string>
@@ -387,20 +403,7 @@ export function configureDynamicBus(): ComfyExtension
 						{
 							const hasInput = node.inputs[slotIdx]?.link != null;
 							const outputLinkIds = node.outputs[slotIdx]?.links ?? [];
-							const hasOutput = outputLinkIds.some((linkId: number) =>
-							{
-								const link = GetLink(node, linkId);
-								if (!link)
-								{
-									return false;
-								}
-								const targetNode = GetNodeById(node, link.target_id);
-								if (!targetNode)
-								{
-									return false;
-								}
-								return targetNode.inputs?.[link.target_slot]?.link === linkId;
-							});
+							const hasOutput = outputLinkIds.some((linkId: number) => isLiveOutputLink(node, linkId));
 
 							if (hasInput || hasOutput)
 							{
@@ -412,20 +415,7 @@ export function configureDynamicBus(): ComfyExtension
 							{
 								const laterInput = node.inputs[i]?.link != null;
 								const laterOutputIds = node.outputs[i]?.links ?? [];
-								const laterOutput = laterOutputIds.some((id: number) =>
-								{
-									const link = GetLink(node, id);
-									if (!link)
-									{
-										return false;
-									}
-									const target = GetNodeById(node, link.target_id);
-									if (!target)
-									{
-										return false;
-									}
-									return target.inputs?.[link.target_slot]?.link === id;
-								});
+								const laterOutput = laterOutputIds.some((id: number) => isLiveOutputLink(node, id));
 
 								if (laterInput || laterOutput)
 								{
