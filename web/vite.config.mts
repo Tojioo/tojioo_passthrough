@@ -39,8 +39,6 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			'@': resolvePath('src'),
-			'tojioo': resolvePath('src/config/tojioo.ts'),
-			'nodes': resolvePath('src/nodes'),
 		},
 	},
 	build: {

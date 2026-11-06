@@ -29,4 +29,20 @@ describe("repository tooling", () =>
 		expect(pkg.devDependencies["@vitest/coverage-v8"]).toBe(pkg.devDependencies.vitest);
 		expect(require('@vitest/coverage-v8/package.json').version).toBe(require('vitest/package.json').version);
 	});
+
+	it("every Vite alias and tsconfig path points to an existing file", () =>
+	{
+		const aliases = (viteConfig as any).resolve.alias as Record<string, string>;
+		const tsconfig = JSON.parse(readFileSync(resolve(webDir, 'tsconfig.json'), 'utf-8').replace(/^\uFEFF/, ''));
+		const tsTargets = Object.values(tsconfig.compilerOptions.paths as Record<string, string[]>).flat();
+
+		for (const target of Object.values(aliases))
+		{
+			expect(existsSync(target), target).toBe(true);
+		}
+		for (const target of tsTargets)
+		{
+			expect(existsSync(resolve(webDir, target.replace(/\/\*$/, ''))), target).toBe(true);
+		}
+	});
 });
