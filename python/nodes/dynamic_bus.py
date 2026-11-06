@@ -6,9 +6,6 @@ from ..config.categories import CATEGORIES
 
 any_type = AnyType("*")
 
-# Todo: Nothing. Wait for Comfy to fix their subgraphs I guess.
-bus_type = AnyType("BUS")
-
 
 class PT_DynamicBus(BaseNode):
 	NODE_NAME = "Dynamic Bus"
@@ -20,7 +17,6 @@ class PT_DynamicBus(BaseNode):
 	def INPUT_TYPES(cls):
 		return {
 			"required": {},
-			# Todo: "optional": FlexibleOptionalInputType(any_type, {"bus": (bus_type,)}),
 			# Invariant: _slot_types, _output_hints and _overwrite_mode come from hidden frontend widgets through these flexible optional inputs.
 			"optional": FlexibleOptionalInputType(any_type, {"bus": (any_type,)}),
 		}
@@ -31,7 +27,6 @@ class PT_DynamicBus(BaseNode):
 		return True
 
 
-	# RETURN_TYPES = (bus_type,) + tuple(any_type for _ in range(_MAX_SLOTS - 1))
 	RETURN_TYPES = tuple(any_type for _ in range(_MAX_SLOTS))
 	RETURN_NAMES = ("bus",) + tuple(f"output_{i}" for i in range(1, _MAX_SLOTS))
 	OUTPUT_IS_LIST = tuple(False for _ in range(_MAX_SLOTS))
