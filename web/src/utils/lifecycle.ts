@@ -1,7 +1,8 @@
 ﻿import {GetGraph, GetLinkTypeFromEndpoints, SetLinkType, ANY_TYPE} from '../utils';
 import {ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 
-let _graphLoading = false;
+let _graphLoadDepth = 0;
+let _afterLoadCallbacks: Array<() => void> = [];
 let _pendingCanvasUpdate: number | null = null;
 let _pendingSizeUpdates = new Map<any, boolean>();
 let _sizeUpdateTimer: number | null = null;
@@ -20,14 +21,18 @@ export function InstallGraphLoadingHook(app: any): void
 
 	const wrapped = async function(this: any, ...args: any[])
 	{
-		_graphLoading = true;
+		_graphLoadDepth++;
 		try
 		{
 			return await original.apply(this, args);
 		}
 		finally
 		{
-			_graphLoading = false;
+			_graphLoadDepth--;
+			if (_graphLoadDepth === 0)
+			{
+				runAfterLoadCallbacks();
+			}
 		}
 	};
 
@@ -37,7 +42,33 @@ export function InstallGraphLoadingHook(app: any): void
 
 export function IsGraphLoading(): boolean
 {
-	return _graphLoading;
+	return _graphLoadDepth > 0;
+}
+
+/** Runs fn once the graph load in progress has finished; does nothing when no load is running. */
+export function AfterGraphLoaded(fn: () => void): void
+{
+	// Assumption: outside a load (paste, subgraph conversion) links are wired synchronously, so the caller's microtask resync already sees them.
+	if (IsGraphLoading())
+	{
+		_afterLoadCallbacks.push(fn);
+	}
+}
+
+function runAfterLoadCallbacks(): void
+{
+	const callbacks = _afterLoadCallbacks;
+	_afterLoadCallbacks = [];
+	for (const fn of callbacks)
+	{
+		try
+		{
+			fn();
+		}
+		catch
+		{
+		}
+	}
 }
 
 export function DeferMicrotask(fn: () => void): void

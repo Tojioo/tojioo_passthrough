@@ -30,12 +30,12 @@ export function configureSwitchNodes(): ComfyExtension
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
+				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
+
 				if (IsGraphLoading())
 				{
 					return;
 				}
-
-				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
 				if (!link_info || type !== GetLgInput())
 				{

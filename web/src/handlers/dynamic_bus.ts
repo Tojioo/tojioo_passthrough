@@ -1,4 +1,4 @@
-﻿import {connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {AfterGraphLoaded, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetLgInput, GetLgOutput, GetLink, GetNodeById, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {getBusOverwriteMode} from '@/settings';
@@ -634,12 +634,12 @@ export function configureDynamicBus(): ComfyExtension
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this, type, index, isConnected, link_info, inputOrOutput)
 			{
+				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
+
 				if (IsGraphLoading())
 				{
 					return;
 				}
-
-				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
 				const node = this;
 				const LG_INPUT = GetLgInput();
@@ -764,17 +764,11 @@ export function configureDynamicBus(): ComfyExtension
 					}
 				});
 
-				setTimeout(() =>
+				AfterGraphLoaded(() =>
 				{
-					try
-					{
-						synchronize(this, info);
-						UpdateNodeSizeImmediate(this);
-					}
-					catch
-					{
-					}
-				}, 100);
+					synchronize(this, info);
+					UpdateNodeSizeImmediate(this);
+				});
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;

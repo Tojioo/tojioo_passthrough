@@ -1,4 +1,4 @@
-﻿import {ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {AfterGraphLoaded, ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetLinkTypeFromEndpoints, IsGraphLoading, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -113,12 +113,12 @@ export function configureDynamicPassthrough(): ComfyExtension
 			const prevOnConnectionsChange = nodeType.prototype.onConnectionsChange;
 			nodeType.prototype.onConnectionsChange = function(this: any, type: number, index: number, isConnected: boolean, link_info: any, inputOrOutput: any)
 			{
+				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
+
 				if (IsGraphLoading())
 				{
 					return;
 				}
-
-				prevOnConnectionsChange?.call(this, type, index, isConnected, link_info, inputOrOutput);
 
 				const node = this;
 
@@ -239,19 +239,13 @@ export function configureDynamicPassthrough(): ComfyExtension
 					}
 				});
 
-				setTimeout(() =>
+				AfterGraphLoaded(() =>
 				{
-					try
-					{
-						(this as any).__tojioo_dynamic_io_size_fixed = false;
-						normalizeIO(this);
-						ApplyDynamicTypes(this);
-						UpdateNodeSizeImmediate(this);
-					}
-					catch
-					{
-					}
-				}, 100);
+					(this as any).__tojioo_dynamic_io_size_fixed = false;
+					normalizeIO(this);
+					ApplyDynamicTypes(this);
+					UpdateNodeSizeImmediate(this);
+				});
 			};
 
 			const prevOnAdded = nodeType.prototype.onAdded;
