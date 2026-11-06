@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 
-# Add the python directory to path so tojioo_passthrough is importable
+# Needed so tests can import the pack's `python` package from the repository root.
 python_dir = Path(__file__).parent.parent
 if str(python_dir) not in sys.path:
 	sys.path.insert(0, str(python_dir))

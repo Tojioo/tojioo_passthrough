@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {connectInput, installTestGlobals, makeGraph, makeNode} from './helpers/factories';
+import {installFrameQueue} from './helpers/animation_frames';
 
 installTestGlobals();
 
@@ -120,8 +121,19 @@ describe("lifecycle utilities", () =>
 	{
 		const graph = makeGraph({}, {});
 		const node = makeNode({in: 0, out: 0}, graph);
+		const frames = installFrameQueue();
+
 		lifecycle.ScheduleCanvasUpdate(node);
+		lifecycle.ScheduleCanvasUpdate(node);
+		expect(graph.setDirtyCanvas).not.toHaveBeenCalled();
+
+		frames.flush();
+		expect(graph.setDirtyCanvas).toHaveBeenCalledTimes(1);
 		expect(graph.setDirtyCanvas).toHaveBeenCalledWith(true, true);
+
+		lifecycle.ScheduleCanvasUpdate(node);
+		frames.flush();
+		expect(graph.setDirtyCanvas).toHaveBeenCalledTimes(2);
 	});
 
 	it("ScheduleSizeUpdate applies UpdateNodeSizeImmediate", () =>
@@ -132,9 +144,9 @@ describe("lifecycle utilities", () =>
 		expect(node.setSize).toHaveBeenCalled();
 	});
 
-	// Prone to be flaky
 	it("ApplySwitchDynamicTypes sets input/output names and updates link types", () =>
 	{
+		const frames = installFrameQueue();
 		const nodes: Record<number, any> = {};
 		const graph = makeGraph({}, nodes);
 		const node = makeNode({in: 2, out: 1}, graph, {id: 2});
@@ -149,7 +161,10 @@ describe("lifecycle utilities", () =>
 		expect(node.inputs[0].label).toBe("text");
 		expect(node.outputs[0].type).toBe("TEXT");
 		expect(graph.links[10].type).toBe("TEXT");
+
+		frames.flush();
 		expect(node.setSize).toHaveBeenCalled();
+		expect(graph.setDirtyCanvas).toHaveBeenCalledTimes(1);
 		expect(graph.setDirtyCanvas).toHaveBeenCalledWith(true, true);
 	});
 
