@@ -1,4 +1,6 @@
-﻿from .base import BaseNode, AnyType, FlexibleOptionalInputType
+﻿import re
+
+from .base import BaseNode, AnyType, FlexibleOptionalInputType
 from ..config.categories import CATEGORIES
 
 
@@ -19,12 +21,8 @@ class PT_DynamicBus(BaseNode):
 		return {
 			"required": {},
 			# Todo: "optional": FlexibleOptionalInputType(any_type, {"bus": (bus_type,)}),
+			# Invariant: _slot_types, _output_hints and _overwrite_mode come from hidden frontend widgets through these flexible optional inputs.
 			"optional": FlexibleOptionalInputType(any_type, {"bus": (any_type,)}),
-			"hidden": {
-				"_slot_types": ("STRING", {"default": ""}),
-				"_output_hints": ("STRING", {"default": ""}),
-				"_overwrite_mode": ("STRING", {"default": "0"}),
-			}
 		}
 
 
@@ -46,7 +44,7 @@ class PT_DynamicBus(BaseNode):
 
 		slot_type_map = {}
 		if _slot_types:
-			for part in _slot_types.split(","):
+			for part in self._split_entries(_slot_types):
 				if ":" in part:
 					slot_str, type_str = part.split(":", 1)
 					try:
@@ -79,17 +77,17 @@ class PT_DynamicBus(BaseNode):
 
 		hints = {}
 		if _output_hints:
-			for part in _output_hints.split(","):
-				parts = part.split(":")
-				if len(parts) >= 2:
-					try:
-						slot_idx = int(parts[0])
-						hints[slot_idx] = {
-							"type": parts[1] if len(parts) > 1 else "*",
-							"has_input": parts[2] == "1" if len(parts) > 2 else False
-						}
-					except ValueError:
-						pass
+			for part in self._split_entries(_output_hints):
+				slot_str, sep, rest = part.partition(":")
+				if not sep:
+					continue
+				type_str, flag_sep, flag = rest.rpartition(":")
+				if not flag_sep or flag not in ("0", "1"):
+					type_str, flag = rest, ""
+				try:
+					hints[int(slot_str)] = {"type": type_str, "has_input": flag == "1"}
+				except ValueError:
+					pass
 
 		used_indices = set()
 		outputs = [bus_dict]
@@ -154,6 +152,12 @@ class PT_DynamicBus(BaseNode):
 			if expected_type == "*" or entry_type == "*" or entry_type == expected_type:
 				return idx, entry_data
 		return None
+
+
+	@staticmethod
+	def _split_entries(text: str) -> list[str]:
+		# Because a type can be a comma union such as "IMAGE,MASK", only a comma before "<slot>:" starts a new entry.
+		return re.split(r",(?=\d+:)", text)
 
 
 	@staticmethod
