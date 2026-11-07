@@ -751,7 +751,7 @@ export function configureDynamicBus(): ComfyExtension
 				AfterGraphLoaded(() =>
 				{
 					synchronize(this, info);
-					UpdateNodeSizeImmediate(this);
+					UpdateNodeSizeImmediate(this, true);
 				});
 			};
 

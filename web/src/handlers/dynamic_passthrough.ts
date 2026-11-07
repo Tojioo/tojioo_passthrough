@@ -240,10 +240,9 @@ export function configureDynamicPassthrough(): ComfyExtension
 
 				AfterGraphLoaded(() =>
 				{
-					(this as any).__tojioo_dynamic_io_size_fixed = false;
 					normalizeIO(this);
 					ApplyDynamicTypes(this);
-					UpdateNodeSizeImmediate(this);
+					UpdateNodeSizeImmediate(this, true);
 				});
 			};
 
