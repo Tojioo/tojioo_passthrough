@@ -35,6 +35,7 @@ All notable changes are listed here.
 	- Fixed inputs from a subgraph's input node being cut and outputs to its output node being removed.
 	- Fixed loading a node with a stale typed slot cutting its links.
 	- Changing the overwrite setting now re-syncs every bus node, including those inside subgraphs.
+	- Keeps manual resizes when connections change, and its saved size when a workflow loads.
 	- Removed debug logging.
 - **Dynamic Nodes**:
 	- Fixed new, pasted or loaded dynamic nodes auto-connecting to the last dragged wire's source (#3).
@@ -45,7 +46,7 @@ All notable changes are listed here.
 	- Fixed returning None once connected to a typed source.
 - **Dynamic Passthrough**:
 	- Fixed removing a slot that still has output links.
-	- Keeps manual resizes when connections change.
+	- Keeps manual resizes when connections change, and its saved size when a workflow loads.
 - **Dynamic Preview**:
 	- Tab button clicks no longer trigger node selection.
 	- Fixed a crash on 1-channel images.
