@@ -1435,7 +1435,11 @@ function configureDynamicPassthrough() {
           node.addOutput("output", ANY_TYPE);
           node.outputs[node.outputs.length - 1].label = "output";
         }
-        UpdateNodeSize(node, node.__tojioo_dynamic_io_size_fixed || false);
+        if (node.__tojioo_dynamic_io_size_fixed) {
+          UpdateNodeSize(node, true);
+        } else if (!IsGraphLoading()) {
+          UpdateNodeSizeImmediate(node, false);
+        }
         node.__tojioo_dynamic_io_size_fixed = true;
       }
       nodeType.prototype.onConnectInput = function(_targetSlot, _type, _output, _sourceNode, _sourceSlot) {
