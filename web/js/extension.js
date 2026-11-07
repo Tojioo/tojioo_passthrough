@@ -1243,7 +1243,7 @@ function configureDynamicBus() {
             }
           }
           GetGraph(node)?.setDirtyCanvas?.(true, true);
-          UpdateNodeSize(node);
+          UpdateNodeSize(node, true);
         } finally {
           node._syncing = false;
         }
@@ -1351,7 +1351,7 @@ function configureDynamicBus() {
         });
         AfterGraphLoaded(() => {
           synchronize(this, info);
-          UpdateNodeSizeImmediate(this);
+          UpdateNodeSizeImmediate(this, true);
         });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
@@ -1520,10 +1520,9 @@ function configureDynamicPassthrough() {
           }
         });
         AfterGraphLoaded(() => {
-          this.__tojioo_dynamic_io_size_fixed = false;
           normalizeIO(this);
           ApplyDynamicTypes(this);
-          UpdateNodeSizeImmediate(this);
+          UpdateNodeSizeImmediate(this, true);
         });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
