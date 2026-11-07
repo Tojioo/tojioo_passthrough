@@ -199,6 +199,22 @@ export function UpdateNodeSizeImmediate(node: any, expandOnly?: boolean): void
 	}
 }
 
+export function RestoreSavedNodeSize(node: any, savedSize: number[] | null): void
+{
+	if (typeof node.computeSize !== "function" || typeof node.setSize !== "function")
+	{
+		return;
+	}
+
+	const size = node.computeSize();
+	if (savedSize)
+	{
+		size[0] = Math.max(size[0], savedSize[0]);
+		size[1] = Math.max(size[1], savedSize[1]);
+	}
+	node.setSize(size);
+}
+
 export function ApplySwitchDynamicTypes(node: any, inputPrefix: string | null, declaredType: string = ANY_TYPE): void
 {
 	if (!node.inputs || node.inputs.length === 0)

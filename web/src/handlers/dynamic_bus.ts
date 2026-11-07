@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, ClearInputLink, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetInputLinkId, GetLgInput, GetLgOutput, GetLink, GetNodeById, GetOutputLinkIds, IsGraphLoading, IsInputLinked, IsOutputLinked, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
+﻿import {AfterGraphLoaded, ClearInputLink, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetInputLink, GetInputLinkId, GetLgInput, GetLgOutput, GetLink, GetNodeById, GetOutputLinkIds, IsGraphLoading, IsInputLinked, IsOutputLinked, RestoreSavedNodeSize, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyApp, ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, BUS_TYPE} from '@/types/tojioo';
 import {getBusOverwriteMode} from '@/settings';
@@ -710,6 +710,8 @@ export function configureDynamicBus(): ComfyExtension
 			const prevConfigure = nodeType.prototype.configure;
 			nodeType.prototype.configure = function(this, info)
 			{
+				// Needed: ComfyUI grows every loaded node to fit its 32 constructor outputs before this node trims them.
+				const savedSize = info?.size ? [info.size[0], info.size[1]] : null;
 				prevConfigure?.call(this, info);
 
 				const node = this;
@@ -763,7 +765,7 @@ export function configureDynamicBus(): ComfyExtension
 				AfterGraphLoaded(() =>
 				{
 					synchronize(this, info);
-					UpdateNodeSizeImmediate(this, true);
+					RestoreSavedNodeSize(this, savedSize);
 				});
 			};
 
