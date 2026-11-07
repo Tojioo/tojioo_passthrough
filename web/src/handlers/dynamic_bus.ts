@@ -569,7 +569,19 @@ export function configureDynamicBus(): ComfyExtension
 					}
 
 					GetGraph(node)?.setDirtyCanvas?.(true, true);
-					UpdateNodeSize(node, true);
+					if (node.__tojioo_bus_needs_fit)
+					{
+						node.__tojioo_bus_needs_fit = false;
+						// Because a later grow-only request in the same frame would win over a scheduled fit, the first fit runs at once.
+						if (!IsGraphLoading())
+						{
+							UpdateNodeSizeImmediate(node, false);
+						}
+					}
+					else
+					{
+						UpdateNodeSize(node, true);
+					}
 				}
 				finally
 				{
@@ -762,6 +774,8 @@ export function configureDynamicBus(): ComfyExtension
 
 				const pending = consumePendingConnection();
 
+				// Needed: ComfyUI sizes a new node for all 32 declared outputs, so the first sync must shrink it.
+				(this as any).__tojioo_bus_needs_fit = true;
 				DeferMicrotask(() =>
 				{
 					try
