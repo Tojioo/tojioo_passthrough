@@ -569,7 +569,7 @@ export function configureDynamicBus(): ComfyExtension
 					}
 
 					GetGraph(node)?.setDirtyCanvas?.(true, true);
-					UpdateNodeSize(node);
+					UpdateNodeSize(node, true);
 				}
 				finally
 				{

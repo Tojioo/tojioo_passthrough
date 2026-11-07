@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it} from 'vitest';
 
-import {configureDynamicPassthrough, configureSwitchNodes} from '../src/handlers';
+import {configureDynamicBus, configureDynamicPassthrough, configureSwitchNodes} from '../src/handlers';
 import {UpdateNodeSize} from '../src/utils';
 import {connectInput, flushMicrotasks, installTestGlobals, makeGraph, makeNode} from './helpers/factories';
 import {makeHarness, notifyConnectionChange} from './helpers/handler_harness';
@@ -71,6 +71,19 @@ describe("node size updates", () =>
 		h.nodes[origin.id] = origin;
 		const link = connectInput({node: h.node, graph: h.graph, index: 0, linkId: 1, origin});
 		await notifyConnectionChange(h, LG_INPUT, 0, true, link);
+		runFrames();
+
+		expect(lastSize(h.node)).toEqual([300, 200]);
+	});
+
+	it("keeps a manually resized Dynamic Bus when a wire is connected", async () =>
+	{
+		const h = await makeHarness(configureDynamicBus, {name: "PT_DynamicBus"}, {in: 2, out: 2}, {type: "PT_DynamicBus", size: [300, 200]});
+
+		const origin = {id: 10, outputs: [{type: "IMAGE"}]};
+		h.nodes[origin.id] = origin;
+		const link = connectInput({node: h.node, graph: h.graph, index: 1, linkId: 1, origin});
+		await notifyConnectionChange(h, LG_INPUT, 1, true, link);
 		runFrames();
 
 		expect(lastSize(h.node)).toEqual([300, 200]);
