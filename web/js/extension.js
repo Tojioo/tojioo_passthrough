@@ -262,6 +262,17 @@ function UpdateNodeSizeImmediate(node, expandOnly) {
   } catch {
   }
 }
+function RestoreSavedNodeSize(node, savedSize) {
+  if (typeof node.computeSize !== "function" || typeof node.setSize !== "function") {
+    return;
+  }
+  const size = node.computeSize();
+  if (savedSize) {
+    size[0] = Math.max(size[0], savedSize[0]);
+    size[1] = Math.max(size[1], savedSize[1]);
+  }
+  node.setSize(size);
+}
 function ApplySwitchDynamicTypes(node, inputPrefix, declaredType = ANY_TYPE) {
   if (!node.inputs || node.inputs.length === 0) {
     return;
@@ -1243,7 +1254,14 @@ function configureDynamicBus() {
             }
           }
           GetGraph(node)?.setDirtyCanvas?.(true, true);
-          UpdateNodeSize(node, true);
+          if (node.__tojioo_bus_needs_fit) {
+            node.__tojioo_bus_needs_fit = false;
+            if (!IsGraphLoading()) {
+              UpdateNodeSizeImmediate(node, false);
+            }
+          } else {
+            UpdateNodeSize(node, true);
+          }
         } finally {
           node._syncing = false;
         }
@@ -1319,6 +1337,7 @@ function configureDynamicBus() {
       };
       const prevConfigure = nodeType.prototype.configure;
       nodeType.prototype.configure = function(info) {
+        const savedSize = info?.size ? [info.size[0], info.size[1]] : null;
         prevConfigure?.call(this, info);
         const node = this;
         for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
@@ -1351,13 +1370,14 @@ function configureDynamicBus() {
         });
         AfterGraphLoaded(() => {
           synchronize(this, info);
-          UpdateNodeSizeImmediate(this, true);
+          RestoreSavedNodeSize(this, savedSize);
         });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
       nodeType.prototype.onAdded = function() {
         prevOnAdded?.apply(this, arguments);
         const pending = consumePendingConnection();
+        this.__tojioo_bus_needs_fit = true;
         DeferMicrotask(() => {
           try {
             synchronize(this);
@@ -1509,6 +1529,7 @@ function configureDynamicPassthrough() {
       };
       const prevConfigure = nodeType.prototype.configure;
       nodeType.prototype.configure = function(info) {
+        const savedSize = info?.size ? [info.size[0], info.size[1]] : null;
         prevConfigure?.call(this, info);
         this.__tojioo_dynamic_io_size_fixed = false;
         DeferMicrotask(() => {
@@ -1522,7 +1543,7 @@ function configureDynamicPassthrough() {
         AfterGraphLoaded(() => {
           normalizeIO(this);
           ApplyDynamicTypes(this);
-          UpdateNodeSizeImmediate(this, true);
+          RestoreSavedNodeSize(this, savedSize);
         });
       };
       const prevOnAdded = nodeType.prototype.onAdded;
