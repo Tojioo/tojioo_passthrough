@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 
 import {configureDynamicBus, configureDynamicPassthrough} from '../src/handlers';
+import {GetLgInput} from '../src/utils';
 import {installTestGlobals} from './helpers/factories';
 import {addFreshNode, DYNAMIC_BUS, DYNAMIC_PASSTHROUGH, loadSavedNode, makeSizedHarness, settle, slotHeight} from './helpers/comfy_node_size';
 
@@ -31,6 +32,19 @@ describe("size of a newly added node", () =>
 		h.flushFrames();
 
 		expect(h.node.size).toEqual([DYNAMIC_BUS.width, slotHeight(2)]);
+	});
+
+	it("shrinks a new Dynamic Passthrough that gets connected in the same frame", async () =>
+	{
+		const h = await makeSizedHarness(configureDynamicPassthrough, DYNAMIC_PASSTHROUGH);
+
+		h.node.onAdded();
+		await settle();
+		h.node.onConnectionsChange(GetLgInput(), 0, true, null, null);
+		await settle();
+		h.flushFrames();
+
+		expect(h.node.size).toEqual([DYNAMIC_PASSTHROUGH.width, slotHeight(1)]);
 	});
 });
 

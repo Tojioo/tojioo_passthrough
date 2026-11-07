@@ -1,4 +1,4 @@
-﻿import {AfterGraphLoaded, ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetInputLinkId, GetLinkTypeFromEndpoints, IsGraphLoading, IsInputLinked, IsOutputLinked, RestoreSavedNodeSize, UpdateNodeSize} from '@/utils';
+﻿import {AfterGraphLoaded, ApplyDynamicTypes, connectPending, consumePendingConnection, DeferMicrotask, GetGraph, GetLgInput, GetLink, GetInputLinkId, GetLinkTypeFromEndpoints, IsGraphLoading, IsInputLinked, IsOutputLinked, RestoreSavedNodeSize, UpdateNodeSize, UpdateNodeSizeImmediate} from '@/utils';
 import {ComfyExtension, ComfyNodeDef} from '@comfyorg/comfyui-frontend-types';
 import {ANY_TYPE, MAX_SOCKETS} from '@/types/tojioo';
 import {loggerInstance} from '@/logger_internal';
@@ -71,7 +71,15 @@ export function configureDynamicPassthrough(): ComfyExtension
 					node.outputs[node.outputs.length - 1].label = "output";
 				}
 
-				UpdateNodeSize(node, (node as any).__tojioo_dynamic_io_size_fixed || false);
+				if ((node as any).__tojioo_dynamic_io_size_fixed)
+				{
+					UpdateNodeSize(node, true);
+				}
+				else if (!IsGraphLoading())
+				{
+					// Because a later grow-only request in the same frame would win over a scheduled fit, the first fit runs at once.
+					UpdateNodeSizeImmediate(node, false);
+				}
 				(node as any).__tojioo_dynamic_io_size_fixed = true;
 			}
 
