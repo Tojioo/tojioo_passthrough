@@ -34,7 +34,7 @@ class BatchHandler:
 		return handlers.get(type_name)
 
 
-	# Invariant: these merges match ComfyUI's Batch Images/Masks/Latents nodes (comfy_extras/nodes_post_processing.py), resizing to the first input.
+	# Invariant: images and masks merge like ComfyUI's Batch Images/Masks nodes (comfy_extras/nodes_post_processing.py), resizing to the first input; latents resize the same way but drop noise_mask and batch_index.
 	@staticmethod
 	def _merge_images(vals, prepped):
 		max_channels = max(t.shape[-1] for t in prepped)

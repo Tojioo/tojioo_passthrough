@@ -279,7 +279,7 @@ export function configureDynamicBus(): ComfyExtension
 						node.inputs[0].type = BUS_TYPE as ISlotType;
 					}
 
-					// Stale link references can survive workflow serialization
+					// Workaround: stale link references can survive workflow serialization, so they are cleared first.
 					if (IsInputLinked(node, 0))
 					{
 						const busLink = GetInputLink(node, 0);
@@ -715,7 +715,7 @@ export function configureDynamicBus(): ComfyExtension
 
 				const node = this;
 
-				// Stale link references can survive workflow serialization
+				// Workaround: stale link references can survive workflow serialization, so they are cleared first.
 				for (let i = 0; i < (node.inputs?.length ?? 0); i++)
 				{
 					if (IsInputLinked(node, i))

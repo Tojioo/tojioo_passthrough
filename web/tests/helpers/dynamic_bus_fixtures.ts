@@ -1,6 +1,5 @@
 import {readFileSync} from 'fs';
 import {resolve} from 'path';
-import {vi} from 'vitest';
 
 import {configureDynamicBus} from '../../src/handlers';
 import {Graph, HandlerContext, Link, makeGraph, makeNode} from './factories';
@@ -92,20 +91,10 @@ export function loadExampleSubgraph(name: string): LoadedSubgraph
 	return {graph, nodes, busInfos};
 }
 
-/** Runs configure plus its deferred microtask and the 100 ms resync. */
 export async function configureAndSettle(node: any, info: any): Promise<void>
 {
-	vi.useFakeTimers({toFake: ["setTimeout"]});
-	try
-	{
-		node.configure(info);
-		await Promise.resolve();
-		await Promise.resolve();
-		vi.advanceTimersByTime(150);
-		await Promise.resolve();
-	}
-	finally
-	{
-		vi.useRealTimers();
-	}
+	node.configure(info);
+	await Promise.resolve();
+	await Promise.resolve();
+	await Promise.resolve();
 }
