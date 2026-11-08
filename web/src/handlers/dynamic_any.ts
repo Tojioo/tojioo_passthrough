@@ -27,7 +27,8 @@ export function configureDynamicAny(): ComfyExtension
 				if (node.inputs?.[0])
 				{
 					node.inputs[0].type = slotType;
-					node.inputs[0].name = slotName;
+					// Because ComfyUI keys the prompt by slot name, keeping the declared name lets it validate upstream nodes.
+					node.inputs[0].name = "input";
 					node.inputs[0].label = slotName;
 				}
 

@@ -64,7 +64,7 @@ function makeDynamicAnyCases(): Array<{ name: string; steps: (ctx: HandlerContex
 						act: () => applyInputChange(ctx, 0, true, link),
 						assert: () =>
 						{
-							expect(ctx.node.inputs[0]).toMatchObject({type: "STRING", name: "string", label: "string"});
+							expect(ctx.node.inputs[0]).toMatchObject({type: "STRING", name: "input", label: "string"});
 							expect(ctx.node.outputs[0]).toMatchObject({type: "STRING", name: "string", label: "string"});
 							expect(ctx.graph.links[1].type).toBe("STRING");
 						},
