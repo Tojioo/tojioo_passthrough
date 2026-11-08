@@ -33,25 +33,6 @@ export function GetLgSlotHeight(): number
 	return lg?.NODE_SLOT_HEIGHT ?? LG_NODE_SLOT_HEIGHT;
 }
 
-export function IsNodes2Mode(): boolean
-{
-	try
-	{
-		const app = (window as any).app;
-		if (app?.extensionManager?.setting?.get)
-		{
-			const nodes2 = app.extensionManager.setting.get("Comfy.VueNodes.Enabled");
-			if (nodes2 === true)
-			{
-				return true;
-			}
-		}
-	}
-	catch
-	{
-	}
-	return false;
-}
 
 // Because frontend 1.58.5 turns slot.link and slot.links into deprecated getters, an own data property marks a frontend that still stores them.
 function storesLinksOnSlot(slot: any, key: "link" | "links"): boolean

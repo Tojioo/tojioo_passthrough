@@ -4,6 +4,7 @@ import {resolve} from 'path';
 
 import {configureDynamicPreview} from '../src/handlers';
 import {loggerInstance} from '../src/logger_internal';
+import * as utils from '../src/utils';
 import {AssignTypeAndName} from '../src/utils';
 import {installTestGlobals} from './helpers/factories';
 import {makeHarness} from './helpers/handler_harness';
@@ -18,6 +19,11 @@ describe("dead and duplicated code", () =>
 	{
 		globalThis.ResizeObserver = originalObserver;
 		vi.restoreAllMocks();
+	});
+
+	it("has no unused Nodes 2.0 detection helper", () =>
+	{
+		expect("IsNodes2Mode" in utils).toBe(false);
 	});
 
 	it("switch and batch switch share one handler module", () =>
