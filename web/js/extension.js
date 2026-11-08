@@ -783,7 +783,7 @@ function configureDynamicAny() {
         const slotName = isTyped ? t.toLowerCase() : "input";
         if (node.inputs?.[0]) {
           node.inputs[0].type = slotType;
-          node.inputs[0].name = slotName;
+          node.inputs[0].name = "input";
           node.inputs[0].label = slotName;
         }
         if (node.outputs?.[0]) {
@@ -861,7 +861,7 @@ const dynamicBusOverwrite = {
   tooltip: "When enabled, a local input whose type already exists on the upstream bus will replace the first matching entry instead of appending.",
   category: ["Tojioo Passthrough", "Dynamic Bus", "Overwrite matching types"],
   onChange: (newVal) => {
-    const graph = app.rootGraph;
+    const graph = "rootGraphOrUndefined" in app ? app.rootGraphOrUndefined : app.rootGraph;
     if (!graph) {
       return;
     }
@@ -1211,7 +1211,6 @@ function configureDynamicBus() {
             node.properties = {};
           }
           const isOverwriteEnabled = getBusOverwriteMode();
-          log$2.debug("Overwrite is set to: ", isOverwriteEnabled);
           const combinedTypes = { ...upstreamTypes };
           let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;
           const usedUpstreamIndices = /* @__PURE__ */ new Set();
