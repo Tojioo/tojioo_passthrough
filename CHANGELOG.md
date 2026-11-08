@@ -37,6 +37,7 @@ All notable changes are listed here.
 	- Changing the overwrite setting now re-syncs every bus node, including those inside subgraphs.
 	- Keeps manual resizes when connections change, and its saved size when a workflow loads.
 	- Removed debug logging.
+	- Fixed a console error on page load caused by the overwrite setting.
 - **Dynamic Nodes**:
 	- Fixed new, pasted or loaded dynamic nodes auto-connecting to the last dragged wire's source (#3).
 	- Load-time sync now runs when the workflow has finished loading instead of after a fixed 100 ms delay.
@@ -44,6 +45,7 @@ All notable changes are listed here.
 	- Slot menu entries no longer disappear when ComfyUI rebuilds its slot defaults.
 - **Dynamic Any**:
 	- Fixed returning None once connected to a typed source.
+	- ComfyUI validates the nodes feeding it again, so a broken input is reported before the run starts.
 - **Dynamic Passthrough**:
 	- Fixed removing a slot that still has output links.
 	- Keeps manual resizes when connections change, and its saved size when a workflow loads.
