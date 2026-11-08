@@ -1,4 +1,4 @@
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {app} from 'scripts/app.js';
 import {BUS_TYPE} from '../src/types/tojioo';
@@ -31,6 +31,8 @@ describe("dynamic_bus overwrite setting", () =>
 	afterEach(() =>
 	{
 		delete app.rootGraph;
+		delete app.rootGraphOrUndefined;
+		vi.restoreAllMocks();
 		delete app.extensionManager;
 		overwrite = false;
 	});
@@ -51,5 +53,26 @@ describe("dynamic_bus overwrite setting", () =>
 			expect(node.widgets.find((w: any) => w.name === "_overwrite_mode")?.value).toBe("1");
 			expect(node.properties._busTypes).toEqual({0: "IMAGE"});
 		}
+	});
+
+	it("does not log an error when the setting loads before the graph exists", async () =>
+	{
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		Object.defineProperty(app, "rootGraph", {configurable: true, get: () => console.error("ComfyApp graph accessed before initialization")});
+		app.rootGraphOrUndefined = undefined;
+
+		await dynamicBusOverwrite.onChange(false);
+
+		expect(errorSpy).not.toHaveBeenCalled();
+	});
+
+	it("does not log the overwrite mode on every sync", async () =>
+	{
+		const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+
+		await makeBusWithDuplicateType();
+
+		const messages = debugSpy.mock.calls.flat().filter((arg) => typeof arg === "string");
+		expect(messages.some((m) => m.includes("Overwrite is set to"))).toBe(false);
 	});
 });

@@ -502,7 +502,6 @@ export function configureDynamicBus(): ComfyExtension
 					}
 
 					const isOverwriteEnabled = getBusOverwriteMode();
-					log.debug('Overwrite is set to: ', isOverwriteEnabled);
 
 					const combinedTypes: Record<number, string> = {...upstreamTypes};
 					let nextIdx = Math.max(-1, ...Object.keys(upstreamTypes).map(Number)) + 1;

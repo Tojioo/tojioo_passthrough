@@ -13,7 +13,8 @@ export const dynamicBusOverwrite: any = {
 	category: ["Tojioo Passthrough", "Dynamic Bus", "Overwrite matching types"],
 	onChange: (newVal: boolean) =>
 	{
-		const graph = app.rootGraph;
+		// Because the rootGraph getter of frontend 1.58+ logs an error while no graph exists yet, the non-logging variant is preferred.
+		const graph: any = "rootGraphOrUndefined" in app ? app.rootGraphOrUndefined : app.rootGraph;
 		if (!graph)
 		{
 			return;
