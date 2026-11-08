@@ -41,7 +41,6 @@ omit = ["tests/*", ".venv/*"]
 requires = ["setuptools>=70", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["python", "python.*"]
-exclude = ["tests*", "web*", "example_workflows*"]
+# Because ComfyUI loads the pack from its folder, installing it only adds the test dependencies; a top-level "python" package could clash with other packs.
+[tool.setuptools]
+packages = []

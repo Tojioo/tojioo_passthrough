@@ -143,3 +143,10 @@ def test_readme_has_development_section():
 	assert heading
 	for command in ("npm run build", "npm run typecheck", "npx vitest run", "pytest"):
 		assert command in section.split("\n### ")[0]
+
+
+def test_pip_install_does_not_add_a_top_level_python_package():
+	tomllib = pytest.importorskip("tomllib")
+	config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding = "utf-8-sig"))
+
+	assert config["tool"]["setuptools"].get("packages") == []
