@@ -77,7 +77,7 @@ All notable changes are listed here.
 - Added the missing Vitest coverage provider and a `.comfyignore` for the registry package.
 - Removed import cycles, dead code and the duplicated batch switch handler in the frontend.
 
-## [1.7.1] - 2026-02-23
+## [1.7.1] - 2026-02-26
 ### Improved
 - **Dynamic Preview**:
 	- Removed "Beta" label.
